@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <array>
+#include <map>
 namespace rinswf {
 namespace {
 RenderResult fail(Error error,const char* message) {return {error,message};}
@@ -109,14 +111,25 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
     return stops.back().color;
 }
 struct CoverageMask {
+    static constexpr std::uint32_t tile_size=64;
     std::uint32_t width=0,height=0;
     std::int64_t origin_x=0,origin_y=0;
-    std::vector<std::uint8_t> coverage;
+    using Tile=std::array<std::uint8_t,tile_size*tile_size>;
+    std::map<std::pair<std::uint32_t,std::uint32_t>,Tile> tiles;
+    std::size_t max_tiles=16384;
+    bool exceeded=false;
 };
 void mask_pixel(CoverageMask& s,std::int64_t x,std::int64_t y,ShapeColor c) {
-    if(x<s.origin_x||y<s.origin_y||x>=s.origin_x+s.width||y>=s.origin_y+s.height) return;
-    const auto p=std::size_t(y-s.origin_y)*s.width+std::size_t(x-s.origin_x);
-    s.coverage[p]=std::max(s.coverage[p],c.a);
+    if(!c.a||x<s.origin_x||y<s.origin_y||x>=s.origin_x+s.width||y>=s.origin_y+s.height) return;
+    const auto lx=std::uint32_t(x-s.origin_x),ly=std::uint32_t(y-s.origin_y);
+    const auto key=std::make_pair(lx/CoverageMask::tile_size,ly/CoverageMask::tile_size);
+    auto it=s.tiles.find(key);
+    if(it==s.tiles.end()) {
+        if(s.tiles.size()>=s.max_tiles) {s.exceeded=true;return;}
+        it=s.tiles.emplace(key,CoverageMask::Tile{}).first;
+    }
+    const auto p=std::size_t(ly%CoverageMask::tile_size)*CoverageMask::tile_size+(lx%CoverageMask::tile_size);
+    it->second[p]=std::max(it->second[p],c.a);
 }
 void segment(CoverageMask& s,double x0,double y0,double x1,double y1,
              ShapeColor c,double width,unsigned start_cap,unsigned end_cap) {
@@ -301,7 +314,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         auto& mask=masks[i];
         mask.origin_x=left;mask.origin_y=top;
         mask.width=std::uint32_t(right-left);mask.height=std::uint32_t(bottom-top);
-        mask.coverage.resize(std::size_t(mask.width)*mask.height);
+        // Sparse 64x64 tiles are allocated only when a pixel is covered.
     }
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
@@ -316,7 +329,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             previous_line=0;
         }
         if(command.kind!=ShapeCommandKind::move_to && command.line &&
-           !masks[command.line-1].coverage.empty()) {
+           masks[command.line-1].width!=0) {
             const auto& line_style=shape.lines[command.line-1];
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
@@ -355,16 +368,23 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
     }
     for(std::size_t style=0;style<masks.size();++style) {
         const auto& mask=masks[style];
-        const auto& coverage=mask.coverage;
+        if(mask.exceeded) return fail(Error::size_limit,"stroke mask tile limit exceeded");
+    }
+    for(std::size_t style=0;style<masks.size();++style) {
+        const auto& mask=masks[style];
         const auto color=shape.lines[style].color;
-        if(coverage.empty()) continue;
-        for(std::size_t i=0;i<coverage.size();++i) {
-            if(!coverage[i]) continue;
-            auto sample=color;
-            sample.a=static_cast<std::uint8_t>(
-                (unsigned(color.a)*coverage[i]+127)/255);
-            pixel(target,mask.origin_x+std::int64_t(i%mask.width),
-                  mask.origin_y+std::int64_t(i/mask.width),sample);
+        for(const auto& [key,tile]:mask.tiles) {
+            for(std::uint32_t y=0;y<CoverageMask::tile_size;++y)
+                for(std::uint32_t x=0;x<CoverageMask::tile_size;++x) {
+                    const auto coverage=tile[std::size_t(y)*CoverageMask::tile_size+x];
+                    if(!coverage) continue;
+                    const auto gx=mask.origin_x+std::int64_t(key.first)*CoverageMask::tile_size+x;
+                    const auto gy=mask.origin_y+std::int64_t(key.second)*CoverageMask::tile_size+y;
+                    if(gx>=target.width||gy>=target.height) continue;
+                    auto sample=color;
+                    sample.a=std::uint8_t((unsigned(color.a)*coverage+127)/255);
+                    pixel(target,gx,gy,sample);
+                }
         }
     }
     return {};
