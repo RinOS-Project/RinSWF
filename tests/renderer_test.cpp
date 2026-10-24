@@ -37,6 +37,15 @@ int main() {
     clear(canvas,{0,0,0,0});
     assert(draw_shape_fills(canvas,rectangle));
     assert(canvas.rgba[inside+3]==255);
+    gradient.kind=FillKind::focal_gradient;
+    gradient.focal_point=0.5;
+    rectangle.fills[0]=gradient;
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,rectangle));
+    assert(canvas.rgba[inside+3]==255);
+    rectangle.fills[0].focal_point=1.5;
+    assert(!draw_shape_fills(canvas,rectangle));
+    gradient.kind=FillKind::linear_gradient;
     BitmapLibrary library;
     Bitmap tile;
     tile.character_id=42;tile.width=1;tile.height=1;
