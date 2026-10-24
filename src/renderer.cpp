@@ -116,7 +116,8 @@ struct CoverageMask {
     std::int64_t origin_x=0,origin_y=0;
     using Tile=std::array<std::uint8_t,tile_size*tile_size>;
     std::map<std::pair<std::uint32_t,std::uint32_t>,Tile> tiles;
-    std::size_t max_tiles=16384;
+    std::size_t* allocated_tiles=nullptr;
+    std::size_t max_tiles=0;
     bool exceeded=false;
 };
 void mask_pixel(CoverageMask& s,std::int64_t x,std::int64_t y,ShapeColor c) {
@@ -125,8 +126,9 @@ void mask_pixel(CoverageMask& s,std::int64_t x,std::int64_t y,ShapeColor c) {
     const auto key=std::make_pair(lx/CoverageMask::tile_size,ly/CoverageMask::tile_size);
     auto it=s.tiles.find(key);
     if(it==s.tiles.end()) {
-        if(s.tiles.size()>=s.max_tiles) {s.exceeded=true;return;}
+        if(!s.allocated_tiles || *s.allocated_tiles>=s.max_tiles) {s.exceeded=true;return;}
         it=s.tiles.emplace(key,CoverageMask::Tile{}).first;
+        ++*s.allocated_tiles;
     }
     const auto p=std::size_t(ly%CoverageMask::tile_size)*CoverageMask::tile_size+(lx%CoverageMask::tile_size);
     it->second[p]=std::max(it->second[p],c.a);
@@ -269,8 +271,13 @@ RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,std::int32_t x,std
     return {};
 }
 RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
-                                std::int32_t offset_x,std::int32_t offset_y) {
+                                std::int32_t offset_x,std::int32_t offset_y,StrokeLimits limits) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
+    if(!limits.max_tiles || limits.max_mask_bytes<CoverageMask::tile_size*CoverageMask::tile_size)
+        return fail(Error::size_limit,"stroke mask budget too small");
+    std::size_t allocated_tiles=0;
+    const std::size_t permitted_tiles=std::min(limits.max_tiles,
+        limits.max_mask_bytes/(CoverageMask::tile_size*CoverageMask::tile_size));
     // A per-style coverage buffer prevents double-alpha compositing at joints.
     std::vector<CoverageMask> masks(shape.lines.size());
     // Conservative per-style bounds include endpoints, Bezier control points and joins.
@@ -312,6 +319,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         const auto bottom=std::int64_t(clampy(std::ceil(bound.maxy+extension)));
         if(right<=left || bottom<=top) continue;
         auto& mask=masks[i];
+        mask.allocated_tiles=&allocated_tiles;
+        mask.max_tiles=permitted_tiles;
         mask.origin_x=left;mask.origin_y=top;
         mask.width=std::uint32_t(right-left);mask.height=std::uint32_t(bottom-top);
         // Sparse 64x64 tiles are allocated only when a pixel is covered.
