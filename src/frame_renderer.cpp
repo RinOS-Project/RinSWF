@@ -109,14 +109,14 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     // Transform each straight edge's rectangular outline into one fill geometry.
     // The common nonzero-winding pass keeps opaque segment overlaps solid.
     if(shape.lines.size()!=1 || !shape.fills.empty() ||
-       shape.lines[0].start_cap!=1 || shape.lines[0].end_cap!=1 ||
        shape.lines[0].color.a!=255 || shape.commands.size()<2)
         return {Error::malformed_tag,"unsupported affine stroke geometry"};
     ShapeGeometry quad;
     quad.fills.push_back({shape.lines[0].color});
     ShapePoint cursor{};
     bool have_cursor=false;
-    for(const auto& edge:shape.commands) {
+    for(std::size_t edge_index=0;edge_index<shape.commands.size();++edge_index) {
+        const auto& edge=shape.commands[edge_index];
         if(edge.kind==ShapeCommandKind::move_to) {
             cursor=edge.endpoint;have_cursor=true;continue;
         }
@@ -129,8 +129,16 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     if(length<1e-8) {cursor=end;continue;}
     const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
     const double nx=-dy/length*radius,ny=dx/length*radius;
-    const double corners[4][2]={{start.x+nx,start.y+ny},{end.x+nx,end.y+ny},
-                                {end.x-nx,end.y-ny},{start.x-nx,start.y-ny}};
+    const bool first_edge=edge_index>0 && shape.commands[edge_index-1].kind==ShapeCommandKind::move_to;
+    const bool last_edge=edge_index+1==shape.commands.size() ||
+        shape.commands[edge_index+1].kind==ShapeCommandKind::move_to;
+    const double extension_start=first_edge && shape.lines[0].start_cap==2?radius:0;
+    const double extension_end=last_edge && shape.lines[0].end_cap==2?radius:0;
+    const double tx=dx/length,ty=dy/length;
+    const double corners[4][2]={{start.x+nx-tx*extension_start,start.y+ny-ty*extension_start},
+                                {end.x+nx+tx*extension_end,end.y+ny+ty*extension_end},
+                                {end.x-nx+tx*extension_end,end.y-ny+ty*extension_end},
+                                {start.x-nx-tx*extension_start,start.y-ny-ty*extension_start}};
     for(unsigned i=0;i<5;++i) {
         const auto& v=corners[i%4];
         const double x=m.scale_x*v[0]+m.rotate_skew_0*v[1]+m.translate_x;
@@ -148,7 +156,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     }
     // Connect consecutive straight segments with an outer bevel wedge.
     // Degenerate and non-finite joins are skipped instead of inventing geometry.
-    if(shape.lines[0].join<=2) {
+    if(shape.lines[0].join<=2 || shape.lines[0].start_cap==0 ||
+       shape.lines[0].end_cap==0) {
         auto add_triangle=[&](double ax,double ay,double bx,double by,
                               double cx,double cy)->bool {
             const double points[4][2]={{ax,ay},{bx,by},{cx,cy},{ax,ay}};
@@ -166,6 +175,41 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             }
             return true;
         };
+        // The caps belong only to the endpoints of each open subpath.
+        constexpr double pi=3.14159265358979323846;
+        for(std::size_t i=1;i<shape.commands.size();++i) {
+            const auto& edge=shape.commands[i];
+            if(edge.kind!=ShapeCommandKind::line_to ||
+               shape.commands[i-1].kind!=ShapeCommandKind::move_to) continue;
+            std::size_t end=i;
+            while(end+1<shape.commands.size() &&
+                  shape.commands[end+1].kind==ShapeCommandKind::line_to) ++end;
+            const auto& start=shape.commands[i-1].endpoint;
+            const auto& finish=shape.commands[end].endpoint;
+            if(start.x==finish.x && start.y==finish.y) continue;
+            const auto emit_cap=[&](ShapePoint center,ShapePoint toward,bool beginning)->bool {
+                const double dx=double(toward.x)-center.x;
+                const double dy=double(toward.y)-center.y;
+                const double length=std::hypot(dx,dy);
+                if(length<1e-8)return true;
+                const double base=std::atan2(dy,dx)+(beginning?pi:0);
+                const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
+                for(unsigned j=0;j<24;++j) {
+                    const double a0=base-pi/2+pi*j/24;
+                    const double a1=base-pi/2+pi*(j+1)/24;
+                    if(!add_triangle(center.x,center.y,
+                        center.x+radius*std::cos(a0),center.y+radius*std::sin(a0),
+                        center.x+radius*std::cos(a1),center.y+radius*std::sin(a1)))
+                        return false;
+                }
+                return true;
+            };
+            if(shape.lines[0].start_cap==0 && !emit_cap(start,shape.commands[i].endpoint,true))
+                return {Error::size_limit,"round start cap overflow"};
+            if(shape.lines[0].end_cap==0 && !emit_cap(finish,shape.commands[end-1].endpoint,true))
+                return {Error::size_limit,"round end cap overflow"};
+            i=end;
+        }
         for(std::size_t i=2;i<shape.commands.size();++i) {
             const auto& before=shape.commands[i-1];
             const auto& next=shape.commands[i];
@@ -309,8 +353,7 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                 }
                 const auto& sh=it->second;
                 bool straight_butt=sh.lines.size()==1 && sh.fills.empty() &&
-                    sh.lines[0].color.a==255 && sh.lines[0].start_cap==1 &&
-                    sh.lines[0].end_cap==1;
+                    sh.lines[0].color.a==255;
                 bool has_move=false,has_line=false;
                 for(const auto& edge:sh.commands) {
                     if(edge.kind==ShapeCommandKind::move_to) has_move=true;
