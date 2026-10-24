@@ -41,6 +41,16 @@ int main() {
     assert(clipped && clipped.shape.fills[0].kind==FillKind::nonsmoothed_clipped_bitmap);
     bitmap.data.resize(6);
     assert(!decode_shape(bitmap));
+    // DefineShape4: one solid-color LINESTYLE2 with round caps and joins.
+    Tag shape4{83,0,{7,0,0,0,0,0,1,20,0,0,0,255,0,0,255,0x01,0}};
+    auto line2=decode_shape(shape4);
+    assert(line2);
+    assert(line2.shape.lines.size()==1);
+    assert(line2.shape.lines[0].width==20);
+    assert(line2.shape.lines[0].start_cap==0);
+    assert(line2.shape.lines[0].color.r==255);
+    shape4.data[9]=0x08; // LINESTYLE2 hasFillFlag
+    assert(!decode_shape(shape4)); // fail-closed until fill strokes supported
     styled.data[4]=0x7f; // unsupported fill type
     assert(!decode_shape(styled));
 }
