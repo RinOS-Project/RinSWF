@@ -14,3 +14,6 @@ test('bitmaps', bitmap_test_exe)
 
 jpeg_test_exe = executable('rinswf-jpeg-test', 'jpeg_test.cpp', dependencies: [rinswf_dep, zlib_dep])
 test('jpeg-assets', jpeg_test_exe)
+
+renderer_test_exe = executable('rinswf-renderer-test', 'renderer_test.cpp', dependencies: rinswf_dep)
+test('renderer', renderer_test_exe)
