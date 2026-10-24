@@ -98,6 +98,21 @@ int main() {
     rectangle.fills[0]=gradient;
     rectangle.fills[0].matrix.scale_x=0;
     assert(!draw_shape_fills(canvas,rectangle));
+    // Two overlapping contours with the same winding must retain the overlap.
+    ShapeGeometry nested;
+    nested.fills.push_back({{40,80,220,255}});
+    auto contour=[&](int x0,int y0,int x1,int y1) {
+        nested.commands.push_back({ShapeCommandKind::move_to,{}, {x0,y0},0,0,0});
+        nested.commands.push_back({ShapeCommandKind::line_to,{}, {x1,y0},0,1,0});
+        nested.commands.push_back({ShapeCommandKind::line_to,{}, {x1,y1},0,1,0});
+        nested.commands.push_back({ShapeCommandKind::line_to,{}, {x0,y1},0,1,0});
+        nested.commands.push_back({ShapeCommandKind::line_to,{}, {x0,y0},0,1,0});
+    };
+    contour(0,0,80,80);
+    contour(20,20,60,60);
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,nested));
+    assert(canvas.rgba[(1*4+1)*4+3]==255); // nonzero, not even-odd
     rectangle.commands[1].fill1=2;
     assert(!draw_shape_fills(canvas,rectangle));
     assert(!make_surface(0,2,canvas));
