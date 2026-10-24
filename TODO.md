@@ -34,7 +34,8 @@
 - [x] LINESTYLE2のRound / None（butt）/ Square線端の基本描画
 - [x] 連続した同一LINESTYLEの線分に対するRound Joinの基本描画と曲線のCap引数修正
 - [x] Bevel Join、Miter JoinとMiterLimit超過時のBevelフォールバック（直線間）
-- [ ] SWFの輪郭連結・複雑な自己交差形状の検証、LINESTYLE2の線結合精度・端点の連続パス処理、複数セグメント間のAA重複合成改善
+- [x] 線スタイル単位の被覆率マスクによる重複アルファ合成の抑制
+- [ ] SWFの輪郭連結・複雑な自己交差形状の検証、LINESTYLE2の線結合精度・端点の連続パス処理、マスクのメモリ使用量最適化
 - [ ] テキスト、フォント、変換行列
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
