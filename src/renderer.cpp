@@ -399,7 +399,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const auto& line_style=shape.lines[command.line-1];
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
-            if(have_prior_segment && previous_line==command.line && line_style.join!=0) {
+            if(have_prior_segment && have_tangent && previous_line==command.line && line_style.join!=0) {
                 const auto index=std::size_t(&command-shape.commands.data());
                 const auto& incoming=shape.commands[index-1];
                 // For a quadratic edge, the end/start control point defines its tangent.
@@ -420,6 +420,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                         to_x(previous),to_y(previous),color,stroke_width,0,0);
             }
             const auto index=std::size_t(&command-shape.commands.data());
+            // An explicit move-to separates paths even when the style ID matches.
             const bool next_same=index+1<shape.commands.size() &&
                 shape.commands[index+1].kind!=ShapeCommandKind::move_to &&
                 shape.commands[index+1].line==command.line;
@@ -447,7 +448,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                 ? command.control : previous;
             if(previous_tangent.x==command.endpoint.x && previous_tangent.y==command.endpoint.y)
                 previous_tangent=previous;
-            have_tangent=true;
+            have_tangent=command.line!=0;
         }
         previous=command.endpoint;
     }
