@@ -156,7 +156,7 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
         }
         if(covered) {
             ShapeColor sample=c;
-            sample.a=static_cast<std::uint8_t>((unsigned(c.a)*covered+8)/16);
+            sample.a=static_cast<std::uint8_t>((255u*covered+8)/16);
             mask_pixel(s,x,y,sample);
         }
     }
@@ -183,7 +183,7 @@ void join_wedge(Surface& surface,double ax,double ay,double bx,double by,
             }
             if(hits) {
                 auto c=color;
-                c.a=std::uint8_t((unsigned(c.a)*hits+8)/16);
+                c.a=std::uint8_t((255u*hits+8)/16);
                 mask_pixel(surface,x,y,c);
             }
         }
@@ -255,9 +255,16 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     // A per-style coverage buffer prevents double-alpha compositing at joints.
     std::vector<Surface> masks(shape.lines.size());
-    for(auto& mask:masks) {
-        auto result=make_surface(target.width,target.height,mask);
-        if(!result) return result;
+    // Allocate only for referenced line styles; unused styles consume no surface.
+    for(const auto& command:shape.commands) {
+        if(command.line>shape.lines.size())
+            return fail(Error::malformed_tag,"line style index out of range");
+        if(!command.line || command.kind==ShapeCommandKind::move_to) continue;
+        auto& mask=masks[command.line-1];
+        if(mask.rgba.empty()) {
+            auto result=make_surface(target.width,target.height,mask);
+            if(!result) return result;
+        }
     }
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
@@ -287,7 +294,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                         to_x(previous),to_y(previous),color,stroke_width,0,0);
             }
             if(command.kind==ShapeCommandKind::line_to) {
-                segment(target,to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width,line_style.start_cap,line_style.end_cap);
+                segment(masks[command.line-1],to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width,line_style.start_cap,line_style.end_cap);
             } else if(command.kind==ShapeCommandKind::quadratic_to) {
                 ShapePoint start=previous;
                 constexpr unsigned subdivisions=32;
@@ -296,7 +303,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                     const double t=double(i)/subdivisions,u=1.0-t;
                     const double cx=u*u*to_x(start)+2*u*t*to_x(command.control)+t*t*to_x(command.endpoint);
                     const double cy=u*u*to_y(start)+2*u*t*to_y(command.control)+t*t*to_y(command.endpoint);
-                    segment(target,lastx,lasty,cx,cy,color,stroke_width,i==1?line_style.start_cap:1,i==subdivisions?line_style.end_cap:1);
+                    segment(masks[command.line-1],lastx,lasty,cx,cy,color,stroke_width,i==1?line_style.start_cap:1,i==subdivisions?line_style.end_cap:1);
                     lastx=cx;lasty=cy;
                 }
             } else return fail(Error::malformed_tag,"unexpected shape command");
@@ -311,6 +318,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
     for(std::size_t style=0;style<masks.size();++style) {
         const auto& rgba=masks[style].rgba;
         const auto color=shape.lines[style].color;
+        if(rgba.empty()) continue;
         for(std::size_t i=0;i<rgba.size();i+=4) {
             if(!rgba[i+3]) continue;
             auto sample=color;
