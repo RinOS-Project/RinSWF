@@ -503,10 +503,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         next_order[j]=value;
                     }
                 }
+                std::vector<double> sorted_x;
+                sorted_x.reserve(next_order.size());
+                for(auto* e:next_order) sorted_x.push_back(x_at(e));
                 ordered_edges=std::move(next_order);
-                ordered_x.clear();
-                ordered_x.reserve(ordered_edges.size());
-                for(auto* e:ordered_edges) ordered_x.push_back(x_at(e));
+                ordered_x=std::move(sorted_x);
                 previous_py=py;
                 have_previous_row=true;
                 auto& row=crossings[sy];
