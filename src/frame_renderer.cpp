@@ -445,6 +445,9 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         }
         std::vector<EdgePtr> active_edges;
         std::vector<EdgePtr> ordered_edges;
+        std::vector<double> ordered_x;
+        double previous_py=0;
+        bool have_previous_row=false;
         for(auto y=top;y<bottom;++y) {
             std::array<std::vector<EdgePtr>,4> active;
             for(unsigned sy=0;sy<4;++sy) {
@@ -470,8 +473,20 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 for(auto* edge:active[sy])
                     if(std::find(next_order.begin(),next_order.end(),edge)==next_order.end())
                         next_order.push_back(edge);
+                // Cache each active edge intersection and advance it by dy.
+                // Newly active edges are evaluated directly at this sample row.
+                std::vector<double> next_x;
+                next_x.reserve(next_order.size());
+                for(auto* e:next_order) {
+                    auto prior=std::find(ordered_edges.begin(),ordered_edges.end(),e);
+                    if(have_previous_row && prior!=ordered_edges.end()) {
+                        const auto index=std::size_t(prior-ordered_edges.begin());
+                        next_x.push_back(ordered_x[index]+(py-previous_py)*e->dx/e->dy);
+                    } else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
+                }
                 auto x_at=[&](const WindingEdge* e) {
-                    return e->ax+(py-e->ay)*e->dx/e->dy;
+                    const auto it=std::find(next_order.begin(),next_order.end(),e);
+                    return next_x[std::size_t(it-next_order.begin())];
                 };
                 // Small changes usually need only a few adjacent swaps.
                 if(next_order.size()>64) {
@@ -489,6 +504,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     }
                 }
                 ordered_edges=std::move(next_order);
+                ordered_x.clear();
+                ordered_x.reserve(ordered_edges.size());
+                for(auto* e:ordered_edges) ordered_x.push_back(x_at(e));
+                previous_py=py;
+                have_previous_row=true;
                 auto& row=crossings[sy];
                 for(auto* edge:ordered_edges)
                     row.emplace_back(x_at(edge),edge->dy>0?1:-1);
