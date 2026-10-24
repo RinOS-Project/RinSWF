@@ -273,8 +273,21 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     // cancel two identical contours traversed in opposite directions.
     // Keep a single union surface; each contour is rasterized in its own
     // clipped bounding rectangle rather than clearing a full-frame scratch.
+    // Union surface is clipped to the union of transformed contour bounds.
+    double minx=double(dst.width),miny=double(dst.height),maxx=0,maxy=0;
+    for(const auto& cmd:quad.commands) {
+        const double x=double(cmd.endpoint.x)/20.0,y=double(cmd.endpoint.y)/20.0;
+        minx=std::min(minx,x);miny=std::min(miny,y);
+        maxx=std::max(maxx,x);maxy=std::max(maxy,y);
+    }
+    const auto mask_left=std::int64_t(std::clamp(std::floor(minx)-1.0,0.0,double(dst.width)));
+    const auto mask_top=std::int64_t(std::clamp(std::floor(miny)-1.0,0.0,double(dst.height)));
+    const auto mask_right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
+    const auto mask_bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
+    if(mask_right<=mask_left || mask_bottom<=mask_top)return {};
     Surface mask;
-    auto allocated=make_surface(dst.width,dst.height,mask);
+    auto allocated=make_surface(std::uint32_t(mask_right-mask_left),
+                                std::uint32_t(mask_bottom-mask_top),mask);
     if(!allocated)return allocated;
     ShapeGeometry one;
     one.fills=quad.fills;
@@ -306,7 +319,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             for(std::int64_t y=0;y<bottom-top;++y)
                 for(std::int64_t x=0;x<right-left;++x) {
                     const auto src=(std::size_t(y)*individual.width+std::size_t(x))*4+3;
-                    const auto dest=(std::size_t(y+top)*mask.width+std::size_t(x+left))*4+3;
+                    const auto dest=(std::size_t(y+top-mask_top)*mask.width+
+                        std::size_t(x+left-mask_left))*4+3;
                     mask.rgba[dest]=std::max(mask.rgba[dest],individual.rgba[src]);
                 }
         }
@@ -327,15 +341,18 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     for(std::size_t i=0;i<mask.rgba.size();i+=4) {
         const unsigned sa=(unsigned(mask.rgba[i+3])*opacity+127)/255;
         if(!sa)continue;
-        const unsigned da=dst.rgba[i+3];
+        const auto xx=mask_left+std::int64_t((i/4)%mask.width);
+        const auto yy=mask_top+std::int64_t((i/4)/mask.width);
+        const auto di=(std::size_t(yy)*dst.width+std::size_t(xx))*4;
+        const unsigned da=dst.rgba[di+3];
         const unsigned outa=sa+(da*(255-sa)+127)/255;
         for(unsigned k=0;k<3;++k) {
             const unsigned source=k==0?color.r:k==1?color.g:color.b;
             const unsigned premul=source*sa+
-                (unsigned(dst.rgba[i+k])*da*(255-sa)+127)/255;
-            dst.rgba[i+k]=std::uint8_t((premul+outa/2)/outa);
+                (unsigned(dst.rgba[di+k])*da*(255-sa)+127)/255;
+            dst.rgba[di+k]=std::uint8_t((premul+outa/2)/outa);
         }
-        dst.rgba[i+3]=std::uint8_t(outa);
+        dst.rgba[di+3]=std::uint8_t(outa);
     }
     return {};
 }
