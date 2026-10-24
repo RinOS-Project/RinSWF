@@ -234,5 +234,16 @@ int main() {
     assets.shapes[88]=closed_curve;
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
+    // Closing a curve must suppress its nominal square-cap extensions.
+    closed_curve.lines[0].start_cap=2;
+    closed_curve.lines[0].end_cap=2;
+    assets.shapes[88]=closed_curve;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    closed_curve.lines[0].start_cap=0;
+    closed_curve.lines[0].end_cap=0;
+    assets.shapes[88]=closed_curve;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
     return 0;
 }
