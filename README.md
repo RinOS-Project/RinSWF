@@ -8,7 +8,7 @@ RinSWFは、SWF (Adobe Flash) ファイルを安全に解析・描画・再生�
 - SWF RECT（ステージ座標）、フレームレート、フレーム数
 - SWFタグヘッダー（短形式・長形式）、ペイロードの抽出
 - ファイル・タグごとの上限制御と不正な境界の拒否
-- 初期ソフトウェアレンダラー：RGBA Surface、Bitmapのアルファ合成、Shapeの簡易線分・二次曲線ストローク描画（非ゼロ巻き数による単色Fillの基本スキャンライン塗り（描画対象のY範囲だけを走査）に対応、線形・放射状・焦点付きGradientの基本塗りに対応。Bitmap Fillの最近傍・バイリニア補間によるタイル・クリップ描画に対応。LINESTYLEの太線幅と4x4被覆率アンチエイリアシングに基本対応。LINESTYLE2のRound/None/Square線端に基本対応（線分単位）。Round Joinの基本描画を追加。Bevel/Miter JoinとMiterLimitを直線間で基本対応。曲線の結合と線スタイル単位の被覆率マスクで線分の重複アルファ合成を抑制（未使用線スタイルのマスク確保を省略しアルファ二重乗算を修正。マスクの1ch化・タイル化は未対応））
+- 初期ソフトウェアレンダラー：RGBA Surface、Bitmapのアルファ合成、Shapeの簡易線分・二次曲線ストローク描画（非ゼロ巻き数による単色Fillの基本スキャンライン塗り（描画対象のY範囲だけを走査）に対応、線形・放射状・焦点付きGradientの基本塗りに対応。Bitmap Fillの最近傍・バイリニア補間によるタイル・クリップ描画に対応。LINESTYLEの太線幅と4x4被覆率アンチエイリアシングに基本対応。LINESTYLE2のRound/None/Square線端に基本対応（線分単位）。Round Joinの基本描画を追加。Bevel/Miter JoinとMiterLimitを直線間で基本対応。曲線の結合と線スタイル単位の被覆率マスクで線分の重複アルファ合成を抑制（未使用線スタイルのマスク確保を省略しアルファ二重乗算を修正。被覆率マスクを1ch（8-bit）化し4バイト/画素から1バイト/画素へ削減。描画領域限定・タイル化は未対応））
 - DefineBitsJPEG2/3/4の画像バイト列とアルファチャネル分離・アルファzlib展開（JPEG画像のRGBA変換はlibjpeg利用可能時に対応（PNG/GIFは未対応））
 - DefineBitsLossless / DefineBitsLossless2 (パレット、15-bit RGB、32-bit ARGB) のzlib展開とRGBAアセット管理
 - 基本タグの型付き解析（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）と境界チェック
