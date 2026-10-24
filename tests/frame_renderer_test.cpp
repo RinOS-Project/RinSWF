@@ -228,5 +228,11 @@ int main() {
     assets.shapes[88]=tiny;
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
+    // Explicitly closed quadratic contours join their final and first edges.
+    ShapeGeometry closed_curve=curved_stroke;
+    closed_curve.commands.push_back({ShapeCommandKind::quadratic_to,{20,120},{20,40},0,0,1});
+    assets.shapes[88]=closed_curve;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
     return 0;
 }
