@@ -372,7 +372,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                     const double t=double(i)/subdivisions,u=1.0-t;
                     const double cx=u*u*to_x(start)+2*u*t*to_x(command.control)+t*t*to_x(command.endpoint);
                     const double cy=u*u*to_y(start)+2*u*t*to_y(command.control)+t*t*to_y(command.endpoint);
-                    segment(masks[command.line-1],lastx,lasty,cx,cy,color,stroke_width,i==1?line_style.start_cap:1,i==subdivisions?line_style.end_cap:1);
+                    segment(masks[command.line-1],lastx,lasty,cx,cy,color,stroke_width,i==1?start_cap:1,i==subdivisions?end_cap:1);
                     lastx=cx;lasty=cy;
                 }
             } else return fail(Error::malformed_tag,"unexpected shape command");
