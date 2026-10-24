@@ -146,6 +146,52 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     }
         cursor=end;
     }
+    // Connect consecutive straight segments with an outer bevel wedge.
+    // Degenerate and non-finite joins are skipped instead of inventing geometry.
+    if(shape.lines[0].join==1) {
+        auto add_triangle=[&](double ax,double ay,double bx,double by,
+                              double cx,double cy)->bool {
+            const double points[4][2]={{ax,ay},{bx,by},{cx,cy},{ax,ay}};
+            for(unsigned j=0;j<4;++j) {
+                const double x=m.scale_x*points[j][0]+m.rotate_skew_0*points[j][1]+m.translate_x;
+                const double y=m.rotate_skew_1*points[j][0]+m.scale_y*points[j][1]+m.translate_y;
+                constexpr double bound=double(std::numeric_limits<std::int32_t>::max())-1;
+                if(!std::isfinite(x)||!std::isfinite(y)||std::abs(x)>bound||std::abs(y)>bound)
+                    return false;
+                ShapeCommand cmd;
+                cmd.kind=j==0?ShapeCommandKind::move_to:ShapeCommandKind::line_to;
+                cmd.endpoint={std::int32_t(std::llround(x)),std::int32_t(std::llround(y))};
+                cmd.fill1=j==0?0:1;
+                quad.commands.push_back(cmd);
+            }
+            return true;
+        };
+        for(std::size_t i=2;i<shape.commands.size();++i) {
+            const auto& before=shape.commands[i-1];
+            const auto& next=shape.commands[i];
+            if(before.kind!=ShapeCommandKind::line_to ||
+               next.kind!=ShapeCommandKind::line_to) continue;
+            // The previous segment must belong to the same uninterrupted subpath.
+            const auto& earlier=shape.commands[i-2];
+            if(earlier.kind!=ShapeCommandKind::move_to &&
+               earlier.kind!=ShapeCommandKind::line_to) continue;
+            const auto& a=earlier.endpoint;
+            const auto& b=before.endpoint;
+            const auto& c=next.endpoint;
+            const double ux=double(b.x)-a.x,uy=double(b.y)-a.y;
+            const double vx=double(c.x)-b.x,vy=double(c.y)-b.y;
+            const double ul=std::hypot(ux,uy),vl=std::hypot(vx,vy);
+            if(ul<1e-8||vl<1e-8) continue;
+            const double cross=ux*vy-uy*vx;
+            if(std::abs(cross)<1e-8) continue;
+            const double sign=cross>0?-1.0:1.0;
+            const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
+            const double p1x=b.x-sign*uy/ul*radius,p1y=b.y+sign*ux/ul*radius;
+            const double p2x=b.x-sign*vy/vl*radius,p2y=b.y+sign*vx/vl*radius;
+            if(!add_triangle(b.x,b.y,p1x,p1y,p2x,p2y))
+                return {Error::size_limit,"bevel join coordinate overflow"};
+        }
+    }
     return draw_shape_fills(dst,quad);
 }
 static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
