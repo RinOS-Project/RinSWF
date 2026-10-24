@@ -466,10 +466,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     crossings[sy].emplace_back(ix,e.dy>0?1:-1);
                 }
                 auto& row=crossings[sy];
-                // Adjacent sample rows generally retain X ordering. Insertion
-                // sort is inexpensive for nearly sorted crossings and still
-                // handles edges whose order genuinely changes at intersections.
-                for(std::size_t k=1;k<row.size();++k) {
+                // Small edge sets avoid sort setup; larger ones retain O(E log E)
+                // worst-case ordering rather than quadratic insertion work.
+                if(row.size()>24) {
+                    std::sort(row.begin(),row.end(),
+                        [](const auto& a,const auto& b){return a.first<b.first;});
+                } else for(std::size_t k=1;k<row.size();++k) {
                     auto value=row[k];
                     auto j=k;
                     while(j>0 && row[j-1].first>value.first) {
