@@ -200,6 +200,21 @@ int main() {
     quadratic_pair.commands.push_back({ShapeCommandKind::quadratic_to,{420,500},{500,300},0,0,1});
     assert(draw_shape_strokes(quadratic_surface,quadratic_pair));
     assert(quadratic_surface.rgba[(15*32+15)*4+3]>0);
+    // Style changes must create independent stroke runs (no borrowed tangent).
+    Surface switched;
+    assert(make_surface(32,32,switched));
+    ShapeGeometry alternating;
+    ShapeLine red; red.width=40; red.color={255,0,0,255};
+    ShapeLine blue=red; blue.color={0,0,255,255};
+    alternating.lines.push_back(red);
+    alternating.lines.push_back(blue);
+    alternating.commands.push_back({ShapeCommandKind::move_to,{}, {100,100},0,0,0});
+    alternating.commands.push_back({ShapeCommandKind::line_to,{}, {300,100},0,0,1});
+    alternating.commands.push_back({ShapeCommandKind::line_to,{}, {300,300},0,0,2});
+    alternating.commands.push_back({ShapeCommandKind::line_to,{}, {500,300},0,0,1});
+    assert(draw_shape_strokes(switched,alternating));
+    assert(switched.rgba[(5*32+10)*4]>0);
+    assert(switched.rgba[(10*32+15)*4+2]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
