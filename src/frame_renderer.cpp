@@ -170,7 +170,7 @@ static RenderResult flatten_affine_stroke(const ShapeGeometry& input,const Matri
     return {};
 }
 static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& shape,
-                                           const Matrix& m) {
+                                           const Matrix& m,StrokeLimits limits) {
     // Transform each straight edge's rectangular outline into one fill geometry.
     // The common nonzero-winding pass keeps opaque segment overlaps solid.
     if(shape.lines.size()!=1 || !shape.fills.empty() ||
@@ -387,7 +387,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     constexpr std::size_t tile_side=64;
     using CoverageTile=std::array<std::uint8_t,tile_side*tile_side>;
     std::unordered_map<std::uint64_t,CoverageTile> coverage;
-    constexpr std::size_t max_tiles=4096;
+    // Apply caller-selected limits to the affine union path too.
+    const std::size_t max_tiles=std::min(limits.max_tiles,
+        limits.max_mask_bytes/(tile_side*tile_side));
+    if(!max_tiles)return {Error::size_limit,"stroke union mask budget too small"};
     auto tile_key=[](std::uint32_t x,std::uint32_t y)->std::uint64_t {
         return (std::uint64_t(y)<<32)|x;
     };
@@ -575,7 +578,7 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                 else if(stroke_outline) {
                     ShapeGeometry flattened;
                     a=flatten_affine_stroke(sh,m,flattened);
-                    if(a) a=affine_straight_stroke(stage,flattened,m);
+                    if(a) a=affine_straight_stroke(stage,flattened,m,limits);
                 } else a=affine_shape(stage,sh,assets.bitmaps,m,limits);
                 if(!a)return a;
             } else {
