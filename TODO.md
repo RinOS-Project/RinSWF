@@ -8,7 +8,8 @@
 - [x] 入力・展開・タグ数・タグ長の制限
 - [ ] ZWS（LZMA）対応
 - [x] 基本タグの型付きデコード（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）
-- [ ] Shape、PlaceObject、Bitmap、Fontなど複合タグの型付きデコード
+- [x] DefineShape 1/2/3/4のRECT・基本edgeレコード解析（スタイルなし限定）
+- [ ] Shapeの塗り・線スタイル、PlaceObject3、Bitmap、Fontの型付きデコード
 - [ ] ストリーム読み込みとエラー位置の詳細化
 - [ ] C ABI（DLL/共有ライブラリ向け）
 
