@@ -355,18 +355,24 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const auto& before_last=shape.commands[end-2];
             const auto& first=shape.commands[i];
             const auto& after_first=shape.commands[i+1];
-            if(last.kind==ShapeCommandKind::line_to &&
-               before_last.kind==ShapeCommandKind::line_to &&
-               after_first.kind==ShapeCommandKind::line_to &&
-               masks[style_index].width) {
+            if(masks[style_index].width) {
+                // The join helper expects one point on each incoming/outgoing tangent.
+                const ShapePoint incoming=last.kind==ShapeCommandKind::quadratic_to
+                    ? (last.control.x==first.endpoint.x && last.control.y==first.endpoint.y
+                       ? before_last.endpoint : last.control)
+                    : before_last.endpoint;
+                const ShapePoint outgoing=after_first.kind==ShapeCommandKind::quadratic_to
+                    ? (after_first.control.x==first.endpoint.x && after_first.control.y==first.endpoint.y
+                       ? after_first.endpoint : after_first.control)
+                    : after_first.endpoint;
                 if(style.join==0) {
                     const double x=(double(first.endpoint.x)+offset_x)/20.0;
                     const double y=(double(first.endpoint.y)+offset_y)/20.0;
                     const double width=style.width?double(style.width)/20.0:1.0;
                     segment(masks[style_index],x,y,x,y,style.color,width,0,0);
                 } else {
-                    stroke_join(masks[style_index],before_last.endpoint,
-                                first.endpoint,after_first.endpoint,
+                    stroke_join(masks[style_index],incoming,
+                                first.endpoint,outgoing,
                                 offset_x,offset_y,style);
                 }
             }
