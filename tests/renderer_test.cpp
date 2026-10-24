@@ -185,6 +185,21 @@ int main() {
     clear(closed_canvas,{0,0,0,0});
     assert(draw_shape_strokes(closed_canvas,double_curve));
     assert(closed_canvas.rgba[(8*16+8)*4+3]>0);
+    // Two consecutive quadratic edges should be joined by their endpoint tangents.
+    Surface quadratic_surface;
+    assert(make_surface(32,32,quadratic_surface));
+    ShapeGeometry quadratic_pair;
+    ShapeLine tangent_style;
+    tangent_style.width=40;
+    tangent_style.color={150,90,200,255};
+    tangent_style.join=2;
+    tangent_style.miter_limit=3.0;
+    quadratic_pair.lines.push_back(tangent_style);
+    quadratic_pair.commands.push_back({ShapeCommandKind::move_to,{}, {100,300},0,0,0});
+    quadratic_pair.commands.push_back({ShapeCommandKind::quadratic_to,{180,100},{300,300},0,0,1});
+    quadratic_pair.commands.push_back({ShapeCommandKind::quadratic_to,{420,500},{500,300},0,0,1});
+    assert(draw_shape_strokes(quadratic_surface,quadratic_pair));
+    assert(quadratic_surface.rgba[(15*32+15)*4+3]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
