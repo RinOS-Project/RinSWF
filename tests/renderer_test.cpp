@@ -122,6 +122,18 @@ int main() {
     assert(sparse.rgba[(5*512+7)*4+3]>0);
     assert(sparse.rgba[(475*512+477)*4+3]>0);
     assert(sparse.rgba[(256*512+256)*4+3]==0);
+    // Explicit tile budgets: a drawing requiring two separate tiles must fail with one.
+    Surface budget_surface;
+    assert(make_surface(192,64,budget_surface));
+    ShapeGeometry budget_shape;
+    budget_shape.lines.push_back({20,{255,0,0,255}});
+    budget_shape.commands.push_back({ShapeCommandKind::move_to,{}, {200,200},0,0,0});
+    budget_shape.commands.push_back({ShapeCommandKind::line_to,{}, {3000,200},0,0,1});
+    const auto before_budget=budget_surface.rgba;
+    auto limited=draw_shape_strokes(budget_surface,budget_shape,0,0,{1,4096});
+    assert(!limited && limited.error==Error::size_limit);
+    assert(budget_surface.rgba==before_budget);
+    assert(draw_shape_strokes(budget_surface,budget_shape,0,0,{4,16384}));
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
