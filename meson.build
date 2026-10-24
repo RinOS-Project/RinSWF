@@ -1,8 +1,12 @@
 project('rinswf', 'cpp', version: '0.1.0', default_options: ['cpp_std=c++20', 'warning_level=3'])
 zlib_dep = dependency('zlib', required: true)
+libjpeg_dep = dependency('libjpeg', required: false)
+if libjpeg_dep.found()
+  add_project_arguments('-DRINSWF_HAVE_LIBJPEG=1', language: 'cpp')
+endif
 inc = include_directories('include')
 rinswf_lib = library('rinswf', ['src/swf.cpp', 'src/tags.cpp', 'src/display_list.cpp', 'src/shapes.cpp', 'src/bitmaps.cpp', 'src/jpeg.cpp'], include_directories: inc,
-  dependencies: zlib_dep, install: true, version: meson.project_version())
+  dependencies: [zlib_dep, libjpeg_dep], install: true, version: meson.project_version())
 rinswf_dep = declare_dependency(link_with: rinswf_lib, include_directories: inc)
 install_headers('include/rinswf/swf.hpp', 'include/rinswf/tags.hpp', 'include/rinswf/display_list.hpp', 'include/rinswf/shapes.hpp', 'include/rinswf/bitmaps.hpp', 'include/rinswf/jpeg.hpp', subdir: 'rinswf')
 pkg = import('pkgconfig')
