@@ -63,9 +63,17 @@ static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m
 static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
                                  const BitmapLibrary& bitmaps,const Matrix& m,
                                  StrokeLimits limits) {
-    // Only solid fills without strokes: fill-matrix and stroke metrics need
-    // independent affine handling before this path can be generalized.
-    if(!shape.lines.empty()) return {Error::malformed_tag,"vector stroke unsupported"};
+    // Stroke widths remain isotropic only under a similarity transform.
+    const double sx2=m.scale_x*m.scale_x+m.rotate_skew_1*m.rotate_skew_1;
+    const double sy2=m.rotate_skew_0*m.rotate_skew_0+m.scale_y*m.scale_y;
+    const double dot=m.scale_x*m.rotate_skew_0+m.rotate_skew_1*m.scale_y;
+    if(!std::isfinite(sx2)||!std::isfinite(sy2)||!std::isfinite(dot))
+        return {Error::malformed_tag,"invalid shape transform"};
+    const double scale=std::sqrt(sx2);
+    const double tolerance=1e-7*std::max(1.0,std::max(sx2,sy2));
+    if(!shape.lines.empty() && (std::abs(sx2-sy2)>tolerance||
+       std::abs(dot)>tolerance||scale<1e-8))
+        return {Error::malformed_tag,"anisotropic vector stroke unsupported"};
     for(const auto& fill:shape.fills)
         if(fill.kind!=FillKind::solid)
             return {Error::malformed_tag,"vector gradient or bitmap fill unsupported"};
@@ -86,7 +94,15 @@ static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
         if(cmd.kind==ShapeCommandKind::quadratic_to && !apply(cmd.control))
             return {Error::size_limit,"transformed control point overflow"};
     }
-    return draw_shape_fills(dst,transformed,0,0,&bitmaps);
+    for(auto& line:transformed.lines) {
+        const auto width=std::round(double(line.width)*scale);
+        if(!std::isfinite(width)||width>65535.0)
+            return {Error::size_limit,"transformed line width out of range"};
+        line.width=std::uint16_t(width);
+    }
+    auto fill=draw_shape_fills(dst,transformed,0,0,&bitmaps);
+    if(!fill)return fill;
+    return draw_shape_strokes(dst,transformed,0,0,limits);
 }
 static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
                                  const BitmapLibrary& bitmaps,const Matrix& matrix,
@@ -158,10 +174,19 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
         auto it=assets.shapes.find(entry.character_id);
         if(it!=assets.shapes.end()) {
             if(affine) {
-                bool solid_only=it->second.lines.empty();
+                bool direct=true;
                 for(const auto& fill:it->second.fills)
-                    if(fill.kind!=FillKind::solid) solid_only=false;
-                auto a=solid_only
+                    if(fill.kind!=FillKind::solid) direct=false;
+                if(!it->second.lines.empty()) {
+                    const double sx2=m.scale_x*m.scale_x+m.rotate_skew_1*m.rotate_skew_1;
+                    const double sy2=m.rotate_skew_0*m.rotate_skew_0+m.scale_y*m.scale_y;
+                    const double dot=m.scale_x*m.rotate_skew_0+m.rotate_skew_1*m.scale_y;
+                    const double tolerance=1e-7*std::max(1.0,std::max(sx2,sy2));
+                    if(!std::isfinite(sx2)||!std::isfinite(sy2)||!std::isfinite(dot)||
+                       sx2<1e-16||std::abs(sx2-sy2)>tolerance||
+                       std::abs(dot)>tolerance) direct=false;
+                }
+                auto a=direct
                     ? vector_shape(stage,it->second,assets.bitmaps,m,limits)
                     : affine_shape(stage,it->second,assets.bitmaps,m,limits);
                 if(!a)return a;
