@@ -229,8 +229,8 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
                 u*u*to_x(previous)+2*u*t*to_x(cmd.control)+t*t*to_x(cmd.endpoint);
             const double y1=steps==1?to_y(cmd.endpoint):
                 u*u*to_y(previous)+2*u*t*to_y(cmd.control)+t*t*to_y(cmd.endpoint);
-            add(cmd.fill0,x0,y0,x1,y1);
-            add(cmd.fill1,x0,y0,x1,y1);
+            add(cmd.fill0,x1,y1,x0,y0); // left fill has reversed orientation
+            add(cmd.fill1,x0,y0,x1,y1); // right fill retains edge orientation
             x0=x1;y0=y1;
         }
         previous=cmd.endpoint;
@@ -264,7 +264,8 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
                 return fail(Error::malformed_tag,"singular gradient matrix");
         }
     }
-    std::vector<double> intersections;
+    struct Crossing {double x; int delta;};
+    std::vector<Crossing> intersections;
     for(std::size_t style=0;style<edges.size();++style) {
         if(edges[style].empty()) continue;
         for(std::uint32_t y=0;y<target.height;++y) {
@@ -273,16 +274,26 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
             for(const auto& edge:edges[style]) {
                 if((edge.y0<=sy && sy<edge.y1)||(edge.y1<=sy && sy<edge.y0)) {
                     const double x=edge.x0+(sy-edge.y0)*(edge.x1-edge.x0)/(edge.y1-edge.y0);
-                    if(std::isfinite(x)) intersections.push_back(x);
+                    if(std::isfinite(x)) intersections.push_back({x,edge.y1>edge.y0?1:-1});
                 }
             }
-            std::sort(intersections.begin(),intersections.end());
-            for(std::size_t i=0;i+1<intersections.size();i+=2) {
-                const double left=std::max(0.0,intersections[i]);
-                const double right=std::min(double(target.width),intersections[i+1]);
-                if(left>=right) continue;
-                const auto start=static_cast<std::uint32_t>(std::ceil(left-0.5));
-                const auto end=static_cast<std::uint32_t>(std::ceil(right-0.5));
+            std::sort(intersections.begin(),intersections.end(),
+                      [](const Crossing& a,const Crossing& b){return a.x<b.x;});
+            int winding=0;
+            for(std::size_t i=0;i<intersections.size();) {
+                const double left=intersections[i].x;
+                int change=0;
+                // Group coincident intersections to avoid artificial one-pixel spans.
+                while(i<intersections.size() && intersections[i].x==left)
+                    change+=intersections[i++].delta;
+                winding+=change;
+                if(!winding || i==intersections.size()) continue;
+                const double right=intersections[i].x;
+                const double clipped_left=std::max(0.0,left);
+                const double clipped_right=std::min(double(target.width),right);
+                if(clipped_left>=clipped_right) continue;
+                const auto start=static_cast<std::uint32_t>(std::ceil(clipped_left-0.5));
+                const auto end=static_cast<std::uint32_t>(std::ceil(clipped_right-0.5));
                 for(std::uint32_t x=start;x<end;++x)
                     pixel(target,x,y,sample_fill(shape.fills[style],double(x)+0.5-double(offset_x)/20.0,double(y)+0.5-double(offset_y)/20.0,bitmaps));
             }
