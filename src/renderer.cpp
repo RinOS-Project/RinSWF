@@ -74,8 +74,22 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
         return {channel(r/alpha),channel(g/alpha),channel(blue/alpha),
                 channel(alpha*255.0)};
     }
-    double t=fill.kind==FillKind::linear_gradient?(gx/16384.0+1.0)*0.5:
-             std::hypot(gx,gy)/16384.0;
+    double t=0.0;
+    if(fill.kind==FillKind::linear_gradient) {
+        t=(gx/16384.0+1.0)*0.5;
+    } else if(fill.kind==FillKind::focal_gradient) {
+        const double f=fill.focal_point;
+        const double px=gx/16384.0,py=gy/16384.0;
+        const double vx=px-f,vy=py, vv=vx*vx+vy*vy;
+        if(vv>1e-24) {
+            const double dot=f*vx;
+            const double discriminant=dot*dot+(1-f*f)*vv;
+            const double denominator=-dot+std::sqrt(std::max(0.0,discriminant));
+            t=denominator>1e-24?vv/denominator:1.0;
+        }
+    } else {
+        t=std::hypot(gx,gy)/16384.0;
+    }
     if(fill.spread==1) { t=std::fmod(t,2.0);if(t<0)t+=2.0;if(t>1)t=2-t; }
     else if(fill.spread==2) {t=std::fmod(t,1.0);if(t<0)t+=1.0;}
     else t=std::clamp(t,0.0,1.0);
@@ -204,7 +218,8 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
             fill.kind==FillKind::nonsmoothed_repeating_bitmap ||
             fill.kind==FillKind::nonsmoothed_clipped_bitmap;
         if(fill.kind!=FillKind::solid && fill.kind!=FillKind::linear_gradient &&
-           fill.kind!=FillKind::radial_gradient && !bitmap)
+           fill.kind!=FillKind::radial_gradient &&
+           fill.kind!=FillKind::focal_gradient && !bitmap)
             return fail(Error::malformed_tag,"fill kind not yet rendered");
         if(bitmap) {
             const auto* bmp=bitmaps?bitmaps->find(fill.bitmap_id):nullptr;
@@ -213,7 +228,9 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
                 return fail(Error::malformed_tag,"bitmap fill image unavailable");
         }
         if(fill.kind!=FillKind::solid) {
-            if(!bitmap && (fill.stops.empty() || fill.interpolation!=0 || fill.spread>2))
+            if(!bitmap && (fill.stops.empty() || fill.interpolation!=0 || fill.spread>2 ||
+                           (fill.kind==FillKind::focal_gradient &&
+                            (!std::isfinite(fill.focal_point) || std::abs(fill.focal_point)>=1.0))))
                 return fail(Error::malformed_tag,"unsupported gradient parameters");
             const auto& m=fill.matrix;
             if(!std::isfinite(m.scale_x)||!std::isfinite(m.scale_y)||
