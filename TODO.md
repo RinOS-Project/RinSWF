@@ -13,6 +13,8 @@
 - [ ] C ABI（DLL/共有ライブラリ向け）
 
 ## Phase 2 — 表示エンジン
+- [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
+- [ ] PlaceObject3、色変換・クリップ・描画用行列の保持
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [ ] ベクターラスタライズとクリッピング
 - [ ] テキスト、フォント、変換行列
