@@ -170,5 +170,13 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(2*16+9)*4+3]==alpha_once);
+    // Oppositely traversed duplicate segments must union, not cancel.
+    ShapeGeometry reversed=translucent;
+    reversed.commands.push_back({ShapeCommandKind::move_to,{}, {100,40},0,0,0});
+    reversed.commands.push_back({ShapeCommandKind::line_to,{}, {20,40},0,0,1});
+    assets.shapes[88]=reversed;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(2*16+9)*4+3]>0);
     return 0;
 }
