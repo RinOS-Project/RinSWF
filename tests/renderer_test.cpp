@@ -25,6 +25,16 @@ int main() {
     assert(draw_shape_strokes(thick,wide_line));
     assert(thick.rgba[(3*12+5)*4+3]==255); // within thickness
     assert(thick.rgba[(0*12+5)*4+3]==0);   // outside thickness
+    // A thin horizontal line near a pixel boundary should produce partial alpha.
+    Surface aa;
+    assert(make_surface(8,8,aa));
+    ShapeGeometry thin;
+    thin.lines.push_back({20,{250,20,20,255}});
+    thin.commands.push_back({ShapeCommandKind::move_to,{}, {20,45},0,0,0});
+    thin.commands.push_back({ShapeCommandKind::line_to,{}, {120,45},0,0,1});
+    assert(draw_shape_strokes(aa,thin));
+    const auto partial=aa.rgba[(2*8+3)*4+3];
+    assert(partial>0 && partial<255);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
