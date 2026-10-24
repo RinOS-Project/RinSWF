@@ -16,6 +16,20 @@ int main() {
     shape.commands.push_back({ShapeCommandKind::line_to,{}, {60,0},0,0,1});
     assert(draw_shape_strokes(canvas,shape));
     assert(canvas.rgba[1]==255);
+    ShapeGeometry rectangle;
+    rectangle.fills.push_back({{240,40,20,255}});
+    rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
+    rectangle.commands.push_back({ShapeCommandKind::line_to,{}, {60,20},0,1,0});
+    rectangle.commands.push_back({ShapeCommandKind::line_to,{}, {60,60},0,1,0});
+    rectangle.commands.push_back({ShapeCommandKind::line_to,{}, {20,60},0,1,0});
+    rectangle.commands.push_back({ShapeCommandKind::line_to,{}, {20,20},0,1,0});
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,rectangle));
+    const auto inside=(1*4+1)*4;
+    assert(canvas.rgba[inside]==240 && canvas.rgba[inside+3]==255);
+    assert(canvas.rgba[0]==0 && canvas.rgba[3]==0);
+    rectangle.commands[1].fill1=2;
+    assert(!draw_shape_fills(canvas,rectangle));
     assert(!make_surface(0,2,canvas));
     return 0;
 }
