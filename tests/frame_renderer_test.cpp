@@ -49,5 +49,24 @@ int main() {
     const auto preserved=rotated.rgba;
     assert(!render_frame(frame,assets,rotated));
     assert(rotated.rgba==preserved);
+    // Affine Shape: scale a solid square through the frame renderer.
+    ShapeGeometry square;
+    square.character_id=7;
+    square.fills.push_back({{255,0,0,255}});
+    square.commands.push_back({ShapeCommandKind::move_to,{}, {0,0},0,0,0});
+    square.commands.push_back({ShapeCommandKind::line_to,{}, {40,0},0,1,0});
+    square.commands.push_back({ShapeCommandKind::line_to,{}, {40,40},0,1,0});
+    square.commands.push_back({ShapeCommandKind::line_to,{}, {0,40},0,1,0});
+    square.commands.push_back({ShapeCommandKind::line_to,{}, {0,0},0,1,0});
+    assets.shapes.emplace(7,square);
+    FrameSnapshot shape_frame;
+    DisplayEntry placed;
+    placed.character_id=7;placed.depth=1;placed.has_matrix=true;
+    placed.matrix.scale_x=2;placed.matrix.scale_y=2;
+    shape_frame.objects.push_back(placed);
+    Surface shape_surface;
+    assert(make_surface(16,16,shape_surface));
+    assert(render_frame(shape_frame,assets,shape_surface));
+    assert(shape_surface.rgba[(1*16+1)*4+3]>0);
     return 0;
 }
