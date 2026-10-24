@@ -108,16 +108,28 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
     }
     return stops.back().color;
 }
-void segment(Surface& s,double x0,double y0,double x1,double y1,ShapeColor c) {
-    // Basic aliased stroke; clip endpoints before rasterizing to avoid unbounded loops.
-    const double dx=x1-x0,dy=y1-y0;
-    const double count=std::max(std::abs(dx),std::abs(dy));
-    if(!std::isfinite(count)||count>10000000.0) return;
-    const auto steps=static_cast<std::uint32_t>(std::ceil(count));
-    for(std::uint32_t i=0;i<=steps;++i) {
-        const double t=steps?double(i)/steps:0.0;
-        pixel(s,static_cast<std::int64_t>(std::llround(x0+dx*t)),
-              static_cast<std::int64_t>(std::llround(y0+dy*t)),c);
+void segment(Surface& s,double x0,double y0,double x1,double y1,
+             ShapeColor c,double width) {
+    // Aliased round-cap stroke, measured in device pixels.
+    // Evaluate distance within a clipped bounding box, not along an unbounded line.
+    const double radius=std::max(0.5,width*0.5);
+    if(!std::isfinite(x0)||!std::isfinite(y0)||!std::isfinite(x1)||
+       !std::isfinite(y1)||!std::isfinite(radius)) return;
+    const double lo_x=std::min(x0,x1)-radius-1.0;
+    const double hi_x=std::max(x0,x1)+radius+1.0;
+    const double lo_y=std::min(y0,y1)-radius-1.0;
+    const double hi_y=std::max(y0,y1)+radius+1.0;
+    if(hi_x<0 || hi_y<0 || lo_x>=s.width || lo_y>=s.height) return;
+    const auto left=static_cast<std::int64_t>(std::max(0.0,std::floor(lo_x)));
+    const auto right=static_cast<std::int64_t>(std::min(double(s.width),std::ceil(hi_x)));
+    const auto top=static_cast<std::int64_t>(std::max(0.0,std::floor(lo_y)));
+    const auto bottom=static_cast<std::int64_t>(std::min(double(s.height),std::ceil(hi_y)));
+    const double dx=x1-x0,dy=y1-y0,denom=dx*dx+dy*dy;
+    for(auto y=top;y<bottom;++y) for(auto x=left;x<right;++x) {
+        const double px=double(x)+0.5,py=double(y)+0.5;
+        const double t=denom>0?std::clamp(((px-x0)*dx+(py-y0)*dy)/denom,0.0,1.0):0.0;
+        const double ex=px-(x0+t*dx),ey=py-(y0+t*dy);
+        if(ex*ex+ey*ey<=radius*radius) pixel(s,x,y,c);
     }
 }
 }
@@ -158,9 +170,11 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         auto to_x=[&](ShapePoint p){return (double(p.x)+offset_x)/20.0;};
         auto to_y=[&](ShapePoint p){return (double(p.y)+offset_y)/20.0;};
         if(command.kind!=ShapeCommandKind::move_to && command.line) {
-            const auto color=shape.lines[command.line-1].color;
+            const auto& line_style=shape.lines[command.line-1];
+            const auto color=line_style.color;
+            const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
             if(command.kind==ShapeCommandKind::line_to) {
-                segment(target,to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color);
+                segment(target,to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width);
             } else if(command.kind==ShapeCommandKind::quadratic_to) {
                 ShapePoint start=previous;
                 constexpr unsigned subdivisions=32;
@@ -169,7 +183,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                     const double t=double(i)/subdivisions,u=1.0-t;
                     const double cx=u*u*to_x(start)+2*u*t*to_x(command.control)+t*t*to_x(command.endpoint);
                     const double cy=u*u*to_y(start)+2*u*t*to_y(command.control)+t*t*to_y(command.endpoint);
-                    segment(target,lastx,lasty,cx,cy,color);
+                    segment(target,lastx,lasty,cx,cy,color,stroke_width);
                     lastx=cx;lasty=cy;
                 }
             } else return fail(Error::malformed_tag,"unexpected shape command");
