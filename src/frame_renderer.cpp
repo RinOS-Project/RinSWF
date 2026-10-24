@@ -30,15 +30,31 @@ static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m
         const double px=x+0.5-tx,py=y+0.5-ty;
         const double sx=(d*px-b*py)/det,sy=(-c*px+a*py)/det;
         if(sx<0||sy<0||sx>=bmp.width||sy>=bmp.height)continue;
-        const auto source=(std::size_t(sy)*bmp.width+std::size_t(sx))*4;
+        // Bilinear filtering uses premultiplied alpha to prevent edge halos.
+        const double fx=sx-0.5,fy=sy-0.5;
+        const auto ix=std::int64_t(std::floor(fx)),iy=std::int64_t(std::floor(fy));
+        const double ux=fx-ix,uy=fy-iy;
+        const double weights[4]={(1-ux)*(1-uy),ux*(1-uy),(1-ux)*uy,ux*uy};
+        const std::int64_t xs[4]={ix,ix+1,ix,ix+1};
+        const std::int64_t ys[4]={iy,iy,iy+1,iy+1};
+        double alpha_f=0,premul[3]={};
+        for(unsigned i=0;i<4;++i) {
+            if(xs[i]<0||ys[i]<0||xs[i]>=bmp.width||ys[i]>=bmp.height)continue;
+            const auto pos=(std::size_t(ys[i])*bmp.width+std::size_t(xs[i]))*4;
+            const double a=double(bmp.rgba[pos+3])*weights[i]/255.0;
+            alpha_f+=a;
+            for(unsigned k=0;k<3;++k) premul[k]+=a*bmp.rgba[pos+k];
+        }
         const auto out=(std::size_t(y)*dst.width+std::size_t(x))*4;
-        const unsigned alpha=bmp.rgba[source+3],dstalpha=dst.rgba[out+3];
+        const unsigned alpha=unsigned(std::clamp(std::lround(alpha_f*255),0L,255L));
+        const unsigned dstalpha=dst.rgba[out+3];
         const unsigned total=alpha+(dstalpha*(255-alpha)+127)/255;
         if(!total)continue;
         for(unsigned k=0;k<3;++k) {
-            const unsigned premul=unsigned(bmp.rgba[source+k])*alpha+
+            const unsigned source_premul=unsigned(std::clamp(std::lround(premul[k]*255.0),0L,65025L));
+            const unsigned combined=source_premul+
                 (unsigned(dst.rgba[out+k])*dstalpha*(255-alpha)+127)/255;
-            dst.rgba[out+k]=std::uint8_t((premul+total/2)/total);
+            dst.rgba[out+k]=std::uint8_t((combined+total/2)/total);
         }
         dst.rgba[out+3]=std::uint8_t(total);
     }
