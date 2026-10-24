@@ -28,6 +28,17 @@ int main() {
     const auto inside=(1*4+1)*4;
     assert(canvas.rgba[inside]==240 && canvas.rgba[inside+3]==255);
     assert(canvas.rgba[0]==0 && canvas.rgba[3]==0);
+    ShapeFill gradient;
+    gradient.kind=FillKind::linear_gradient;
+    gradient.matrix.scale_x=0.001;
+    gradient.matrix.scale_y=0.001;
+    gradient.stops={ {0,{0,0,255,255}}, {255,{255,0,0,255}} };
+    rectangle.fills[0]=gradient;
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,rectangle));
+    assert(canvas.rgba[inside+3]==255);
+    rectangle.fills[0].matrix.scale_x=0;
+    assert(!draw_shape_fills(canvas,rectangle));
     rectangle.commands[1].fill1=2;
     assert(!draw_shape_fills(canvas,rectangle));
     assert(!make_surface(0,2,canvas));
