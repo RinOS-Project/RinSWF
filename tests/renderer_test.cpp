@@ -147,6 +147,15 @@ int main() {
     closed_shape.commands.push_back({ShapeCommandKind::line_to,{}, {80,80},0,0,1});
     assert(draw_shape_strokes(closed_canvas,closed_shape));
     assert(closed_canvas.rgba[(4*16+7)*4+3]>0);
+    // Closed corners also need the final-to-first join, including miter fallback.
+    closed_shape.lines[0].join=2;
+    closed_shape.lines[0].miter_limit=2.0;
+    clear(closed_canvas,{0,0,0,0});
+    assert(draw_shape_strokes(closed_canvas,closed_shape));
+    assert(closed_canvas.rgba[(4*16+4)*4+3]>0);
+    closed_shape.lines[0].join=1;
+    clear(closed_canvas,{0,0,0,0});
+    assert(draw_shape_strokes(closed_canvas,closed_shape));
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
