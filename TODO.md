@@ -14,7 +14,8 @@
 - [x] Bitmap Fill 0x40–0x43 の参照IDと変換行列の解析
 - [x] DefineBitsLossless / DefineBitsLossless2のRGB(A)ピクセル展開とBitmapLibrary ID検索
 - [x] DefineBitsJPEG2/3/4の画像データ分離、JPEG3/4の圧縮アルファ展開
-- [ ] JPEG/PNG/GIFピクセルデコーダー統合、LINESTYLE2、NewStyles、PlaceObject3、Font
+- [x] libjpegが利用可能な環境でのJPEG→RGBA変換、JPEG3/4アルファ合成、BitmapLibraryへの登録
+- [ ] PNG/GIF画像デコーダー統合、JPEG実画像の回帰テスト、LINESTYLE2、NewStyles、PlaceObject3、Font
 - [ ] ストリーム読み込みとエラー位置の詳細化
 - [ ] C ABI（DLL/共有ライブラリ向け）
 
