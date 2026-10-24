@@ -431,6 +431,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 return {Error::size_limit,"contour offset overflow"};
             auto result=draw_shape_fills(scratch,one,std::int32_t(offsetx),std::int32_t(offsety));
             if(!result)return result;
+            std::uint64_t cached_key=std::numeric_limits<std::uint64_t>::max();
+            auto cached_tile=coverage.end();
             for(std::int64_t y=0;y<bottom-top;++y)
                 for(std::int64_t x=0;x<right-left;++x) {
                     const auto src=(std::size_t(y)*scratch.width+std::size_t(x))*4+3;
@@ -439,12 +441,18 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     const auto px=std::uint32_t(x+left-mask_left);
                     const auto py=std::uint32_t(y+top-mask_top);
                     const auto key=tile_key(px/tile_side,py/tile_side);
-                    auto tile=coverage.find(key);
-                    if(tile==coverage.end()) {
-                        if(coverage.size()>=max_tiles)
-                            return {Error::size_limit,"stroke union tile limit"};
-                        tile=coverage.emplace(key,CoverageTile{}).first;
+                    // Rows usually touch many pixels in the same tile.
+                    // Reuse the last lookup instead of hashing each pixel.
+                    if(key!=cached_key || cached_tile==coverage.end()) {
+                        cached_tile=coverage.find(key);
+                        cached_key=key;
+                        if(cached_tile==coverage.end()) {
+                            if(coverage.size()>=max_tiles)
+                                return {Error::size_limit,"stroke union tile limit"};
+                            cached_tile=coverage.emplace(key,CoverageTile{}).first;
+                        }
                     }
+                    auto tile=cached_tile;
                     const auto index=std::size_t(py%tile_side)*tile_side+(px%tile_side);
                     tile->second[index]=std::max(tile->second[index],alpha);
                 }
