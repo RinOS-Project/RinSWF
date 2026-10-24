@@ -220,5 +220,13 @@ int main() {
     auto preserved=stroke_surface.rgba;
     assert(!render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba==preserved);
+    // Tiny quadratic curves whose subsegments round to the same twip
+    // must still render successfully without zero-length join geometry.
+    ShapeGeometry tiny=curved_stroke;
+    tiny.commands[1].control={21,41};
+    tiny.commands[1].endpoint={22,40};
+    assets.shapes[88]=tiny;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
     return 0;
 }
