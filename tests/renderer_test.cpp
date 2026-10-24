@@ -51,6 +51,20 @@ int main() {
     clear(canvas,{0,0,0,0});
     assert(draw_shape_fills(canvas,rectangle,0,0,&library));
     assert(canvas.rgba[inside]==15 && canvas.rgba[inside+1]==220);
+    // Smoothed repeating fill blends red and blue across their boundary.
+    Bitmap pair;
+    pair.character_id=43;pair.width=2;pair.height=1;
+    pair.rgba={255,0,0,255,0,0,255,255};
+    library.images.emplace(43,pair);
+    rectangle.fills[0].bitmap_id=43;
+    rectangle.fills[0].matrix.translate_x=10;
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,rectangle,0,0,&library));
+    assert(canvas.rgba[inside]>0 && canvas.rgba[inside+2]>0);
+    rectangle.fills[0].kind=FillKind::nonsmoothed_repeating_bitmap;
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,rectangle,0,0,&library));
+    assert(canvas.rgba[inside]==255 && canvas.rgba[inside+2]==0);
     rectangle.fills[0].bitmap_id=99;
     assert(!draw_shape_fills(canvas,rectangle,0,0,&library));
     rectangle.fills[0]=gradient;
