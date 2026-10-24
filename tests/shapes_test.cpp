@@ -12,4 +12,15 @@ int main() {
     empty.data[3]=1; // unsupported fill-style array
     assert(!decode_shape(empty));
     assert(!decode_shape({9,0,{}}));
+    // DefineShape1: one solid red fill and one blue LINESTYLE.
+    Tag styled{2,0,{9,0,0,1,0,255,0,0,1,20,0,0,0,255,0x11,0}};
+    auto parsed=decode_shape(styled);
+    assert(parsed);
+    assert(parsed.shape.fills.size()==1);
+    assert(parsed.shape.fills[0].color.r==255);
+    assert(parsed.shape.lines.size()==1);
+    assert(parsed.shape.lines[0].width==20);
+    assert(parsed.shape.lines[0].color.b==255);
+    styled.data[4]=0x10; // gradient fill: unsupported explicitly
+    assert(!decode_shape(styled));
 }
