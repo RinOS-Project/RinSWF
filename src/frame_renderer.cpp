@@ -134,7 +134,14 @@ static RenderResult flatten_affine_stroke(const ShapeGeometry& input,const Matri
         const double dx=ax-2*bx+cx,dy=ay-2*by+cy;
         const double bend=std::hypot(m.scale_x*dx+m.rotate_skew_0*dy,
                                      m.rotate_skew_1*dx+m.scale_y*dy)/20.0;
-        const unsigned steps=std::clamp(unsigned(std::ceil(std::sqrt(std::max(0.0,bend)*2.0))),1u,128u);
+        // For a quadratic Bezier, the maximum chord deviation of each
+        // uniform subdivision is bounded by bend/(4*N*N) pixels.
+        // Choose N for <= 0.125 px geometric deviation.
+        if(!std::isfinite(bend)) return {Error::size_limit,"nonfinite stroke curvature"};
+        const double requested=std::ceil(std::sqrt(std::max(0.0,bend)*2.0));
+        if(requested>128.0)
+            return {Error::size_limit,"stroke curvature exceeds subdivision limit"};
+        const unsigned steps=std::max(1u,unsigned(requested));
         if(segments+steps>100000) return {Error::size_limit,"stroke segment limit"};
         for(unsigned j=1;j<=steps;++j) {
             const double t=double(j)/steps,u=1-t;
@@ -143,6 +150,12 @@ static RenderResult flatten_affine_stroke(const ShapeGeometry& input,const Matri
             ShapeCommand segment=cmd;
             segment.kind=ShapeCommandKind::line_to;
             segment.control={};
+            if(!std::isfinite(px)||!std::isfinite(py) ||
+               px<std::numeric_limits<std::int32_t>::min() ||
+               px>std::numeric_limits<std::int32_t>::max() ||
+               py<std::numeric_limits<std::int32_t>::min() ||
+               py>std::numeric_limits<std::int32_t>::max())
+                return {Error::size_limit,"flattened stroke coordinate overflow"};
             segment.endpoint={std::int32_t(std::llround(px)),std::int32_t(std::llround(py))};
             if(j==steps)segment.endpoint=cmd.endpoint;
             output.commands.push_back(segment);
