@@ -24,5 +24,14 @@ int main() {
     frame.objects[0].matrix.scale_x=2.0;
     assert(!render_frame(frame,assets,target));
     assert(target.rgba==before);
+    // Duplicate shape/bitmap IDs must fail without mutating previously collected assets.
+    Document duplicate;
+    Tag lossless;
+    lossless.code=20;
+    lossless.data={42,0}; // duplicate decode fails safely on truncated input
+    duplicate.tags.push_back(lossless);
+    FrameAssets unchanged=assets;
+    assert(!collect_frame_assets(duplicate,unchanged));
+    assert(unchanged.bitmaps.images.size()==assets.bitmaps.images.size());
     return 0;
 }
