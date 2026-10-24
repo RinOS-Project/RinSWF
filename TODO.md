@@ -7,7 +7,8 @@
 - [x] RECT、フレーム情報、タグ列の解析
 - [x] 入力・展開・タグ数・タグ長の制限
 - [ ] ZWS（LZMA）対応
-- [ ] 個別タグの型付きデコード（Shape、PlaceObject、Bitmap、Fontなど）
+- [x] 基本タグの型付きデコード（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）
+- [ ] Shape、PlaceObject、Bitmap、Fontなど複合タグの型付きデコード
 - [ ] ストリーム読み込みとエラー位置の詳細化
 - [ ] C ABI（DLL/共有ライブラリ向け）
 
