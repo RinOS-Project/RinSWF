@@ -283,5 +283,23 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // Multiple separated strokes force many sparse tiles and hash-table growth.
+    ShapeGeometry spread=translucent;
+    spread.commands.clear();
+    for(int i=0;i<24;++i) {
+        const int x=200+i*180;
+        spread.commands.push_back({ShapeCommandKind::move_to,{}, {x,200},0,0,0});
+        spread.commands.push_back({ShapeCommandKind::line_to,{}, {x+80,200},0,0,1});
+    }
+    assets.shapes[88]=spread;
+    Surface spread_surface;
+    assert(make_surface(512,64,spread_surface));
+    FrameSnapshot spread_frame;
+    DisplayEntry spread_entry;
+    spread_entry.depth=1;spread_entry.character_id=88;spread_entry.has_matrix=true;
+    spread_entry.matrix.scale_x=2;spread_entry.matrix.scale_y=1;
+    spread_frame.objects.push_back(spread_entry);
+    assert(render_frame(spread_frame,assets,spread_surface,{128,128*4096}));
+    assert(spread_surface.rgba[(10*512+20)*4+3]>0);
     return 0;
 }
