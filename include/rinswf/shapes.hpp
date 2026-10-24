@@ -12,7 +12,20 @@ struct ShapeCommand {
     std::uint32_t fill0=0, fill1=0, line=0;
 };
 struct ShapeColor { std::uint8_t r=0,g=0,b=0,a=255; };
-struct ShapeFill { ShapeColor color; };
+struct GradientStop { std::uint8_t ratio=0; ShapeColor color; };
+struct ShapeMatrix {
+    double scale_x=1.0, scale_y=1.0, skew_x=0.0, skew_y=0.0;
+    std::int32_t translate_x=0, translate_y=0;
+};
+enum class FillKind { solid, linear_gradient, radial_gradient, focal_gradient };
+struct ShapeFill {
+    ShapeColor color;
+    FillKind kind=FillKind::solid;
+    ShapeMatrix matrix{};
+    std::uint8_t spread=0, interpolation=0;
+    std::vector<GradientStop> stops;
+    double focal_point=0.0;
+};
 struct ShapeLine { std::uint16_t width=0; ShapeColor color; };
 struct ShapeGeometry {
     std::uint16_t character_id=0;
@@ -26,7 +39,7 @@ struct ShapeResult {
     ShapeGeometry shape;
     explicit operator bool() const noexcept { return error==Error::none; }
 };
-// Supports solid RGB/RGBA fills and LINESTYLE (DefineShape 1/2/3).
-// Unsupported gradient/bitmap fills, LINESTYLE2 and NewStyles fail explicitly.
+// Supports solid and gradient fills in DefineShape 1/2/3/4.
+// Unsupported bitmap fills, LINESTYLE2 and NewStyles fail explicitly.
 [[nodiscard]] ShapeResult decode_shape(const Tag& tag, std::size_t max_commands=100000);
 }
