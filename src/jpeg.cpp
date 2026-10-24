@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/jpeg.hpp"
 #include <limits>
-#include <csetjmp>
+#include <stdexcept>
 #ifdef RINSWF_HAVE_LIBJPEG
 #include <jpeglib.h>
 #endif
@@ -19,11 +19,12 @@ JpegResult fail(Error e,const char* s) { return {e,s,{}}; }
 #ifdef RINSWF_HAVE_LIBJPEG
 struct JpegError {
     jpeg_error_mgr base;
-    jmp_buf jump;
+
 };
 void jpeg_error_exit(j_common_ptr info) {
     auto* err=reinterpret_cast<JpegError*>(info->err);
-    longjmp(err->jump,1);
+    (void)err;
+    throw std::runtime_error("JPEG codec error");
 }
 #endif
 }
@@ -80,13 +81,12 @@ BitmapResult decode_jpeg_bitmap(const JpegAsset& asset,std::size_t max_pixels) {
         return {Error::invalid_length,"invalid JPEG image length",{}};
     jpeg_decompress_struct info{};
     JpegError error{};
+    Bitmap bitmap;
+    std::vector<std::uint8_t> scanline;
     info.err=jpeg_std_error(&error.base);
     error.base.error_exit=jpeg_error_exit;
+    try {
     jpeg_create_decompress(&info);
-    if(setjmp(error.jump)) {
-        jpeg_destroy_decompress(&info);
-        return {Error::malformed_tag,"JPEG decoder rejected input",{}};
-    }
     jpeg_mem_src(&info,asset.image_data.data(),
                  static_cast<unsigned long>(asset.image_data.size()));
     if(jpeg_read_header(&info,TRUE)!=JPEG_HEADER_OK) {
@@ -107,12 +107,11 @@ BitmapResult decode_jpeg_bitmap(const JpegAsset& asset,std::size_t max_pixels) {
         jpeg_destroy_decompress(&info);
         return {Error::malformed_tag,"unsupported JPEG output",{}};
     }
-    Bitmap bitmap;
     bitmap.character_id=asset.character_id;
     bitmap.width=static_cast<std::uint16_t>(width);
     bitmap.height=static_cast<std::uint16_t>(height);
     bitmap.rgba.resize(width*height*4);
-    std::vector<std::uint8_t> scanline(width*3);
+    scanline.resize(width*3);
     while(info.output_scanline<info.output_height) {
         JSAMPROW row=scanline.data();
         const std::size_t y=info.output_scanline;
@@ -137,6 +136,10 @@ BitmapResult decode_jpeg_bitmap(const JpegAsset& asset,std::size_t max_pixels) {
         for(std::size_t i=0;i<alpha.size();++i) bitmap.rgba[i*4+3]=alpha[i];
     }
     return {Error::none,{},std::move(bitmap)};
+    } catch(const std::exception&) {
+        jpeg_destroy_decompress(&info);
+        return {Error::malformed_tag,"JPEG decoder rejected input", {}};
+    }
 #endif
 }
 Error collect_jpeg_bitmaps(const Document& document,BitmapLibrary& library,std::size_t max_pixels) {
