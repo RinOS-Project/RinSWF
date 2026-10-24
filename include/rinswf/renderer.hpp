@@ -18,9 +18,10 @@ struct RenderResult {
                                         std::size_t max_pixels=16*1024*1024);
 void clear(Surface& surface,ShapeColor color) noexcept;
 // Rasterizes closed solid-color contours with even-odd filling.
-// Gradient and bitmap fills return an error; no implicit fallback colors.
+// Bitmap fills require a BitmapLibrary; missing assets fail explicitly.
 [[nodiscard]] RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
-                                            std::int32_t offset_x=0,std::int32_t offset_y=0);
+                                            std::int32_t offset_x=0,std::int32_t offset_y=0,
+                                            const BitmapLibrary* bitmaps=nullptr);
 [[nodiscard]] RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,
                                        std::int32_t x,std::int32_t y);
 [[nodiscard]] RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
