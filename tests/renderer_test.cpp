@@ -109,6 +109,19 @@ int main() {
     assert(draw_shape_strokes(large,local));
     assert(large.rgba[(150*256+155)*4+3]>0);
     assert(large.rgba[3]==0);
+    // Sparse mask covers distant segments without allocating the intervening rectangle.
+    Surface sparse;
+    assert(make_surface(512,512,sparse));
+    ShapeGeometry separated;
+    separated.lines.push_back({20,{60,200,90,200}});
+    separated.commands.push_back({ShapeCommandKind::move_to,{}, {100,100},0,0,0});
+    separated.commands.push_back({ShapeCommandKind::line_to,{}, {200,100},0,0,1});
+    separated.commands.push_back({ShapeCommandKind::move_to,{}, {9500,9500},0,0,0});
+    separated.commands.push_back({ShapeCommandKind::line_to,{}, {9600,9500},0,0,1});
+    assert(draw_shape_strokes(sparse,separated));
+    assert(sparse.rgba[(5*512+7)*4+3]>0);
+    assert(sparse.rgba[(475*512+477)*4+3]>0);
+    assert(sparse.rgba[(256*512+256)*4+3]==0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
