@@ -106,24 +106,31 @@ static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
 }
 static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& shape,
                                            const Matrix& m) {
-    // Exact affine image of the filled rectangle forming one butt-capped line.
-    if(shape.commands.size()!=2 || shape.commands[0].kind!=ShapeCommandKind::move_to ||
-       shape.commands[1].kind!=ShapeCommandKind::line_to || shape.lines.size()!=1 ||
-       !shape.fills.empty() || shape.commands[1].line!=1 ||
-       shape.lines[0].start_cap!=1 || shape.lines[0].end_cap!=1)
+    // Transform each straight edge's rectangular outline into one fill geometry.
+    // The common nonzero-winding pass keeps opaque segment overlaps solid.
+    if(shape.lines.size()!=1 || !shape.fills.empty() ||
+       shape.lines[0].start_cap!=1 || shape.lines[0].end_cap!=1 ||
+       shape.lines[0].color.a!=255 || shape.commands.size()<2)
         return {Error::malformed_tag,"unsupported affine stroke geometry"};
-    const auto& start=shape.commands[0].endpoint;
-    const auto& end=shape.commands[1].endpoint;
+    ShapeGeometry quad;
+    quad.fills.push_back({shape.lines[0].color});
+    ShapePoint cursor{};
+    bool have_cursor=false;
+    for(const auto& edge:shape.commands) {
+        if(edge.kind==ShapeCommandKind::move_to) {
+            cursor=edge.endpoint;have_cursor=true;continue;
+        }
+        if(!have_cursor || edge.kind!=ShapeCommandKind::line_to || edge.line!=1)
+            return {Error::malformed_tag,"unsupported affine stroke edge"};
+        const auto& start=cursor;
+        const auto& end=edge.endpoint;
     const double dx=double(end.x)-start.x,dy=double(end.y)-start.y;
     const double length=std::hypot(dx,dy);
-    if(length<1e-8)return {Error::malformed_tag,"degenerate stroke"};
+    if(length<1e-8) {cursor=end;continue;}
     const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
     const double nx=-dy/length*radius,ny=dx/length*radius;
     const double corners[4][2]={{start.x+nx,start.y+ny},{end.x+nx,end.y+ny},
                                 {end.x-nx,end.y-ny},{start.x-nx,start.y-ny}};
-    ShapeGeometry quad;
-    ShapeFill fill;fill.color=shape.lines[0].color;
-    quad.fills.push_back(fill);
     for(unsigned i=0;i<5;++i) {
         const auto& v=corners[i%4];
         const double x=m.scale_x*v[0]+m.rotate_skew_0*v[1]+m.translate_x;
@@ -136,6 +143,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         cmd.endpoint={std::int32_t(std::llround(x)),std::int32_t(std::llround(y))};
         cmd.fill1=i==0?0:1;
         quad.commands.push_back(cmd);
+    }
+        cursor=end;
     }
     return draw_shape_fills(dst,quad);
 }
@@ -222,11 +231,17 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                        std::abs(dot)>tolerance) direct=false;
                 }
                 const auto& sh=it->second;
-                const bool straight_butt=sh.commands.size()==2 && sh.lines.size()==1 &&
-                    sh.fills.empty() && sh.commands[0].kind==ShapeCommandKind::move_to &&
-                    sh.commands[1].kind==ShapeCommandKind::line_to &&
-                    sh.commands[1].line==1 && sh.lines[0].start_cap==1 &&
+                bool straight_butt=sh.lines.size()==1 && sh.fills.empty() &&
+                    sh.lines[0].color.a==255 && sh.lines[0].start_cap==1 &&
                     sh.lines[0].end_cap==1;
+                bool has_move=false,has_line=false;
+                for(const auto& edge:sh.commands) {
+                    if(edge.kind==ShapeCommandKind::move_to) has_move=true;
+                    else if(edge.kind==ShapeCommandKind::line_to && edge.line==1 && has_move)
+                        has_line=true;
+                    else straight_butt=false;
+                }
+                straight_butt=straight_butt && has_line;
                 auto a=direct
                     ? vector_shape(stage,sh,assets.bitmaps,m,limits)
                     : straight_butt ? affine_straight_stroke(stage,sh,m)
