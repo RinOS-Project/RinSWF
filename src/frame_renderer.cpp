@@ -427,14 +427,23 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         // This preserves two disjoint partial coverages within one pixel.
         std::uint64_t cached_key=std::numeric_limits<std::uint64_t>::max();
         CoverageTile* cached_tile=nullptr;
-        for(auto y=top;y<bottom;++y) for(auto x=left;x<right;++x) {
+        // Build active edge sets once per subpixel scanline.
+        for(auto y=top;y<bottom;++y) {
+            std::array<std::vector<const WindingEdge*>,4> active;
+            for(unsigned sy=0;sy<4;++sy) {
+                const double py=double(y)+(sy+0.5)/4.0;
+                for(const auto& e:edges)
+                    if(py>=std::min(e.ay,e.by) && py<std::max(e.ay,e.by))
+                        active[sy].push_back(&e);
+            }
+            for(auto x=left;x<right;++x) {
             std::uint16_t bits=0;
             for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
                 const double px=double(x)+(sx+0.5)/4.0;
                 const double py=double(y)+(sy+0.5)/4.0;
                 int winding=0;
-                for(const auto& e:edges) {
-                    if(py<std::min(e.ay,e.by) || py>=std::max(e.ay,e.by))continue;
+                for(const auto* edge:active[sy]) {
+                    const auto& e=*edge;
                     const double cross=e.dx*(py-e.ay)-e.dy*(px-e.ax);
                     if(e.dy>0 && cross>0)++winding;
                     else if(e.dy<0 && cross<0)--winding;
@@ -456,6 +465,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             }
             auto& sample_mask=(*cached_tile)[std::size_t(uy%tile_side)*tile_side+ux%tile_side];
             sample_mask|=bits;
+            }
         }
         one.commands.clear();
         return {};
