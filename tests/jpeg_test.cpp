@@ -28,4 +28,10 @@ int main() {
     auto parsed4=parse_jpeg_asset(jpeg4);
     assert(parsed4 && parsed4.asset.deblock_fixed8==384);
     assert(!parse_jpeg_asset({9,0,{}}));
+    auto malformed=decode_jpeg_bitmap(basic.asset);
+    assert(!malformed); // JPEG SOI/EOI alone is not a valid decodable image
+    Document collection;
+    collection.tags.push_back(jpeg2);
+    BitmapLibrary library;
+    assert(collect_jpeg_bitmaps(collection,library)!=Error::none);
 }
