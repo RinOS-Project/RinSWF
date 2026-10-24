@@ -33,6 +33,23 @@ struct Bits {
     void align() { pos=(pos+7)&~std::size_t(7); }
     bool byte(std::uint32_t& v) { return read(8,v); }
 };
+bool color(Bits& b,bool alpha,ShapeColor& c) {
+    std::uint32_t v=0;
+    if(!b.byte(v)) return false; c.r=static_cast<std::uint8_t>(v);
+    if(!b.byte(v)) return false; c.g=static_cast<std::uint8_t>(v);
+    if(!b.byte(v)) return false; c.b=static_cast<std::uint8_t>(v);
+    if(alpha) { if(!b.byte(v)) return false; c.a=static_cast<std::uint8_t>(v); }
+    return true;
+}
+bool style_count(Bits& b,bool extended,std::uint32_t& count) {
+    if(!b.byte(count)) return false;
+    if(count==255 && extended) {
+        std::uint32_t lo=0,hi=0;
+        if(!b.byte(lo)||!b.byte(hi)) return false;
+        count=lo|(hi<<8);
+    }
+    return true;
+}
 ShapeResult bad(Error e,const char* why) {return {e,why,{}};}
 bool advance(std::int32_t& current,std::int32_t delta) {
     auto result=std::int64_t(current)+delta;
@@ -49,14 +66,36 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
     if(tag.code==83) {
         if(!b.rect() || !b.read(8,flags)) return bad(Error::truncated,"truncated DefineShape4 header");
     }
-    std::uint32_t fills=0,lines=0;
-    if(!b.byte(fills)||!b.byte(lines)) return bad(Error::truncated,"truncated style tables");
-    if(fills || lines) return bad(Error::malformed_tag,"non-empty shape style tables not supported");
-    std::uint32_t fill_bits=0,line_bits=0;
-    if(!b.read(4,fill_bits)||!b.read(4,line_bits)) return bad(Error::truncated,"missing style indices");
-    if(fill_bits || line_bits) return bad(Error::malformed_tag,"unexpected style index width");
     ShapeGeometry geometry;
     geometry.character_id=static_cast<std::uint16_t>(id);
+    const bool extended=tag.code!=2, alpha=tag.code>=32;
+    std::uint32_t fills=0,lines=0;
+    if(!style_count(b,extended,fills)) return bad(Error::truncated,"truncated fill count");
+    if(fills>65535) return bad(Error::size_limit,"too many fills");
+    for(std::uint32_t i=0;i<fills;++i) {
+        std::uint32_t type=0;
+        if(!b.byte(type)) return bad(Error::truncated,"truncated fill type");
+        if(type!=0) return bad(Error::unsupported_compression,"gradient and bitmap fills not implemented");
+        ShapeFill fill;
+        if(!color(b,alpha,fill.color)) return bad(Error::truncated,"truncated solid fill");
+        geometry.fills.push_back(fill);
+    }
+    if(!style_count(b,extended,lines)) return bad(Error::truncated,"truncated line count");
+    if(lines>65535) return bad(Error::size_limit,"too many lines");
+    if(tag.code==83 && lines) return bad(Error::malformed_tag,"LINESTYLE2 not yet implemented");
+    for(std::uint32_t i=0;i<lines;++i) {
+        std::uint32_t low=0,high=0;
+        if(!b.byte(low)||!b.byte(high)) return bad(Error::truncated,"truncated line width");
+        ShapeLine line;
+        line.width=static_cast<std::uint16_t>(low|(high<<8));
+        if(!color(b,alpha,line.color)) return bad(Error::truncated,"truncated line color");
+        geometry.lines.push_back(line);
+    }
+    std::uint32_t fill_bits=0,line_bits=0;
+    if(!b.read(4,fill_bits)||!b.read(4,line_bits)) return bad(Error::truncated,"missing style indices");
+    std::uint32_t fill0=0,fill1=0,line=0;
+    if((fills && !fill_bits)||(lines && !line_bits))
+        return bad(Error::malformed_tag,"missing style index bits");
     std::int32_t x=0,y=0;
     for(;;) {
         std::uint32_t type=0,flags5=0;
@@ -64,13 +103,25 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
         if(!type) {
             if(!flags5) break;
             if(flags5 & 0x10) return bad(Error::malformed_tag,"new style arrays not supported");
-            if(flags5 & 0x0b) return bad(Error::malformed_tag,"style changes not supported");
-            if(flags5 & 0x04) {
+            if(flags5 & 0x01) {
                 std::uint32_t n=0;
                 if(!b.read(5,n)||!b.signed_read(n,x)||!b.signed_read(n,y))
                     return bad(Error::truncated,"truncated move record");
                 if(geometry.commands.size()>=max_commands) return bad(Error::size_limit,"shape command limit");
-                geometry.commands.push_back({ShapeCommandKind::move_to,{}, {x,y},0,0,0});
+                geometry.commands.push_back({ShapeCommandKind::move_to,{}, {x,y},fill0,fill1,line});
+            }
+            std::uint32_t idx=0;
+            if(flags5 & 0x02) {
+                if(!b.read(fill_bits,idx)||idx>fills) return bad(Error::malformed_tag,"invalid fill0 index");
+                fill0=idx;
+            }
+            if(flags5 & 0x04) {
+                if(!b.read(fill_bits,idx)||idx>fills) return bad(Error::malformed_tag,"invalid fill1 index");
+                fill1=idx;
+            }
+            if(flags5 & 0x08) {
+                if(!b.read(line_bits,idx)||idx>lines) return bad(Error::malformed_tag,"invalid line index");
+                line=idx;
             }
         } else {
             const bool straight=(flags5 & 0x10)!=0;
@@ -88,7 +139,7 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                     else {if(!b.signed_read(n,dx)) return bad(Error::truncated,"truncated horizontal line");}
                 }
                 if(!advance(x,dx)||!advance(y,dy)) return bad(Error::invalid_length,"coordinate overflow");
-                geometry.commands.push_back({ShapeCommandKind::line_to,{}, {x,y},0,0,0});
+                geometry.commands.push_back({ShapeCommandKind::line_to,{}, {x,y},fill0,fill1,line});
             } else {
                 std::int32_t cdx=0,cdy=0,adx=0,ady=0;
                 if(!b.signed_read(n,cdx)||!b.signed_read(n,cdy)||!b.signed_read(n,adx)||!b.signed_read(n,ady))
@@ -96,7 +147,7 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                 if(!advance(x,cdx)||!advance(y,cdy)) return bad(Error::invalid_length,"curve control overflow");
                 ShapePoint control{x,y};
                 if(!advance(x,adx)||!advance(y,ady)) return bad(Error::invalid_length,"curve endpoint overflow");
-                geometry.commands.push_back({ShapeCommandKind::quadratic_to,control,{x,y},0,0,0});
+                geometry.commands.push_back({ShapeCommandKind::quadratic_to,control,{x,y},fill0,fill1,line});
             }
         }
     }
