@@ -9,7 +9,8 @@
 - [ ] ZWS（LZMA）対応
 - [x] 基本タグの型付きデコード（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）
 - [x] DefineShape 1/2/3/4のRECT・基本edgeレコード解析（スタイルなし限定）
-- [ ] Shapeの塗り・線スタイル、PlaceObject3、Bitmap、Fontの型付きデコード
+- [x] DefineShape 1/2/3 のSolid FillとLINESTYLE、スタイル参照
+- [ ] Gradient/Bitmap Fill、LINESTYLE2、NewStyles、PlaceObject3、Bitmap、Font
 - [ ] ストリーム読み込みとエラー位置の詳細化
 - [ ] C ABI（DLL/共有ライブラリ向け）
 
