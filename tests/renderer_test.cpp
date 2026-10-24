@@ -134,6 +134,19 @@ int main() {
     assert(!limited && limited.error==Error::size_limit);
     assert(budget_surface.rgba==before_budget);
     assert(draw_shape_strokes(budget_surface,budget_shape,0,0,{4,16384}));
+    // Closing edge of a one-style contour must not introduce external caps.
+    Surface closed_canvas;
+    assert(make_surface(16,16,closed_canvas));
+    ShapeGeometry closed_shape;
+    ShapeLine cs; cs.width=40; cs.color={100,180,250,255};
+    cs.start_cap=2; cs.end_cap=2;
+    closed_shape.lines.push_back(cs);
+    closed_shape.commands.push_back({ShapeCommandKind::move_to,{}, {80,80},0,0,0});
+    closed_shape.commands.push_back({ShapeCommandKind::line_to,{}, {200,80},0,0,1});
+    closed_shape.commands.push_back({ShapeCommandKind::line_to,{}, {200,200},0,0,1});
+    closed_shape.commands.push_back({ShapeCommandKind::line_to,{}, {80,80},0,0,1});
+    assert(draw_shape_strokes(closed_canvas,closed_shape));
+    assert(closed_canvas.rgba[(4*16+7)*4+3]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
