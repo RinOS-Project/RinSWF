@@ -22,7 +22,7 @@ DefineShapeのMove/Line/Quadratic輪郭抽出に加え、DefineShape 1/2/3の単
 
 `frame_renderer.hpp` の `collect_frame_assets()` でDefineShapeとDefineBitsLossless系を収集し、`build_timeline()` が生成した `FrameSnapshot` を `render_frame()` でRGBA Surfaceへ描画できます。深度順のShape/Bitmap配置を描画します。Bitmapは逆写像による拡大縮小・回転・スキュー（プリマルチプライドアルファのバイリニア補間）に基本対応しますが、単色FillのみのShapeは輪郭座標を直接アフィン変換します。線があるShapeも等方拡大縮小・回転については線幅を変換して直接描画します。また、不透明な複数直線のbuttキャップストロークは各辺を矩形輪郭に展開し、Round/Bevel/Miter Join（MiterLimit超過時はBevel）およびRound/Square Capの外側楔形輪郭を基本描画し、非等方変換でも直接描画します。それ以外のShapeはローカルRGBAを生成してから拡大縮小・回転・スキューを適用します。変換後のベクターAAや高品質な縮小フィルタは未対応です。JPEG2/3/4もlibjpeg利用可能時に収集します。ActionScript、Sprite、色変換は未対応です。JPEGデコードできない環境では明示的にエラーを返します。
 
-半透明ストロークのUnion合成は輪郭ごとの描画範囲に限定した一時サーフェスを使います。Union合成用マスクも輪郭全体のクリップ矩形に限定し、64×64の8-bitスパースタイルとして必要な箇所のみ確保します（上限4096タイル）。輪郭の一時サーフェスは同じ寸法で再利用します。
+半透明ストロークのUnion合成は輪郭ごとの描画範囲に限定した一時サーフェスを使います。Union合成用マスクも輪郭全体のクリップ矩形に限定し、64×64の8-bitスパースタイルとして必要な箇所のみ確保します（上限はStrokeLimitsから指定）。輪郭の一時サーフェスは同じ寸法で再利用します。
 
 二次ベジェ曲線のストロークについても、画面空間での曲率に基づく線分への細分化を介して非等方アフィン輪郭描画へ渡します。曲線の厳密なオフセット輪郭は未対応です。
 
