@@ -256,5 +256,23 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // Affine outline union must honor the caller's tile budget and fail atomically.
+    Surface budget_target;
+    assert(make_surface(256,256,budget_target));
+    ShapeGeometry wide=cross;
+    wide.commands.clear();
+    wide.commands.push_back({ShapeCommandKind::move_to,{}, {20,800},0,0,0});
+    wide.commands.push_back({ShapeCommandKind::line_to,{}, {2200,800},0,0,1});
+    assets.shapes[88]=wide;
+    FrameSnapshot budget_frame;
+    DisplayEntry budget_entry;
+    budget_entry.depth=1;budget_entry.character_id=88;budget_entry.has_matrix=true;
+    budget_entry.matrix.scale_x=2;budget_entry.matrix.scale_y=1;
+    budget_frame.objects.push_back(budget_entry);
+    const auto pristine=budget_target.rgba;
+    const auto too_small=render_frame(budget_frame,assets,budget_target,{1,4096});
+    assert(!too_small && too_small.error==Error::size_limit);
+    assert(budget_target.rgba==pristine);
+    assert(render_frame(budget_frame,assets,budget_target,{16,65536}));
     return 0;
 }
