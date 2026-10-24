@@ -148,7 +148,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     }
     // Connect consecutive straight segments with an outer bevel wedge.
     // Degenerate and non-finite joins are skipped instead of inventing geometry.
-    if(shape.lines[0].join==1) {
+    if(shape.lines[0].join==1 || shape.lines[0].join==2) {
         auto add_triangle=[&](double ax,double ay,double bx,double by,
                               double cx,double cy)->bool {
             const double points[4][2]={{ax,ay},{bx,by},{cx,cy},{ax,ay}};
@@ -188,6 +188,22 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
             const double p1x=b.x-sign*uy/ul*radius,p1y=b.y+sign*ux/ul*radius;
             const double p2x=b.x-sign*vy/vl*radius,p2y=b.y+sign*vx/vl*radius;
+            if(shape.lines[0].join==2) {
+                const double d1x=ux/ul,d1y=uy/ul,d2x=vx/vl,d2y=vy/vl;
+                const double det=d1x*d2y-d1y*d2x;
+                if(std::abs(det)>1e-12) {
+                    const double rx=p2x-p1x,ry=p2y-p1y;
+                    const double t=(rx*d2y-ry*d2x)/det;
+                    const double mx=p1x+t*d1x,my=p1y+t*d1y;
+                    const double ratio=std::hypot(mx-b.x,my-b.y)/radius;
+                    if(std::isfinite(ratio) &&
+                       ratio<=std::max(1.0,shape.lines[0].miter_limit)) {
+                        if(!add_triangle(p1x,p1y,mx,my,p2x,p2y))
+                            return {Error::size_limit,"miter join coordinate overflow"};
+                        continue;
+                    }
+                }
+            }
             if(!add_triangle(b.x,b.y,p1x,p1y,p2x,p2y))
                 return {Error::size_limit,"bevel join coordinate overflow"};
         }
