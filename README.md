@@ -20,7 +20,7 @@ DefineShapeのMove/Line/Quadratic輪郭抽出に加え、DefineShape 1/2/3の単
 
 ## フレーム描画（初期実装）
 
-`frame_renderer.hpp` の `collect_frame_assets()` でDefineShapeとDefineBitsLossless系を収集し、`build_timeline()` が生成した `FrameSnapshot` を `render_frame()` でRGBA Surfaceへ描画できます。深度順のShape/Bitmap配置を描画します。Bitmapは逆写像による拡大縮小・回転・スキュー（最近傍）に基本対応しますが、ShapeもローカルRGBAを生成してから拡大縮小・回転・スキューを適用する基本方式に対応します。変換後のベクターAAや高品質補間は未対応です。JPEG2/3/4もlibjpeg利用可能時に収集します。ActionScript、Sprite、色変換は未対応です。JPEGデコードできない環境では明示的にエラーを返します。
+`frame_renderer.hpp` の `collect_frame_assets()` でDefineShapeとDefineBitsLossless系を収集し、`build_timeline()` が生成した `FrameSnapshot` を `render_frame()` でRGBA Surfaceへ描画できます。深度順のShape/Bitmap配置を描画します。Bitmapは逆写像による拡大縮小・回転・スキュー（プリマルチプライドアルファのバイリニア補間）に基本対応しますが、ShapeもローカルRGBAを生成してから拡大縮小・回転・スキューを適用する基本方式に対応します。変換後のベクターAAや高品質な縮小フィルタは未対応です。JPEG2/3/4もlibjpeg利用可能時に収集します。ActionScript、Sprite、色変換は未対応です。JPEGデコードできない環境では明示的にエラーを返します。
 
 ## ビルドとテスト
 
