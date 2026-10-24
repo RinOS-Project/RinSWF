@@ -126,10 +126,21 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
     const auto bottom=static_cast<std::int64_t>(std::min(double(s.height),std::ceil(hi_y)));
     const double dx=x1-x0,dy=y1-y0,denom=dx*dx+dy*dy;
     for(auto y=top;y<bottom;++y) for(auto x=left;x<right;++x) {
-        const double px=double(x)+0.5,py=double(y)+0.5;
-        const double t=denom>0?std::clamp(((px-x0)*dx+(py-y0)*dy)/denom,0.0,1.0):0.0;
-        const double ex=px-(x0+t*dx),ey=py-(y0+t*dy);
-        if(ex*ex+ey*ey<=radius*radius) pixel(s,x,y,c);
+        // 4x4 coverage AA for each stroke segment, blended once per pixel.
+        // Note: adjacent segments are still composited independently.
+        unsigned covered=0;
+        for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
+            const double px=double(x)+(double(sx)+0.5)/4.0;
+            const double py=double(y)+(double(sy)+0.5)/4.0;
+            const double t=denom>0?std::clamp(((px-x0)*dx+(py-y0)*dy)/denom,0.0,1.0):0.0;
+            const double ex=px-(x0+t*dx),ey=py-(y0+t*dy);
+            if(ex*ex+ey*ey<=radius*radius) ++covered;
+        }
+        if(covered) {
+            ShapeColor sample=c;
+            sample.a=static_cast<std::uint8_t>((unsigned(c.a)*covered+8)/16);
+            pixel(s,x,y,sample);
+        }
     }
 }
 }
