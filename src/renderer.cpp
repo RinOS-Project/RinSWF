@@ -108,12 +108,16 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
     }
     return stops.back().color;
 }
-void mask_pixel(Surface& s,std::int64_t x,std::int64_t y,ShapeColor c) {
+struct CoverageMask {
+    std::uint32_t width=0,height=0;
+    std::vector<std::uint8_t> coverage;
+};
+void mask_pixel(CoverageMask& s,std::int64_t x,std::int64_t y,ShapeColor c) {
     if(x<0||y<0||x>=s.width||y>=s.height) return;
-    const auto p=(std::size_t(y)*s.width+std::size_t(x))*4+3;
-    s.rgba[p]=std::max(s.rgba[p],c.a);
+    const auto p=std::size_t(y)*s.width+std::size_t(x);
+    s.coverage[p]=std::max(s.coverage[p],c.a);
 }
-void segment(Surface& s,double x0,double y0,double x1,double y1,
+void segment(CoverageMask& s,double x0,double y0,double x1,double y1,
              ShapeColor c,double width,unsigned start_cap,unsigned end_cap) {
     // Coverage-AA stroke with independent start/end cap clipping.
     // Evaluate distance within a clipped bounding box, not along an unbounded line.
@@ -162,7 +166,7 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
     }
 }
 // Rasterize a join wedge with the same coverage scheme as line segments.
-void join_wedge(Surface& surface,double ax,double ay,double bx,double by,
+void join_wedge(CoverageMask& surface,double ax,double ay,double bx,double by,
                 double cx,double cy,ShapeColor color) {
     const double minx=std::max(0.0,std::floor(std::min({ax,bx,cx})-1));
     const double maxx=std::min(double(surface.width),std::ceil(std::max({ax,bx,cx})+1));
@@ -188,7 +192,7 @@ void join_wedge(Surface& surface,double ax,double ay,double bx,double by,
             }
         }
 }
-void stroke_join(Surface& surface,ShapePoint a,ShapePoint b,ShapePoint c,
+void stroke_join(CoverageMask& surface,ShapePoint a,ShapePoint b,ShapePoint c,
                  std::int32_t offset_x,std::int32_t offset_y,const ShapeLine& style) {
     const double ax=(double(a.x)+offset_x)/20,ay=(double(a.y)+offset_y)/20;
     const double bx=(double(b.x)+offset_x)/20,by=(double(b.y)+offset_y)/20;
@@ -254,16 +258,17 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                                 std::int32_t offset_x,std::int32_t offset_y) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     // A per-style coverage buffer prevents double-alpha compositing at joints.
-    std::vector<Surface> masks(shape.lines.size());
+    std::vector<CoverageMask> masks(shape.lines.size());
     // Allocate only for referenced line styles; unused styles consume no surface.
     for(const auto& command:shape.commands) {
         if(command.line>shape.lines.size())
             return fail(Error::malformed_tag,"line style index out of range");
         if(!command.line || command.kind==ShapeCommandKind::move_to) continue;
         auto& mask=masks[command.line-1];
-        if(mask.rgba.empty()) {
-            auto result=make_surface(target.width,target.height,mask);
-            if(!result) return result;
+        if(mask.coverage.empty()) {
+            mask.width=target.width;
+            mask.height=target.height;
+            mask.coverage.resize(std::size_t(target.width)*target.height);
         }
     }
     ShapePoint previous{},previous_start{};
@@ -316,16 +321,15 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         previous=command.endpoint;
     }
     for(std::size_t style=0;style<masks.size();++style) {
-        const auto& rgba=masks[style].rgba;
+        const auto& coverage=masks[style].coverage;
         const auto color=shape.lines[style].color;
-        if(rgba.empty()) continue;
-        for(std::size_t i=0;i<rgba.size();i+=4) {
-            if(!rgba[i+3]) continue;
+        if(coverage.empty()) continue;
+        for(std::size_t i=0;i<coverage.size();++i) {
+            if(!coverage[i]) continue;
             auto sample=color;
             sample.a=static_cast<std::uint8_t>(
-                (unsigned(color.a)*rgba[i+3]+127)/255);
-            const auto offset=i/4;
-            pixel(target,offset%target.width,offset/target.width,sample);
+                (unsigned(color.a)*coverage[i]+127)/255);
+            pixel(target,i%target.width,i/target.width,sample);
         }
     }
     return {};
