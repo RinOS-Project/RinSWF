@@ -156,6 +156,21 @@ int main() {
     closed_shape.lines[0].join=1;
     clear(closed_canvas,{0,0,0,0});
     assert(draw_shape_strokes(closed_canvas,closed_shape));
+    // A quadratic closing edge joins its tangent to the first straight edge.
+    ShapeGeometry curved_loop;
+    ShapeLine curved_style;
+    curved_style.width=40;
+    curved_style.color={200,100,40,255};
+    curved_style.join=2;
+    curved_style.miter_limit=4.0;
+    curved_loop.lines.push_back(curved_style);
+    curved_loop.commands.push_back({ShapeCommandKind::move_to,{}, {80,80},0,0,0});
+    curved_loop.commands.push_back({ShapeCommandKind::line_to,{}, {200,80},0,0,1});
+    curved_loop.commands.push_back({ShapeCommandKind::line_to,{}, {200,200},0,0,1});
+    curved_loop.commands.push_back({ShapeCommandKind::quadratic_to, {100,180}, {80,80},0,0,1});
+    clear(closed_canvas,{0,0,0,0});
+    assert(draw_shape_strokes(closed_canvas,curved_loop));
+    assert(closed_canvas.rgba[(4*16+4)*4+3]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
