@@ -301,5 +301,26 @@ int main() {
     spread_frame.objects.push_back(spread_entry);
     assert(render_frame(spread_frame,assets,spread_surface,{128,128*4096}));
     assert(spread_surface.rgba[(10*512+20)*4+3]>0);
+    // Two half-pixel rectangles on opposite sides of one pixel should
+    // union to full coverage rather than taking only the maximum half.
+    ShapeGeometry subpixel;
+    subpixel.character_id=88;
+    ShapeLine subline; subline.width=10; subline.color={200,50,20,128};
+    subline.start_cap=1;subline.end_cap=1;
+    subpixel.lines.push_back(subline);
+    subpixel.commands.push_back({ShapeCommandKind::move_to,{}, {10,0},0,0,0});
+    subpixel.commands.push_back({ShapeCommandKind::line_to,{}, {10,20},0,0,1});
+    subpixel.commands.push_back({ShapeCommandKind::move_to,{}, {20,0},0,0,0});
+    subpixel.commands.push_back({ShapeCommandKind::line_to,{}, {20,20},0,0,1});
+    assets.shapes[88]=subpixel;
+    Surface samples;
+    assert(make_surface(8,8,samples));
+    FrameSnapshot sample_frame;
+    DisplayEntry sample_entry;
+    sample_entry.depth=1;sample_entry.character_id=88;sample_entry.has_matrix=true;
+    sample_entry.matrix.scale_x=2;sample_entry.matrix.scale_y=1;
+    sample_frame.objects.push_back(sample_entry);
+    assert(render_frame(sample_frame,assets,samples));
+    assert(samples.rgba[3]>0);
     return 0;
 }
