@@ -104,6 +104,41 @@ static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
     if(!fill)return fill;
     return draw_shape_strokes(dst,transformed,0,0,limits);
 }
+static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& shape,
+                                           const Matrix& m) {
+    // Exact affine image of the filled rectangle forming one butt-capped line.
+    if(shape.commands.size()!=2 || shape.commands[0].kind!=ShapeCommandKind::move_to ||
+       shape.commands[1].kind!=ShapeCommandKind::line_to || shape.lines.size()!=1 ||
+       !shape.fills.empty() || shape.commands[1].line!=1 ||
+       shape.lines[0].start_cap!=1 || shape.lines[0].end_cap!=1)
+        return {Error::malformed_tag,"unsupported affine stroke geometry"};
+    const auto& start=shape.commands[0].endpoint;
+    const auto& end=shape.commands[1].endpoint;
+    const double dx=double(end.x)-start.x,dy=double(end.y)-start.y;
+    const double length=std::hypot(dx,dy);
+    if(length<1e-8)return {Error::malformed_tag,"degenerate stroke"};
+    const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
+    const double nx=-dy/length*radius,ny=dx/length*radius;
+    const double corners[4][2]={{start.x+nx,start.y+ny},{end.x+nx,end.y+ny},
+                                {end.x-nx,end.y-ny},{start.x-nx,start.y-ny}};
+    ShapeGeometry quad;
+    ShapeFill fill;fill.color=shape.lines[0].color;
+    quad.fills.push_back(fill);
+    for(unsigned i=0;i<5;++i) {
+        const auto& v=corners[i%4];
+        const double x=m.scale_x*v[0]+m.rotate_skew_0*v[1]+m.translate_x;
+        const double y=m.rotate_skew_1*v[0]+m.scale_y*v[1]+m.translate_y;
+        constexpr double bound=double(std::numeric_limits<std::int32_t>::max())-1;
+        if(!std::isfinite(x)||!std::isfinite(y)||std::abs(x)>bound||std::abs(y)>bound)
+            return {Error::size_limit,"stroke corner overflow"};
+        ShapeCommand cmd;
+        cmd.kind=i==0?ShapeCommandKind::move_to:ShapeCommandKind::line_to;
+        cmd.endpoint={std::int32_t(std::llround(x)),std::int32_t(std::llround(y))};
+        cmd.fill1=i==0?0:1;
+        quad.commands.push_back(cmd);
+    }
+    return draw_shape_fills(dst,quad);
+}
 static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
                                  const BitmapLibrary& bitmaps,const Matrix& matrix,
                                  StrokeLimits limits) {
@@ -186,9 +221,16 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                        sx2<1e-16||std::abs(sx2-sy2)>tolerance||
                        std::abs(dot)>tolerance) direct=false;
                 }
+                const auto& sh=it->second;
+                const bool straight_butt=sh.commands.size()==2 && sh.lines.size()==1 &&
+                    sh.fills.empty() && sh.commands[0].kind==ShapeCommandKind::move_to &&
+                    sh.commands[1].kind==ShapeCommandKind::line_to &&
+                    sh.commands[1].line==1 && sh.lines[0].start_cap==1 &&
+                    sh.lines[0].end_cap==1;
                 auto a=direct
-                    ? vector_shape(stage,it->second,assets.bitmaps,m,limits)
-                    : affine_shape(stage,it->second,assets.bitmaps,m,limits);
+                    ? vector_shape(stage,sh,assets.bitmaps,m,limits)
+                    : straight_butt ? affine_straight_stroke(stage,sh,m)
+                                    : affine_shape(stage,sh,assets.bitmaps,m,limits);
                 if(!a)return a;
             } else {
                 auto a=draw_shape_fills(stage,it->second,tx,ty,&assets.bitmaps);
