@@ -36,7 +36,8 @@
 - [x] 不透明な複数直線・Buttキャップの非等方ストロークを変換矩形輪郭として描画
 - [x] 非等方変換された不透明複数直線のBevel Join用三角形輪郭を追加
 - [x] 不透明直線のMiter JoinとMiterLimit超過時のBevelフォールバックを非等方変換経路へ追加
-- [ ] Round Join・曲線・Round/Squareキャップ・半透明の非等方ストローク、およびGradient/Bitmap Fillの直接変換、変換後AA・クリップ/色変換・Sprite対応
+- [x] 非等方変換された不透明複数直線のRound Joinを円弧扇形の三角形群で基本描画
+- [ ] 曲線・Round/Squareキャップ・半透明の非等方ストローク、およびGradient/Bitmap Fillの直接変換、変換後AA・クリップ/色変換・Sprite対応
 - [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
 - [x] LINESTYLE幅を反映したクリップ付き簡易太線描画（丸端、4x4被覆率AA）
 - [x] FillStyle0/1の辺方向を反映した非ゼロ巻き数スキャンライン塗り（基礎実装）
