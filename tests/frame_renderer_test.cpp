@@ -89,5 +89,24 @@ int main() {
     clear(shape_surface,{0,0,0,0});
     assert(render_frame(shape_frame,assets,shape_surface));
     assert(shape_surface.rgba[(1*16+4)*4+3]>0);
+    // Uniform scaling preserves a stroke's circular cross section.
+    ShapeGeometry stroked;
+    stroked.character_id=88;
+    ShapeLine line;
+    line.width=20;
+    line.color={10,240,20,255};
+    stroked.lines.push_back(line);
+    stroked.commands.push_back({ShapeCommandKind::move_to,{}, {20,40},0,0,0});
+    stroked.commands.push_back({ShapeCommandKind::line_to,{}, {100,40},0,0,1});
+    assets.shapes.emplace(88,stroked);
+    FrameSnapshot stroke_frame;
+    DisplayEntry stroke_entry;
+    stroke_entry.depth=1;stroke_entry.character_id=88;stroke_entry.has_matrix=true;
+    stroke_entry.matrix.scale_x=2;stroke_entry.matrix.scale_y=2;
+    stroke_frame.objects.push_back(stroke_entry);
+    Surface stroke_surface;
+    assert(make_surface(16,16,stroke_surface));
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+6)*4+3]>0);
     return 0;
 }
