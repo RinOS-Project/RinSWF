@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <array>
-#include <map>
+#include <unordered_map>
 namespace rinswf {
 namespace {
 RenderResult fail(Error error,const char* message) {return {error,message};}
@@ -115,7 +115,8 @@ struct CoverageMask {
     std::uint32_t width=0,height=0;
     std::int64_t origin_x=0,origin_y=0;
     using Tile=std::array<std::uint8_t,tile_size*tile_size>;
-    std::map<std::pair<std::uint32_t,std::uint32_t>,Tile> tiles;
+    // Packed tile coordinates, with per-mask dimensions capped by uint32.
+    std::unordered_map<std::uint64_t,Tile> tiles;
     std::size_t* allocated_tiles=nullptr;
     std::size_t max_tiles=0;
     bool exceeded=false;
@@ -123,7 +124,8 @@ struct CoverageMask {
 void mask_pixel(CoverageMask& s,std::int64_t x,std::int64_t y,ShapeColor c) {
     if(!c.a||x<s.origin_x||y<s.origin_y||x>=s.origin_x+s.width||y>=s.origin_y+s.height) return;
     const auto lx=std::uint32_t(x-s.origin_x),ly=std::uint32_t(y-s.origin_y);
-    const auto key=std::make_pair(lx/CoverageMask::tile_size,ly/CoverageMask::tile_size);
+    const auto tx=lx/CoverageMask::tile_size,ty=ly/CoverageMask::tile_size;
+    const auto key=(std::uint64_t(ty)<<32)|tx;
     auto it=s.tiles.find(key);
     if(it==s.tiles.end()) {
         if(!s.allocated_tiles || *s.allocated_tiles>=s.max_tiles) {s.exceeded=true;return;}
@@ -387,8 +389,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                 for(std::uint32_t x=0;x<CoverageMask::tile_size;++x) {
                     const auto coverage=tile[std::size_t(y)*CoverageMask::tile_size+x];
                     if(!coverage) continue;
-                    const auto gx=mask.origin_x+std::int64_t(key.first)*CoverageMask::tile_size+x;
-                    const auto gy=mask.origin_y+std::int64_t(key.second)*CoverageMask::tile_size+y;
+                    const auto gx=mask.origin_x+std::int64_t(std::uint32_t(key))*CoverageMask::tile_size+x;
+                    const auto gy=mask.origin_y+std::int64_t(key>>32)*CoverageMask::tile_size+y;
                     if(gx>=target.width||gy>=target.height) continue;
                     auto sample=color;
                     sample.a=std::uint8_t((unsigned(color.a)*coverage+127)/255);
