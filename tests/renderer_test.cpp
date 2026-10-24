@@ -171,6 +171,20 @@ int main() {
     clear(closed_canvas,{0,0,0,0});
     assert(draw_shape_strokes(closed_canvas,curved_loop));
     assert(closed_canvas.rgba[(4*16+4)*4+3]>0);
+    // An open quadratic-to-quadratic corner uses both endpoint tangents.
+    ShapeGeometry double_curve;
+    ShapeLine curve_line;
+    curve_line.width=40;
+    curve_line.color={250,80,60,255};
+    curve_line.join=2;
+    curve_line.miter_limit=3.0;
+    double_curve.lines.push_back(curve_line);
+    double_curve.commands.push_back({ShapeCommandKind::move_to,{}, {40,160},0,0,0});
+    double_curve.commands.push_back({ShapeCommandKind::quadratic_to,{100,120},{160,160},0,0,1});
+    double_curve.commands.push_back({ShapeCommandKind::quadratic_to,{200,200},{240,160},0,0,1});
+    clear(closed_canvas,{0,0,0,0});
+    assert(draw_shape_strokes(closed_canvas,double_curve));
+    assert(closed_canvas.rgba[(8*16+8)*4+3]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
