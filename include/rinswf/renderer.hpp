@@ -24,6 +24,12 @@ void clear(Surface& surface,ShapeColor color) noexcept;
                                             const BitmapLibrary* bitmaps=nullptr);
 [[nodiscard]] RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,
                                        std::int32_t x,std::int32_t y);
+struct StrokeLimits {
+    // Global budget shared by every line style in a draw call.
+    std::size_t max_tiles=16384;
+    std::size_t max_mask_bytes=64*1024*1024;
+};
 [[nodiscard]] RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
-                                               std::int32_t offset_x=0,std::int32_t offset_y=0);
+                                               std::int32_t offset_x=0,std::int32_t offset_y=0,
+                                               StrokeLimits limits={});
 }
