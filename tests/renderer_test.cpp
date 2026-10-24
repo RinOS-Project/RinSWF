@@ -64,7 +64,7 @@ int main() {
     rectangle.fills[0].kind=FillKind::nonsmoothed_repeating_bitmap;
     clear(canvas,{0,0,0,0});
     assert(draw_shape_fills(canvas,rectangle,0,0,&library));
-    assert(canvas.rgba[inside]==255 && canvas.rgba[inside+2]==0);
+    assert(canvas.rgba[inside]==0 && canvas.rgba[inside+2]==255);
     rectangle.fills[0].bitmap_id=99;
     assert(!draw_shape_fills(canvas,rectangle,0,0,&library));
     rectangle.fills[0]=gradient;
