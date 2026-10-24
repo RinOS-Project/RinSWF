@@ -8,3 +8,6 @@ test('display-list', display_test_exe)
 
 shapes_test_exe = executable('rinswf-shapes-test', 'shapes_test.cpp', dependencies: rinswf_dep)
 test('shapes', shapes_test_exe)
+
+bitmap_test_exe = executable('rinswf-bitmaps-test', 'bitmaps_test.cpp', dependencies: [rinswf_dep, zlib_dep])
+test('bitmaps', bitmap_test_exe)
