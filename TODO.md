@@ -26,7 +26,8 @@
 - [ ] PlaceObject3、色変換・クリップの保持
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] FrameSnapshotの深度順オブジェクトからShapeとLossless BitmapをRGBAサーフェスへ描画する基本API（平行移動限定）
-- [ ] フレーム描画のJPEG登録・変換行列対応・クリップ/色変換・Sprite対応
+- [x] フレーム描画アセット収集へJPEG2/3/4を追加し、重複character IDを拒否
+- [ ] フレーム描画の変換行列対応・クリップ/色変換・Sprite対応
 - [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
 - [x] LINESTYLE幅を反映したクリップ付き簡易太線描画（丸端、4x4被覆率AA）
 - [x] FillStyle0/1の辺方向を反映した非ゼロ巻き数スキャンライン塗り（基礎実装）
