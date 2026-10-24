@@ -4,6 +4,8 @@
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <array>
+#include <unordered_map>
 namespace rinswf {
 static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m) {
     const double a=m.scale_x,b=m.rotate_skew_0,c=m.rotate_skew_1,d=m.scale_y;
@@ -287,10 +289,13 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     if(mask_right<=mask_left || mask_bottom<=mask_top)return {};
     const auto mask_width=std::size_t(mask_right-mask_left);
     const auto mask_height=std::size_t(mask_bottom-mask_top);
-    if(mask_width>std::numeric_limits<std::size_t>::max()/mask_height ||
-       mask_width*mask_height>16*1024*1024)
-        return {Error::size_limit,"stroke union mask size limit"};
-    std::vector<std::uint8_t> coverage(mask_width*mask_height,0);
+    constexpr std::size_t tile_side=64;
+    using CoverageTile=std::array<std::uint8_t,tile_side*tile_side>;
+    std::unordered_map<std::uint64_t,CoverageTile> coverage;
+    constexpr std::size_t max_tiles=4096;
+    auto tile_key=[](std::uint32_t x,std::uint32_t y)->std::uint64_t {
+        return (std::uint64_t(y)<<32)|x;
+    };
     ShapeGeometry one;
     one.fills=quad.fills;
     std::size_t contours=0;
@@ -321,9 +326,19 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             for(std::int64_t y=0;y<bottom-top;++y)
                 for(std::int64_t x=0;x<right-left;++x) {
                     const auto src=(std::size_t(y)*individual.width+std::size_t(x))*4+3;
-                    const auto dest=std::size_t(y+top-mask_top)*mask_width+
-                        std::size_t(x+left-mask_left);
-                    coverage[dest]=std::max(coverage[dest],individual.rgba[src]);
+                    const auto alpha=individual.rgba[src];
+                    if(!alpha)continue;
+                    const auto px=std::uint32_t(x+left-mask_left);
+                    const auto py=std::uint32_t(y+top-mask_top);
+                    const auto key=tile_key(px/tile_side,py/tile_side);
+                    auto tile=coverage.find(key);
+                    if(tile==coverage.end()) {
+                        if(coverage.size()>=max_tiles)
+                            return {Error::size_limit,"stroke union tile limit"};
+                        tile=coverage.emplace(key,CoverageTile{}).first;
+                    }
+                    const auto index=std::size_t(py%tile_side)*tile_side+(px%tile_side);
+                    tile->second[index]=std::max(tile->second[index],alpha);
                 }
         }
         one.commands.clear();
@@ -340,21 +355,26 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     if(!result)return result;
     const unsigned opacity=shape.lines[0].color.a;
     const auto color=shape.lines[0].color;
-    for(std::size_t i=0;i<coverage.size();++i) {
-        const unsigned sa=(unsigned(coverage[i])*opacity+127)/255;
-        if(!sa)continue;
-        const auto xx=mask_left+std::int64_t(i%mask_width);
-        const auto yy=mask_top+std::int64_t(i/mask_width);
-        const auto di=(std::size_t(yy)*dst.width+std::size_t(xx))*4;
-        const unsigned da=dst.rgba[di+3];
-        const unsigned outa=sa+(da*(255-sa)+127)/255;
-        for(unsigned k=0;k<3;++k) {
-            const unsigned source=k==0?color.r:k==1?color.g:color.b;
-            const unsigned premul=source*sa+
-                (unsigned(dst.rgba[di+k])*da*(255-sa)+127)/255;
-            dst.rgba[di+k]=std::uint8_t((premul+outa/2)/outa);
+    for(const auto& [key,tile]:coverage) {
+        const auto base_x=std::size_t(std::uint32_t(key))*tile_side;
+        const auto base_y=std::size_t(key>>32)*tile_side;
+        for(std::size_t y=0;y<tile_side;++y) for(std::size_t x=0;x<tile_side;++x) {
+            if(base_x+x>=mask_width || base_y+y>=mask_height)continue;
+            const unsigned sa=(unsigned(tile[y*tile_side+x])*opacity+127)/255;
+            if(!sa)continue;
+            const auto xx=mask_left+std::int64_t(base_x+x);
+            const auto yy=mask_top+std::int64_t(base_y+y);
+            const auto di=(std::size_t(yy)*dst.width+std::size_t(xx))*4;
+            const unsigned da=dst.rgba[di+3];
+            const unsigned outa=sa+(da*(255-sa)+127)/255;
+            for(unsigned k=0;k<3;++k) {
+                const unsigned source=k==0?color.r:k==1?color.g:color.b;
+                const unsigned premul=source*sa+
+                    (unsigned(dst.rgba[di+k])*da*(255-sa)+127)/255;
+                dst.rgba[di+k]=std::uint8_t((premul+outa/2)/outa);
+            }
+            dst.rgba[di+3]=std::uint8_t(outa);
         }
-        dst.rgba[di+3]=std::uint8_t(outa);
     }
     return {};
 }
