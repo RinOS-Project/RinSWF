@@ -49,6 +49,7 @@
 - [x] 閉じた細分化パスの最後・最初の辺にRound / Bevel / Miter Joinを適用
 - [x] 明示的な閉路ではSquare Capの延長・Round Capの半円生成を抑制
 - [x] Union描画の輪郭ごとのスクラッチサーフェスを同一寸法で再利用
+- [x] 非等方Unionマスクのタイル上限を固定値から公開StrokeLimitsの共有設定に統一
 - [ ] 同一輪郭内の自己交差・閉路・曲線の精度とUnion描画性能、およびGradient/Bitmap Fillの直接変換・色変換・Sprite対応
 - [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
 - [x] LINESTYLE幅を反映したクリップ付き簡易太線描画（丸端、4x4被覆率AA）
