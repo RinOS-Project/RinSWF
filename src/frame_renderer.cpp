@@ -148,7 +148,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     }
     // Connect consecutive straight segments with an outer bevel wedge.
     // Degenerate and non-finite joins are skipped instead of inventing geometry.
-    if(shape.lines[0].join==1 || shape.lines[0].join==2) {
+    if(shape.lines[0].join<=2) {
         auto add_triangle=[&](double ax,double ay,double bx,double by,
                               double cx,double cy)->bool {
             const double points[4][2]={{ax,ay},{bx,by},{cx,cy},{ax,ay}};
@@ -188,6 +188,23 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
             const double p1x=b.x-sign*uy/ul*radius,p1y=b.y+sign*ux/ul*radius;
             const double p2x=b.x-sign*vy/vl*radius,p2y=b.y+sign*vx/vl*radius;
+            if(shape.lines[0].join==0) {
+                constexpr double pi=3.14159265358979323846;
+                const double angle=std::atan2(p1y-b.y,p1x-b.x);
+                double sweep=std::remainder(std::atan2(p2y-b.y,p2x-b.x)-angle,2*pi);
+                if(cross>0 && sweep>0) sweep-=2*pi;
+                if(cross<0 && sweep<0) sweep+=2*pi;
+                const unsigned steps=std::clamp(unsigned(std::ceil(std::abs(sweep)/(pi/24))),1u,64u);
+                for(unsigned j=0;j<steps;++j) {
+                    const double a0=angle+sweep*double(j)/steps;
+                    const double a1=angle+sweep*double(j+1)/steps;
+                    if(!add_triangle(b.x,b.y,b.x+radius*std::cos(a0),
+                        b.y+radius*std::sin(a0),b.x+radius*std::cos(a1),
+                        b.y+radius*std::sin(a1)))
+                        return {Error::size_limit,"round join coordinate overflow"};
+                }
+                continue;
+            }
             if(shape.lines[0].join==2) {
                 const double d1x=ux/ul,d1y=uy/ul,d2x=vx/vl,d2y=vy/vl;
                 const double det=d1x*d2y-d1y*d2x;
