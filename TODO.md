@@ -24,7 +24,8 @@
 - [x] PlaceObject / PlaceObject2 のMATRIX（scale/skew/translation）値の保持
 - [ ] PlaceObject3、色変換・クリップの保持
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
-- [ ] ベクターラスタライズとクリッピング
+- [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
+- [ ] SWF塗り領域のラスタライズ、正確な線幅・クリッピング・アンチエイリアシング
 - [ ] テキスト、フォント、変換行列
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
