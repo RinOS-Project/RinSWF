@@ -338,5 +338,16 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // Dense crossing paths exercise the large-active-edge sorting branch.
+    ShapeGeometry dense=translucent;
+    dense.commands.clear();
+    for(int i=0;i<40;++i) {
+        const int x=20+i*5;
+        dense.commands.push_back({ShapeCommandKind::move_to,{}, {x,0},0,0,0});
+        dense.commands.push_back({ShapeCommandKind::line_to,{}, {x+60,240},0,0,1});
+    }
+    assets.shapes[88]=dense;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
     return 0;
 }
