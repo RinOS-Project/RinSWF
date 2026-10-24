@@ -64,6 +64,17 @@ int main() {
     clear(caps,{0,0,0,0});
     assert(draw_shape_strokes(caps,joined));
     assert(caps.rgba[(4*12+4)*4+3]>0);
+    // Bevel and miter joins should handle corners without invalid memory access.
+    joined.lines[0].join=1;
+    clear(caps,{0,0,0,0});
+    assert(draw_shape_strokes(caps,joined));
+    joined.lines[0].join=2;
+    joined.lines[0].miter_limit=3.0;
+    clear(caps,{0,0,0,0});
+    assert(draw_shape_strokes(caps,joined));
+    joined.lines[0].miter_limit=1.0; // bevel fallback
+    clear(caps,{0,0,0,0});
+    assert(draw_shape_strokes(caps,joined));
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
