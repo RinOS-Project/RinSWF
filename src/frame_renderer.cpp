@@ -455,19 +455,32 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 active_edges.insert(active_edges.end(),starts[row].begin(),starts[row].end());
                 active[sy]=active_edges;
             }
+            // Precompute sorted X intersections and suffix winding sums per row.
+            std::array<std::vector<std::pair<double,int>>,4> crossings;
+            std::array<std::vector<int>,4> suffix;
+            for(unsigned sy=0;sy<4;++sy) {
+                const double py=double(y)+(sy+0.5)/4.0;
+                for(const auto* edge:active[sy]) {
+                    const auto& e=*edge;
+                    const double ix=e.ax+(py-e.ay)*e.dx/e.dy;
+                    crossings[sy].emplace_back(ix,e.dy>0?1:-1);
+                }
+                auto& row=crossings[sy];
+                std::sort(row.begin(),row.end(),
+                    [](const auto& a,const auto& b){return a.first<b.first;});
+                suffix[sy].resize(row.size()+1,0);
+                for(std::size_t k=row.size();k>0;--k)
+                    suffix[sy][k-1]=suffix[sy][k]+row[k-1].second;
+            }
             for(auto x=left;x<right;++x) {
             std::uint16_t bits=0;
             for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
                 const double px=double(x)+(sx+0.5)/4.0;
-                const double py=double(y)+(sy+0.5)/4.0;
-                int winding=0;
-                for(const auto* edge:active[sy]) {
-                    const auto& e=*edge;
-                    const double cross=e.dx*(py-e.ay)-e.dy*(px-e.ax);
-                    if(e.dy>0 && cross>0)++winding;
-                    else if(e.dy<0 && cross<0)--winding;
-                }
-                if(winding)bits|=std::uint16_t(1u<<(sy*4+sx));
+                const auto& row=crossings[sy];
+                const auto it=std::upper_bound(row.begin(),row.end(),px,
+                    [](double x,const auto& entry){return x<entry.first;});
+                const auto index=std::size_t(it-row.begin());
+                if(suffix[sy][index])bits|=std::uint16_t(1u<<(sy*4+sx));
             }
             if(!bits)continue;
             const auto ux=std::uint32_t(x-mask_left),uy=std::uint32_t(y-mask_top);
