@@ -108,5 +108,14 @@ int main() {
     assert(make_surface(16,16,stroke_surface));
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+6)*4+3]>0);
+    // Non-uniform scaling of a butt-capped straight stroke uses its transformed outline.
+    stroked.lines[0].start_cap=1;
+    stroked.lines[0].end_cap=1;
+    assets.shapes[88]=stroked;
+    stroke_frame.objects[0].matrix.scale_x=3;
+    stroke_frame.objects[0].matrix.scale_y=1;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(2*16+9)*4+3]>0);
     return 0;
 }
