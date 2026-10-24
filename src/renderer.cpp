@@ -24,6 +24,35 @@ void pixel(Surface& s,std::int64_t x,std::int64_t y,ShapeColor c) {
     }
     s.rgba[p+3]=static_cast<std::uint8_t>(outa);
 }
+ShapeColor sample_fill(const ShapeFill& fill,double px,double py) {
+    if(fill.kind==FillKind::solid) return fill.color;
+    // Gradient space is -16384..16384 in each axis; MATRIX translation is twips.
+    const auto& m=fill.matrix;
+    const double det=m.scale_x*m.scale_y-m.skew_x*m.skew_y;
+    if(!std::isfinite(det)||std::abs(det)<1e-12 || fill.stops.empty()) return {};
+    const double x=px*20.0-m.translate_x, y=py*20.0-m.translate_y;
+    const double gx=(m.scale_y*x-m.skew_x*y)/det;
+    const double gy=(-m.skew_y*x+m.scale_x*y)/det;
+    double t=fill.kind==FillKind::linear_gradient?(gx/16384.0+1.0)*0.5:
+             std::hypot(gx,gy)/16384.0;
+    if(fill.spread==1) { t=std::fmod(t,2.0);if(t<0)t+=2.0;if(t>1)t=2-t; }
+    else if(fill.spread==2) {t=std::fmod(t,1.0);if(t<0)t+=1.0;}
+    else t=std::clamp(t,0.0,1.0);
+    const double ratio=t*255.0;
+    const auto& stops=fill.stops;
+    if(ratio<=stops.front().ratio) return stops.front().color;
+    for(std::size_t i=1;i<stops.size();++i) {
+        if(ratio>stops[i].ratio) continue;
+        const auto& a=stops[i-1];const auto& b=stops[i];
+        const double d=b.ratio==a.ratio?1.0:(ratio-a.ratio)/(b.ratio-a.ratio);
+        auto mix=[&](std::uint8_t av,std::uint8_t bv) {
+            return static_cast<std::uint8_t>(std::clamp(std::lround(av+(bv-av)*d),0L,255L));
+        };
+        return {mix(a.color.r,b.color.r),mix(a.color.g,b.color.g),
+                mix(a.color.b,b.color.b),mix(a.color.a,b.color.a)};
+    }
+    return stops.back().color;
+}
 void segment(Surface& s,double x0,double y0,double x1,double y1,ShapeColor c) {
     // Basic aliased stroke; clip endpoints before rasterizing to avoid unbounded loops.
     const double dx=x1-x0,dy=y1-y0;
@@ -126,9 +155,22 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
         }
         previous=cmd.endpoint;
     }
-    for(std::size_t style=0;style<edges.size();++style)
-        if(!edges[style].empty() && shape.fills[style].kind!=FillKind::solid)
-            return fail(Error::malformed_tag,"non-solid fill rendering unsupported");
+    for(std::size_t style=0;style<edges.size();++style) {
+        if(edges[style].empty()) continue;
+        const auto& fill=shape.fills[style];
+        if(fill.kind!=FillKind::solid && fill.kind!=FillKind::linear_gradient &&
+           fill.kind!=FillKind::radial_gradient)
+            return fail(Error::malformed_tag,"fill kind not yet rendered");
+        if(fill.kind!=FillKind::solid) {
+            if(fill.stops.empty() || fill.interpolation!=0 || fill.spread>2)
+                return fail(Error::malformed_tag,"unsupported gradient parameters");
+            const auto& m=fill.matrix;
+            if(!std::isfinite(m.scale_x)||!std::isfinite(m.scale_y)||
+               !std::isfinite(m.skew_x)||!std::isfinite(m.skew_y)||
+               std::abs(m.scale_x*m.scale_y-m.skew_x*m.skew_y)<1e-12)
+                return fail(Error::malformed_tag,"singular gradient matrix");
+        }
+    }
     std::vector<double> intersections;
     for(std::size_t style=0;style<edges.size();++style) {
         if(edges[style].empty()) continue;
@@ -149,7 +191,7 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
                 const auto start=static_cast<std::uint32_t>(std::ceil(left-0.5));
                 const auto end=static_cast<std::uint32_t>(std::ceil(right-0.5));
                 for(std::uint32_t x=start;x<end;++x)
-                    pixel(target,x,y,shape.fills[style].color);
+                    pixel(target,x,y,sample_fill(shape.fills[style],double(x)+0.5-double(offset_x)/20.0,double(y)+0.5-double(offset_y)/20.0));
             }
         }
     }
