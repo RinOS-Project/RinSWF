@@ -68,5 +68,18 @@ int main() {
     assert(make_surface(16,16,shape_surface));
     assert(render_frame(shape_frame,assets,shape_surface));
     assert(shape_surface.rgba[(1*16+1)*4+3]>0);
+    // Interpolation of opaque colors at a half-pixel shift.
+    Bitmap gradient;gradient.character_id=55;gradient.width=2;gradient.height=1;
+    gradient.rgba={255,0,0,255,0,0,255,255};
+    assets.bitmaps.images.emplace(55,gradient);
+    FrameSnapshot filtered;
+    DisplayEntry shifted;shifted.depth=1;shifted.character_id=55;
+    shifted.has_matrix=true;shifted.matrix.translate_x=10;
+    filtered.objects.push_back(shifted);
+    Surface filtered_surface;
+    assert(make_surface(4,4,filtered_surface));
+    assert(render_frame(filtered,assets,filtered_surface));
+    assert(filtered_surface.rgba[(0*4+1)*4]>0);
+    assert(filtered_surface.rgba[(0*4+1)*4+2]>0);
     return 0;
 }
