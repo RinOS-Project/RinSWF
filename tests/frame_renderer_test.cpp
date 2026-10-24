@@ -274,5 +274,14 @@ int main() {
     assert(!too_small && too_small.error==Error::size_limit);
     assert(budget_target.rgba==pristine);
     assert(render_frame(budget_frame,assets,budget_target,{16,65536}));
+    // Multiple overlapping and reversed contours must remain stable with
+    // the cached tile lookup and degenerate contour skipping.
+    ShapeGeometry overlapping=cross;
+    overlapping.commands.push_back({ShapeCommandKind::move_to,{}, {20,40},0,0,0});
+    overlapping.commands.push_back({ShapeCommandKind::line_to,{}, {20,40},0,0,1});
+    assets.shapes[88]=overlapping;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
