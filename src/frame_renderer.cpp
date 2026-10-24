@@ -44,6 +44,64 @@ static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m
     }
     return {};
 }
+static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
+                                 const BitmapLibrary& bitmaps,const Matrix& matrix,
+                                 StrokeLimits limits) {
+    // Rasterize in local coordinates, then transform the RGBA result.
+    // This is an initial implementation; vector-space AA and stroke scaling
+    // require a dedicated transformed-geometry rasterizer.
+    if(shape.commands.empty()) return {};
+    double xmin=0,ymin=0,xmax=0,ymax=0;
+    bool first=true;
+    auto include=[&](ShapePoint p) {
+        const double x=double(p.x)/20.0,y=double(p.y)/20.0;
+        if(first) {xmin=xmax=x;ymin=ymax=y;first=false;}
+        else {xmin=std::min(xmin,x);xmax=std::max(xmax,x);
+              ymin=std::min(ymin,y);ymax=std::max(ymax,y);}
+    };
+    for(const auto& cmd:shape.commands) {
+        include(cmd.endpoint);
+        if(cmd.kind==ShapeCommandKind::quadratic_to) include(cmd.control);
+    }
+    double margin=2;
+    for(const auto& line:shape.lines) {
+        const double radius=std::max(.75,double(line.width?line.width:20)/40.0);
+        margin=std::max(margin,radius*std::clamp(
+            line.join==2?line.miter_limit:1.0,1.0,1000.0)+2.0);
+    }
+    const double left=std::floor(xmin-margin),top=std::floor(ymin-margin);
+    const double right=std::ceil(xmax+margin),bottom=std::ceil(ymax+margin);
+    if(!std::isfinite(left)||!std::isfinite(top)||!std::isfinite(right)||
+       !std::isfinite(bottom)||left < -100000000||top < -100000000||
+       right>100000000||bottom>100000000)
+        return {Error::size_limit,"shape bounds out of range"};
+    const auto width=right-left,height=bottom-top;
+    if(width<1||height<1||width>65535||height>65535)
+        return {Error::size_limit,"shape raster dimensions out of range"};
+    Surface local;
+    auto allocation=make_surface(std::uint32_t(width),std::uint32_t(height),local);
+    if(!allocation) return allocation;
+    const auto ox=std::int32_t(-left*20),oy=std::int32_t(-top*20);
+    auto a=draw_shape_fills(local,shape,ox,oy,&bitmaps);
+    if(!a)return a;
+    auto b=draw_shape_strokes(local,shape,ox,oy,limits);
+    if(!b)return b;
+    Bitmap image;
+    image.width=std::uint16_t(width);image.height=std::uint16_t(height);
+    image.rgba=std::move(local.rgba);
+    Matrix adjusted=matrix;
+    const double tx=double(matrix.translate_x)+20.0*(matrix.scale_x*left+matrix.rotate_skew_0*top);
+    const double ty=double(matrix.translate_y)+20.0*(matrix.rotate_skew_1*left+matrix.scale_y*top);
+    if(!std::isfinite(tx)||!std::isfinite(ty)||
+       tx<std::numeric_limits<std::int32_t>::min()||
+       tx>std::numeric_limits<std::int32_t>::max()||
+       ty<std::numeric_limits<std::int32_t>::min()||
+       ty>std::numeric_limits<std::int32_t>::max())
+        return {Error::size_limit,"transformed shape origin out of range"};
+    adjusted.translate_x=std::int32_t(std::llround(tx));
+    adjusted.translate_y=std::int32_t(std::llround(ty));
+    return affine_bitmap(dst,image,adjusted);
+}
 RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                           Surface& target,StrokeLimits limits) {
     Surface stage=target;
@@ -55,11 +113,15 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
         const auto ty=entry.has_matrix?m.translate_y:0;
         auto it=assets.shapes.find(entry.character_id);
         if(it!=assets.shapes.end()) {
-            if(affine) return {Error::malformed_tag,"shape affine transform unsupported"};
-            auto a=draw_shape_fills(stage,it->second,tx,ty,&assets.bitmaps);
-            if(!a)return a;
-            auto b=draw_shape_strokes(stage,it->second,tx,ty,limits);
-            if(!b)return b;
+            if(affine) {
+                auto a=affine_shape(stage,it->second,assets.bitmaps,m,limits);
+                if(!a)return a;
+            } else {
+                auto a=draw_shape_fills(stage,it->second,tx,ty,&assets.bitmaps);
+                if(!a)return a;
+                auto b=draw_shape_strokes(stage,it->second,tx,ty,limits);
+                if(!b)return b;
+            }
         } else if(const auto* bmp=assets.bitmaps.find(entry.character_id)) {
             auto a=affine || tx%20 || ty%20
                 ? affine_bitmap(stage,*bmp,m) : blit_bitmap(stage,*bmp,tx/20,ty/20);
