@@ -81,16 +81,18 @@ BitmapResult decode_jpeg_bitmap(const JpegAsset& asset,std::size_t max_pixels) {
         return {Error::invalid_length,"invalid JPEG image length",{}};
     jpeg_decompress_struct info{};
     JpegError error{};
+    bool created=false;
     Bitmap bitmap;
     std::vector<std::uint8_t> scanline;
     info.err=jpeg_std_error(&error.base);
     error.base.error_exit=jpeg_error_exit;
     try {
     jpeg_create_decompress(&info);
+    created=true;
     jpeg_mem_src(&info,asset.image_data.data(),
                  static_cast<unsigned long>(asset.image_data.size()));
     if(jpeg_read_header(&info,TRUE)!=JPEG_HEADER_OK) {
-        jpeg_destroy_decompress(&info);
+        jpeg_destroy_decompress(&info); created=false;
         return {Error::malformed_tag,"JPEG header invalid",{}};
     }
     if(!info.image_width || !info.image_height ||
@@ -104,7 +106,7 @@ BitmapResult decode_jpeg_bitmap(const JpegAsset& asset,std::size_t max_pixels) {
     const std::size_t width=info.output_width,height=info.output_height;
     if(info.output_components!=3 || !width || !height ||
        width>max_pixels/height) {
-        jpeg_destroy_decompress(&info);
+        if(created) jpeg_destroy_decompress(&info);
         return {Error::malformed_tag,"unsupported JPEG output",{}};
     }
     bitmap.character_id=asset.character_id;
