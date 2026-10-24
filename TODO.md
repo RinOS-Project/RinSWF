@@ -26,7 +26,8 @@
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
 - [x] 単色Fillの偶奇規則スキャンライン塗り（基礎実装）
-- [ ] SWFの輪郭連結・非ゼロ巻き数、Gradient/Bitmap塗り、正確な線幅・クリッピング・アンチエイリアシング
+- [x] 線形・放射状Gradientの基本塗り（RGB補間、pad/reflect/repeat、逆MATRIX変換）
+- [ ] SWFの輪郭連結・非ゼロ巻き数、焦点付きGradient/Bitmap塗り、正確な線幅・クリッピング・アンチエイリアシング
 - [ ] テキスト、フォント、変換行列
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
