@@ -17,3 +17,6 @@ test('jpeg-assets', jpeg_test_exe)
 
 renderer_test_exe = executable('rinswf-renderer-test', 'renderer_test.cpp', dependencies: rinswf_dep)
 test('renderer', renderer_test_exe)
+
+frame_render_test_exe = executable('rinswf-frame-renderer-test', 'frame_renderer_test.cpp', dependencies: rinswf_dep)
+test('frame-renderer', frame_render_test_exe)
