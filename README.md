@@ -8,7 +8,7 @@ RinSWFは、SWF (Adobe Flash) ファイルを安全に解析・描画・再生�
 - SWF RECT（ステージ座標）、フレームレート、フレーム数
 - SWFタグヘッダー（短形式・長形式）、ペイロードの抽出
 - ファイル・タグごとの上限制御と不正な境界の拒否
-- 初期ソフトウェアレンダラー：RGBA Surface、Bitmapのアルファ合成、Shapeの簡易線分・二次曲線ストローク描画（単色Fillの基本スキャンライン塗りに対応、線幅・Gradient/Bitmap塗りは未対応）
+- 初期ソフトウェアレンダラー：RGBA Surface、Bitmapのアルファ合成、Shapeの簡易線分・二次曲線ストローク描画（単色Fillの基本スキャンライン塗りに対応、線形・放射状Gradientの基本塗りに対応。焦点付きGradient/Bitmap塗り・線幅は未対応）
 - DefineBitsJPEG2/3/4の画像バイト列とアルファチャネル分離・アルファzlib展開（JPEG画像のRGBA変換はlibjpeg利用可能時に対応（PNG/GIFは未対応））
 - DefineBitsLossless / DefineBitsLossless2 (パレット、15-bit RGB、32-bit ARGB) のzlib展開とRGBAアセット管理
 - 基本タグの型付き解析（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）と境界チェック
