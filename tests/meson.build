@@ -11,3 +11,6 @@ test('shapes', shapes_test_exe)
 
 bitmap_test_exe = executable('rinswf-bitmaps-test', 'bitmaps_test.cpp', dependencies: [rinswf_dep, zlib_dep])
 test('bitmaps', bitmap_test_exe)
+
+jpeg_test_exe = executable('rinswf-jpeg-test', 'jpeg_test.cpp', dependencies: [rinswf_dep, zlib_dep])
+test('jpeg-assets', jpeg_test_exe)
