@@ -412,6 +412,17 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         const auto top=std::int64_t(std::clamp(std::floor(miny)-1.0,0.0,double(dst.height)));
         const auto right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
         const auto bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
+        struct WindingEdge {double ax,ay,bx,by,dx,dy;};
+        std::vector<WindingEdge> edges;
+        edges.reserve(one.commands.size());
+        for(std::size_t j=1;j<one.commands.size();++j) {
+            const auto& a=one.commands[j-1].endpoint;
+            const auto& b=one.commands[j].endpoint;
+            const double ax=double(a.x)/20.0,ay=double(a.y)/20.0;
+            const double bx=double(b.x)/20.0,by=double(b.y)/20.0;
+            if(ay==by)continue;
+            edges.push_back({ax,ay,bx,by,bx-ax,by-ay});
+        }
         // Evaluate the same 4x4 sample grid for every contour and OR masks.
         // This preserves two disjoint partial coverages within one pixel.
         std::uint64_t cached_key=std::numeric_limits<std::uint64_t>::max();
@@ -422,14 +433,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 const double px=double(x)+(sx+0.5)/4.0;
                 const double py=double(y)+(sy+0.5)/4.0;
                 int winding=0;
-                for(std::size_t j=1;j<one.commands.size();++j) {
-                    const auto& from=one.commands[j-1].endpoint;
-                    const auto& to=one.commands[j].endpoint;
-                    const double ax=double(from.x)/20.0,ay=double(from.y)/20.0;
-                    const double bx=double(to.x)/20.0,by=double(to.y)/20.0;
-                    const double cross=(bx-ax)*(py-ay)-(by-ay)*(px-ax);
-                    if(ay<=py && by>py && cross>0)++winding;
-                    else if(by<=py && ay>py && cross<0)--winding;
+                for(const auto& e:edges) {
+                    if(py<std::min(e.ay,e.by) || py>=std::max(e.ay,e.by))continue;
+                    const double cross=e.dx*(py-e.ay)-e.dy*(px-e.ax);
+                    if(e.dy>0 && cross>0)++winding;
+                    else if(e.dy<0 && cross<0)--winding;
                 }
                 if(winding)bits|=std::uint16_t(1u<<(sy*4+sx));
             }
