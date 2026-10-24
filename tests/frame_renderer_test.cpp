@@ -33,5 +33,21 @@ int main() {
     FrameAssets unchanged=assets;
     assert(!collect_frame_assets(duplicate,unchanged));
     assert(unchanged.bitmaps.images.size()==assets.bitmaps.images.size());
+    // Affine placement: a 90-degree rotation of the 1x1 bitmap.
+    frame.objects[0].matrix.scale_x=0;
+    frame.objects[0].matrix.scale_y=0;
+    frame.objects[0].matrix.rotate_skew_0=-1;
+    frame.objects[0].matrix.rotate_skew_1=1;
+    frame.objects[0].matrix.translate_x=60;
+    frame.objects[0].matrix.translate_y=20;
+    Surface rotated;
+    assert(make_surface(8,8,rotated));
+    assert(render_frame(frame,assets,rotated));
+    assert(rotated.rgba[(1*8+2)*4+3]==255);
+    // Singular transforms must fail without modifying the target.
+    frame.objects[0].matrix.rotate_skew_1=0;
+    const auto preserved=rotated.rgba;
+    assert(!render_frame(frame,assets,rotated));
+    assert(rotated.rgba==preserved);
     return 0;
 }
