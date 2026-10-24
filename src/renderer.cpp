@@ -376,8 +376,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const bool next_same=index+1<shape.commands.size() &&
                 shape.commands[index+1].kind!=ShapeCommandKind::move_to &&
                 shape.commands[index+1].line==command.line;
-            const auto start_cap=(have_prior_segment && previous_line==command.line)?1u:unsigned(line_style.start_cap);
-            const auto end_cap=next_same?1u:unsigned(line_style.end_cap);
+            const auto start_cap=(closed_edges[index] || (have_prior_segment && previous_line==command.line))?1u:unsigned(line_style.start_cap);
+            const auto end_cap=(closed_edges[index] || next_same)?1u:unsigned(line_style.end_cap);
             if(command.kind==ShapeCommandKind::line_to) {
                 segment(masks[command.line-1],to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width,start_cap,end_cap);
             } else if(command.kind==ShapeCommandKind::quadratic_to) {
