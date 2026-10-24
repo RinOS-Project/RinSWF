@@ -343,6 +343,36 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         }
         i=end;
     }
+    // Join the last edge to the first edge of each explicitly closed line-only path.
+    for(std::size_t i=0;i<shape.commands.size();) {
+        if(shape.commands[i].kind!=ShapeCommandKind::move_to) {++i;continue;}
+        std::size_t end=i+1;
+        while(end<shape.commands.size() && shape.commands[end].kind!=ShapeCommandKind::move_to) ++end;
+        if(end>=i+4 && closed_edges[i+1]) {
+            const auto style_index=shape.commands[i+1].line-1;
+            const auto& style=shape.lines[style_index];
+            const auto& last=shape.commands[end-1];
+            const auto& before_last=shape.commands[end-2];
+            const auto& first=shape.commands[i];
+            const auto& after_first=shape.commands[i+1];
+            if(last.kind==ShapeCommandKind::line_to &&
+               before_last.kind==ShapeCommandKind::line_to &&
+               after_first.kind==ShapeCommandKind::line_to &&
+               masks[style_index].width) {
+                if(style.join==0) {
+                    const double x=(double(first.endpoint.x)+offset_x)/20.0;
+                    const double y=(double(first.endpoint.y)+offset_y)/20.0;
+                    const double width=style.width?double(style.width)/20.0:1.0;
+                    segment(masks[style_index],x,y,x,y,style.color,width,0,0);
+                } else {
+                    stroke_join(masks[style_index],before_last.endpoint,
+                                first.endpoint,after_first.endpoint,
+                                offset_x,offset_y,style);
+                }
+            }
+        }
+        i=end;
+    }
     // Internal vertices of a continuous subpath should not use external caps.
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
