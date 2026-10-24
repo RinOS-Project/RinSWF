@@ -8,8 +8,9 @@ RinSWFは、SWF (Adobe Flash) ファイルを安全に解析・描画・再生�
 - SWF RECT（ステージ座標）、フレームレート、フレーム数
 - SWFタグヘッダー（短形式・長形式）、ペイロードの抽出
 - ファイル・タグごとの上限制御と不正な境界の拒否
+- 基本タグの型付き解析（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）と境界チェック
 
-**未実装:** ZWS/LZMA、Shape等の型付きタグ、描画、ActionScript、音声再生、プレイヤー。現時点ではSWFを実行できません。
+**未実装:** ZWS/LZMA、Shape等の複合タグ、描画、ActionScript、音声再生、プレイヤー。現時点ではSWFを実行できません。
 
 ## ビルドとテスト
 
