@@ -158,7 +158,11 @@ static RenderResult flatten_affine_stroke(const ShapeGeometry& input,const Matri
                 return {Error::size_limit,"flattened stroke coordinate overflow"};
             segment.endpoint={std::int32_t(std::llround(px)),std::int32_t(std::llround(py))};
             if(j==steps)segment.endpoint=cmd.endpoint;
-            output.commands.push_back(segment);
+            // Rounding to twips can produce coincident subdivision points.
+            // Omit them to avoid zero-length edges and spurious joins.
+            const auto& last=output.commands.back().endpoint;
+            if(segment.endpoint.x!=last.x || segment.endpoint.y!=last.y)
+                output.commands.push_back(segment);
         }
         segments+=steps;
         cursor=cmd.endpoint;
@@ -290,7 +294,9 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             const double ul=std::hypot(ux,uy),vl=std::hypot(vx,vy);
             if(ul<1e-8||vl<1e-8) continue;
             const double cross=ux*vy-uy*vx;
-            if(std::abs(cross)<1e-8) continue;
+            // Nearly collinear subdivisions of the same curve do not
+            // need an explicit join wedge; the edge rectangles already meet.
+            if(std::abs(cross)<=ul*vl*1e-4) continue;
             const double sign=cross>0?-1.0:1.0;
             const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
             const double p1x=b.x-sign*uy/ul*radius,p1y=b.y+sign*ux/ul*radius;
