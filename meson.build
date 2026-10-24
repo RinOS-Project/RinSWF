@@ -5,10 +5,10 @@ if libjpeg_dep.found()
   add_project_arguments('-DRINSWF_HAVE_LIBJPEG=1', language: 'cpp')
 endif
 inc = include_directories('include')
-rinswf_lib = library('rinswf', ['src/swf.cpp', 'src/tags.cpp', 'src/display_list.cpp', 'src/shapes.cpp', 'src/bitmaps.cpp', 'src/jpeg.cpp'], include_directories: inc,
+rinswf_lib = library('rinswf', ['src/swf.cpp', 'src/tags.cpp', 'src/display_list.cpp', 'src/shapes.cpp', 'src/bitmaps.cpp', 'src/jpeg.cpp', 'src/renderer.cpp'], include_directories: inc,
   dependencies: [zlib_dep, libjpeg_dep], install: true, version: meson.project_version())
 rinswf_dep = declare_dependency(link_with: rinswf_lib, include_directories: inc)
-install_headers('include/rinswf/swf.hpp', 'include/rinswf/tags.hpp', 'include/rinswf/display_list.hpp', 'include/rinswf/shapes.hpp', 'include/rinswf/bitmaps.hpp', 'include/rinswf/jpeg.hpp', subdir: 'rinswf')
+install_headers('include/rinswf/swf.hpp', 'include/rinswf/tags.hpp', 'include/rinswf/display_list.hpp', 'include/rinswf/shapes.hpp', 'include/rinswf/bitmaps.hpp', 'include/rinswf/jpeg.hpp', 'include/rinswf/renderer.hpp', subdir: 'rinswf')
 pkg = import('pkgconfig')
 pkg.generate(rinswf_lib, name: 'RinSWF', description: 'SWF parser and runtime library',
   filebase: 'rinswf', subdirs: 'rinswf')
