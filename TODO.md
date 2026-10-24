@@ -32,7 +32,8 @@
 - [x] BitmapLibrary参照によるBitmap Fillのタイル・クリップ描画（最近傍とバイリニア）
 - [x] 巻き方向が逆の内側輪郭（穴）と画面外Shapeの回帰ケース、スキャンライン範囲の限定
 - [x] LINESTYLE2のRound / None（butt）/ Square線端の基本描画
-- [ ] SWFの輪郭連結・複雑な自己交差形状の検証、LINESTYLE2の線結合・端点の連続パス処理、複数セグメント間のAA重複合成改善
+- [x] 連続した同一LINESTYLEの線分に対するRound Joinの基本描画と曲線のCap引数修正
+- [ ] SWFの輪郭連結・複雑な自己交差形状の検証、LINESTYLE2のBevel/Miter結合・端点の連続パス処理、複数セグメント間のAA重複合成改善
 - [ ] テキスト、フォント、変換行列
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
