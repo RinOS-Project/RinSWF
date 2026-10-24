@@ -199,5 +199,10 @@ int main() {
     assert(make_surface(256,256,one_channel));
     assert(render_frame(distant,assets,one_channel));
     assert(one_channel.rgba==offset_surface.rgba);
+    // Distant translucent contours are composited through sparse tile storage.
+    Surface sparse_union;
+    assert(make_surface(256,256,sparse_union));
+    assert(render_frame(distant,assets,sparse_union));
+    assert(sparse_union.rgba==offset_surface.rgba);
     return 0;
 }
