@@ -39,15 +39,40 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
         if(!bmp || !bmp->width || !bmp->height) return {};
         const bool repeat=fill.kind==FillKind::repeating_bitmap ||
                           fill.kind==FillKind::nonsmoothed_repeating_bitmap;
-        const auto ix=static_cast<std::int64_t>(std::floor(gx));
-        const auto iy=static_cast<std::int64_t>(std::floor(gy));
-        if(!repeat && (ix<0 || iy<0 || ix>=bmp->width || iy>=bmp->height))
-            return {0,0,0,0};
+        const bool smooth=fill.kind==FillKind::repeating_bitmap ||
+                          fill.kind==FillKind::clipped_bitmap;
         auto wrap=[](std::int64_t v,std::int64_t n){return (v%n+n)%n;};
-        const auto bx=repeat?wrap(ix,bmp->width):ix;
-        const auto by=repeat?wrap(iy,bmp->height):iy;
-        const std::size_t p=(std::size_t(by)*bmp->width+std::size_t(bx))*4;
-        return {bmp->rgba[p],bmp->rgba[p+1],bmp->rgba[p+2],bmp->rgba[p+3]};
+        auto texel=[&](std::int64_t ix,std::int64_t iy)->ShapeColor {
+            if(repeat) {ix=wrap(ix,bmp->width);iy=wrap(iy,bmp->height);}
+            else if(ix<0 || iy<0 || ix>=bmp->width || iy>=bmp->height)
+                return {0,0,0,0};
+            const auto p=(std::size_t(iy)*bmp->width+std::size_t(ix))*4;
+            return {bmp->rgba[p],bmp->rgba[p+1],bmp->rgba[p+2],bmp->rgba[p+3]};
+        };
+        if(!smooth) return texel(static_cast<std::int64_t>(std::floor(gx)),
+                                 static_cast<std::int64_t>(std::floor(gy)));
+        // Bilinear interpolation in premultiplied-alpha space.
+        const double fx=gx-0.5,fy=gy-0.5;
+        const auto ix=static_cast<std::int64_t>(std::floor(fx));
+        const auto iy=static_cast<std::int64_t>(std::floor(fy));
+        const double tx=fx-ix,ty=fy-iy;
+        const ShapeColor c[4]={texel(ix,iy),texel(ix+1,iy),
+                               texel(ix,iy+1),texel(ix+1,iy+1)};
+        const double w[4]={(1-tx)*(1-ty),tx*(1-ty),(1-tx)*ty,tx*ty};
+        double alpha=0,r=0,g=0,blue=0;
+        for(unsigned i=0;i<4;++i) {
+            const double a=double(c[i].a)/255.0;
+            alpha+=w[i]*a;
+            r+=w[i]*a*c[i].r;
+            g+=w[i]*a*c[i].g;
+            blue+=w[i]*a*c[i].b;
+        }
+        if(alpha<=0) return {0,0,0,0};
+        auto channel=[](double v)->std::uint8_t {
+            return static_cast<std::uint8_t>(std::clamp(std::lround(v),0L,255L));
+        };
+        return {channel(r/alpha),channel(g/alpha),channel(blue/alpha),
+                channel(alpha*255.0)};
     }
     double t=fill.kind==FillKind::linear_gradient?(gx/16384.0+1.0)*0.5:
              std::hypot(gx,gy)/16384.0;
