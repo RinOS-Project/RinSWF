@@ -188,15 +188,27 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                                 std::int32_t offset_x,std::int32_t offset_y) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     ShapePoint previous{};
+    std::uint32_t previous_line=0;
+    bool have_prior_segment=false;
     for(const auto& command:shape.commands) {
         if(command.line>shape.lines.size()||command.fill0>shape.fills.size()||
            command.fill1>shape.fills.size()) return fail(Error::malformed_tag,"invalid style reference");
         auto to_x=[&](ShapePoint p){return (double(p.x)+offset_x)/20.0;};
         auto to_y=[&](ShapePoint p){return (double(p.y)+offset_y)/20.0;};
+        if(command.kind==ShapeCommandKind::move_to) {
+            have_prior_segment=false;
+            previous_line=0;
+        }
         if(command.kind!=ShapeCommandKind::move_to && command.line) {
             const auto& line_style=shape.lines[command.line-1];
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
+            if(have_prior_segment && previous_line==command.line && line_style.join==0) {
+                // Round join: bridge the adjacent stroked edges at their shared vertex.
+                // A coverage union for the complete path is a separate follow-up.
+                segment(target,to_x(previous),to_y(previous),
+                        to_x(previous),to_y(previous),color,stroke_width,0,0);
+            }
             if(command.kind==ShapeCommandKind::line_to) {
                 segment(target,to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width,line_style.start_cap,line_style.end_cap);
             } else if(command.kind==ShapeCommandKind::quadratic_to) {
@@ -211,6 +223,10 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                     lastx=cx;lasty=cy;
                 }
             } else return fail(Error::malformed_tag,"unexpected shape command");
+        }
+        if(command.kind!=ShapeCommandKind::move_to) {
+            have_prior_segment=command.line!=0;
+            previous_line=command.line;
         }
         previous=command.endpoint;
     }
