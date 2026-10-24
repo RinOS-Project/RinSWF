@@ -194,5 +194,10 @@ int main() {
     assert(make_surface(256,256,offset_surface));
     assert(render_frame(distant,assets,offset_surface));
     assert(offset_surface.rgba[3]==0);
+    // Sparse-looking union of translucent paths uses single-channel coverage.
+    Surface one_channel;
+    assert(make_surface(256,256,one_channel));
+    assert(render_frame(distant,assets,one_channel));
+    assert(one_channel.rgba==offset_surface.rgba);
     return 0;
 }
