@@ -26,10 +26,10 @@
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
 - [x] LINESTYLE幅を反映したクリップ付き簡易太線描画（丸端、4x4被覆率AA）
-- [x] 単色Fillの偶奇規則スキャンライン塗り（基礎実装）
+- [x] FillStyle0/1の辺方向を反映した非ゼロ巻き数スキャンライン塗り（基礎実装）
 - [x] 線形・放射状・焦点付きGradientの基本塗り（RGB補間、pad/reflect/repeat、逆MATRIX変換）
 - [x] BitmapLibrary参照によるBitmap Fillのタイル・クリップ描画（最近傍とバイリニア）
-- [ ] SWFの輪郭連結・非ゼロ巻き数、LINESTYLE2の線端・線結合、複数セグメント間のAA重複合成改善
+- [ ] SWFの輪郭連結・複雑な自己交差形状の検証、LINESTYLE2の線端・線結合、複数セグメント間のAA重複合成改善
 - [ ] テキスト、フォント、変換行列
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
