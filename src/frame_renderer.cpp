@@ -106,6 +106,52 @@ static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
     if(!fill)return fill;
     return draw_shape_strokes(dst,transformed,0,0,limits);
 }
+// Flatten quadratic centerlines before building affine stroke contours.
+// The tolerance is measured after the placement transform in screen pixels.
+static RenderResult flatten_affine_stroke(const ShapeGeometry& input,const Matrix& m,
+                                          ShapeGeometry& output) {
+    output=input;
+    output.commands.clear();
+    ShapePoint cursor{};
+    std::size_t segments=0;
+    for(const auto& cmd:input.commands) {
+        if(cmd.kind==ShapeCommandKind::move_to) {
+            output.commands.push_back(cmd);
+            cursor=cmd.endpoint;
+            continue;
+        }
+        if(cmd.kind==ShapeCommandKind::line_to) {
+            output.commands.push_back(cmd);
+            cursor=cmd.endpoint;
+            if(++segments>100000) return {Error::size_limit,"stroke segment limit"};
+            continue;
+        }
+        if(cmd.kind!=ShapeCommandKind::quadratic_to)
+            return {Error::malformed_tag,"unsupported stroke command"};
+        const double ax=double(cursor.x),ay=double(cursor.y);
+        const double bx=double(cmd.control.x),by=double(cmd.control.y);
+        const double cx=double(cmd.endpoint.x),cy=double(cmd.endpoint.y);
+        const double dx=ax-2*bx+cx,dy=ay-2*by+cy;
+        const double bend=std::hypot(m.scale_x*dx+m.rotate_skew_0*dy,
+                                     m.rotate_skew_1*dx+m.scale_y*dy)/20.0;
+        const unsigned steps=std::clamp(unsigned(std::ceil(std::sqrt(std::max(0.0,bend)*2.0))),1u,128u);
+        if(segments+steps>100000) return {Error::size_limit,"stroke segment limit"};
+        for(unsigned j=1;j<=steps;++j) {
+            const double t=double(j)/steps,u=1-t;
+            const double px=u*u*ax+2*u*t*bx+t*t*cx;
+            const double py=u*u*ay+2*u*t*by+t*t*cy;
+            ShapeCommand segment=cmd;
+            segment.kind=ShapeCommandKind::line_to;
+            segment.control={};
+            segment.endpoint={std::int32_t(std::llround(px)),std::int32_t(std::llround(py))};
+            if(j==steps)segment.endpoint=cmd.endpoint;
+            output.commands.push_back(segment);
+        }
+        segments+=steps;
+        cursor=cmd.endpoint;
+    }
+    return {};
+}
 static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& shape,
                                            const Matrix& m) {
     // Transform each straight edge's rectangular outline into one fill geometry.
@@ -461,20 +507,23 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                        std::abs(dot)>tolerance) direct=false;
                 }
                 const auto& sh=it->second;
-                bool straight_butt=sh.lines.size()==1 && sh.fills.empty() &&
-                    sh.lines[0].color.a==255;
-                bool has_move=false,has_line=false;
+                bool stroke_outline=sh.lines.size()==1 && sh.fills.empty();
+                bool has_move=false,has_edge=false;
                 for(const auto& edge:sh.commands) {
                     if(edge.kind==ShapeCommandKind::move_to) has_move=true;
-                    else if(edge.kind==ShapeCommandKind::line_to && edge.line==1 && has_move)
-                        has_line=true;
-                    else straight_butt=false;
+                    else if((edge.kind==ShapeCommandKind::line_to ||
+                             edge.kind==ShapeCommandKind::quadratic_to) &&
+                            edge.line==1 && has_move) has_edge=true;
+                    else stroke_outline=false;
                 }
-                straight_butt=straight_butt && has_line;
-                auto a=direct
-                    ? vector_shape(stage,sh,assets.bitmaps,m,limits)
-                    : straight_butt ? affine_straight_stroke(stage,sh,m)
-                                    : affine_shape(stage,sh,assets.bitmaps,m,limits);
+                stroke_outline=stroke_outline && has_edge;
+                RenderResult a;
+                if(direct) a=vector_shape(stage,sh,assets.bitmaps,m,limits);
+                else if(stroke_outline) {
+                    ShapeGeometry flattened;
+                    a=flatten_affine_stroke(sh,m,flattened);
+                    if(a) a=affine_straight_stroke(stage,flattened,m);
+                } else a=affine_shape(stage,sh,assets.bitmaps,m,limits);
                 if(!a)return a;
             } else {
                 auto a=draw_shape_fills(stage,it->second,tx,ty,&assets.bitmaps);
