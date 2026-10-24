@@ -176,6 +176,18 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     if(shape.lines.size()!=1 || !shape.fills.empty() ||
        shape.commands.size()<2)
         return {Error::malformed_tag,"unsupported affine stroke geometry"};
+    // Track the open/closed state of each subpath for cap handling.
+    std::vector<bool> closed_commands(shape.commands.size(),false);
+    for(std::size_t i=0;i<shape.commands.size();) {
+        if(shape.commands[i].kind!=ShapeCommandKind::move_to) {++i;continue;}
+        std::size_t end=i+1;
+        while(end<shape.commands.size() &&
+              shape.commands[end].kind!=ShapeCommandKind::move_to)++end;
+        if(end>i+2 && shape.commands[end-1].endpoint.x==shape.commands[i].endpoint.x &&
+           shape.commands[end-1].endpoint.y==shape.commands[i].endpoint.y)
+            for(std::size_t j=i+1;j<end;++j)closed_commands[j]=true;
+        i=end;
+    }
     ShapeGeometry quad;
     auto opaque=shape.lines[0].color;
     opaque.a=255;
@@ -199,8 +211,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     const bool first_edge=edge_index>0 && shape.commands[edge_index-1].kind==ShapeCommandKind::move_to;
     const bool last_edge=edge_index+1==shape.commands.size() ||
         shape.commands[edge_index+1].kind==ShapeCommandKind::move_to;
-    const double extension_start=first_edge && shape.lines[0].start_cap==2?radius:0;
-    const double extension_end=last_edge && shape.lines[0].end_cap==2?radius:0;
+    const double extension_start=first_edge && !closed_commands[edge_index] && shape.lines[0].start_cap==2?radius:0;
+    const double extension_end=last_edge && !closed_commands[edge_index] && shape.lines[0].end_cap==2?radius:0;
     const double tx=dx/length,ty=dy/length;
     const double corners[4][2]={{start.x+nx-tx*extension_start,start.y+ny-ty*extension_start},
                                 {end.x+nx+tx*extension_end,end.y+ny+ty*extension_end},
@@ -253,7 +265,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                   shape.commands[end+1].kind==ShapeCommandKind::line_to) ++end;
             const auto& start=shape.commands[i-1].endpoint;
             const auto& finish=shape.commands[end].endpoint;
-            if(start.x==finish.x && start.y==finish.y) continue;
+            if(closed_commands[i] || (start.x==finish.x && start.y==finish.y)) continue;
             const auto emit_cap=[&](ShapePoint center,ShapePoint toward,bool beginning)->bool {
                 const double dx=double(toward.x)-center.x;
                 const double dy=double(toward.y)-center.y;
