@@ -484,9 +484,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         next_x.push_back(ordered_x[index]+(py-previous_py)*e->dx/e->dy);
                     } else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
                 }
+                std::unordered_map<const WindingEdge*,double> x_values;
+                x_values.reserve(next_order.size());
+                for(std::size_t k=0;k<next_order.size();++k)
+                    x_values.emplace(next_order[k],next_x[k]);
                 auto x_at=[&](const WindingEdge* e) {
-                    const auto it=std::find(next_order.begin(),next_order.end(),e);
-                    return next_x[std::size_t(it-next_order.begin())];
+                    return x_values.at(e);
                 };
                 // Small changes usually need only a few adjacent swaps.
                 if(next_order.size()>64) {
