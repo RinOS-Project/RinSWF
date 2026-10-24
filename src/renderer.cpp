@@ -327,6 +327,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         mask.width=std::uint32_t(right-left);mask.height=std::uint32_t(bottom-top);
         // Sparse 64x64 tiles are allocated only when a pixel is covered.
     }
+    // Internal vertices of a continuous subpath should not use external caps.
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
     bool have_prior_segment=false;
