@@ -156,6 +156,67 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
         }
     }
 }
+// Rasterize a join wedge with the same coverage scheme as line segments.
+void join_wedge(Surface& surface,double ax,double ay,double bx,double by,
+                double cx,double cy,ShapeColor color) {
+    const double minx=std::max(0.0,std::floor(std::min({ax,bx,cx})-1));
+    const double maxx=std::min(double(surface.width),std::ceil(std::max({ax,bx,cx})+1));
+    const double miny=std::max(0.0,std::floor(std::min({ay,by,cy})-1));
+    const double maxy=std::min(double(surface.height),std::ceil(std::max({ay,by,cy})+1));
+    const auto cross=[](double ux,double uy,double vx,double vy){return ux*vy-uy*vx;};
+    const double area=cross(bx-ax,by-ay,cx-ax,cy-ay);
+    if(std::abs(area)<1e-10) return;
+    for(auto y=std::int64_t(miny);y<std::int64_t(maxy);++y)
+        for(auto x=std::int64_t(minx);x<std::int64_t(maxx);++x) {
+            unsigned hits=0;
+            for(unsigned iy=0;iy<4;++iy) for(unsigned ix=0;ix<4;++ix) {
+                const double px=x+(ix+0.5)/4,py=y+(iy+0.5)/4;
+                const double u=cross(bx-ax,by-ay,px-ax,py-ay)/area;
+                const double v=cross(cx-bx,cy-by,px-bx,py-by)/area;
+                const double w=cross(ax-cx,ay-cy,px-cx,py-cy)/area;
+                if(u>=0 && v>=0 && w>=0) ++hits;
+            }
+            if(hits) {
+                auto c=color;
+                c.a=std::uint8_t((unsigned(c.a)*hits+8)/16);
+                pixel(surface,x,y,c);
+            }
+        }
+}
+void stroke_join(Surface& surface,ShapePoint a,ShapePoint b,ShapePoint c,
+                 std::int32_t offset_x,std::int32_t offset_y,const ShapeLine& style) {
+    const double ax=(double(a.x)+offset_x)/20,ay=(double(a.y)+offset_y)/20;
+    const double bx=(double(b.x)+offset_x)/20,by=(double(b.y)+offset_y)/20;
+    const double cx=(double(c.x)+offset_x)/20,cy=(double(c.y)+offset_y)/20;
+    const double ux=bx-ax,uy=by-ay,vx=cx-bx,vy=cy-by;
+    const double ul=std::hypot(ux,uy),vl=std::hypot(vx,vy);
+    if(ul<1e-10 || vl<1e-10) return;
+    const double turn=ux*vy-uy*vx;
+    if(std::abs(turn)<1e-10) return;
+    const double sign=turn>0?-1.0:1.0;
+    const double radius=std::max(.75,double(style.width?style.width:20)/40);
+    const double nx=sign*-uy/ul,ny=sign*ux/ul;
+    const double mx=sign*-vy/vl,my=sign*vx/vl;
+    const double p1x=bx+radius*nx,p1y=by+radius*ny;
+    const double p2x=bx+radius*mx,p2y=by+radius*my;
+    if(style.join==1) {
+        join_wedge(surface,bx,by,p1x,p1y,p2x,p2y,style.color);
+        return;
+    }
+    if(style.join!=2) return;
+    const double determinant=ux/ul*vy/vl-uy/ul*vx/vl;
+    if(std::abs(determinant)<1e-10) return;
+    const double d1x=ux/ul,d1y=uy/ul,d2x=vx/vl,d2y=vy/vl;
+    const double rx=p2x-p1x,ry=p2y-p1y;
+    const double t=(rx*d2y-ry*d2x)/determinant;
+    const double tipx=p1x+t*d1x,tipy=p1y+t*d1y;
+    const double ratio=std::hypot(tipx-bx,tipy-by)/radius;
+    if(!std::isfinite(ratio)||ratio>std::max(1.0,style.miter_limit)) {
+        join_wedge(surface,bx,by,p1x,p1y,p2x,p2y,style.color);
+    } else {
+        join_wedge(surface,p1x,p1y,tipx,tipy,p2x,p2y,style.color);
+    }
+}
 }
 RenderResult make_surface(std::uint32_t width,std::uint32_t height,Surface& output,std::size_t limit) {
     if(!width||!height||height>limit/width) return fail(Error::size_limit,"surface size limit");
@@ -187,7 +248,7 @@ RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,std::int32_t x,std
 RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                                 std::int32_t offset_x,std::int32_t offset_y) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
-    ShapePoint previous{};
+    ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
     bool have_prior_segment=false;
     for(const auto& command:shape.commands) {
@@ -203,6 +264,11 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const auto& line_style=shape.lines[command.line-1];
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
+            if(have_prior_segment && previous_line==command.line && line_style.join!=0 &&
+               command.kind==ShapeCommandKind::line_to) {
+                stroke_join(target,previous_start,previous,command.endpoint,
+                            offset_x,offset_y,line_style);
+            }
             if(have_prior_segment && previous_line==command.line && line_style.join==0) {
                 // Round join: bridge the adjacent stroked edges at their shared vertex.
                 // A coverage union for the complete path is a separate follow-up.
@@ -227,6 +293,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         if(command.kind!=ShapeCommandKind::move_to) {
             have_prior_segment=command.line!=0;
             previous_line=command.line;
+            previous_start=previous;
         }
         previous=command.endpoint;
     }
