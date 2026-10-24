@@ -18,6 +18,10 @@ DefineShapeのMove/Line/Quadratic輪郭抽出に加え、DefineShape 1/2/3の単
 
 **未実装:** ZWS/LZMA、Shape等の複合タグ、描画、ActionScript、音声再生、プレイヤー。現時点ではSWFを実行できません。
 
+## フレーム描画（初期実装）
+
+`frame_renderer.hpp` の `collect_frame_assets()` でDefineShapeとDefineBitsLossless系を収集し、`build_timeline()` が生成した `FrameSnapshot` を `render_frame()` でRGBA Surfaceへ描画できます。深度順の単純なShape/Bitmap配置と平行移動に限定し、拡大・回転・未解決キャラクターはエラーにします。ActionScript、Sprite、色変換、JPEGアセット収集は未対応です。
+
 ## ビルドとテスト
 
 ```sh
