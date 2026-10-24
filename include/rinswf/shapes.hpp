@@ -17,7 +17,7 @@ struct ShapeMatrix {
     double scale_x=1.0, scale_y=1.0, skew_x=0.0, skew_y=0.0;
     std::int32_t translate_x=0, translate_y=0;
 };
-enum class FillKind { solid, linear_gradient, radial_gradient, focal_gradient };
+enum class FillKind { solid, linear_gradient, radial_gradient, focal_gradient, repeating_bitmap, clipped_bitmap, nonsmoothed_repeating_bitmap, nonsmoothed_clipped_bitmap };
 struct ShapeFill {
     ShapeColor color;
     FillKind kind=FillKind::solid;
@@ -25,6 +25,7 @@ struct ShapeFill {
     std::uint8_t spread=0, interpolation=0;
     std::vector<GradientStop> stops;
     double focal_point=0.0;
+    std::uint16_t bitmap_id=0;
 };
 struct ShapeLine { std::uint16_t width=0; ShapeColor color; };
 struct ShapeGeometry {
@@ -40,6 +41,7 @@ struct ShapeResult {
     explicit operator bool() const noexcept { return error==Error::none; }
 };
 // Supports solid and gradient fills in DefineShape 1/2/3/4.
-// Unsupported bitmap fills, LINESTYLE2 and NewStyles fail explicitly.
+// Bitmap fills retain the character reference and transform; bitmap decoding/rendering remains separate.
+// LINESTYLE2 and NewStyles fail explicitly.
 [[nodiscard]] ShapeResult decode_shape(const Tag& tag, std::size_t max_commands=100000);
 }
