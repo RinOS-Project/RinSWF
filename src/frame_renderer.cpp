@@ -7,6 +7,7 @@
 #include <array>
 #include <bit>
 #include <unordered_map>
+#include <unordered_set>
 namespace rinswf {
 static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m) {
     const double a=m.scale_x,b=m.rotate_skew_0,c=m.rotate_skew_1,d=m.scale_y;
@@ -445,6 +446,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         }
         std::vector<EdgePtr> active_edges;
         std::vector<EdgePtr> ordered_edges;
+        std::unordered_map<EdgePtr,std::size_t> prior_index;
         std::vector<double> ordered_x;
         double previous_py=0;
         bool have_previous_row=false;
@@ -467,22 +469,21 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 // Retain existing edge order from the preceding sample row.
                 // Insert newly active edges, then restore X order if edges cross.
                 std::vector<EdgePtr> next_order;
+                std::unordered_set<EdgePtr> active_set(active[sy].begin(),active[sy].end());
+                next_order.reserve(active[sy].size());
                 for(auto* edge:ordered_edges)
-                    if(std::find(active[sy].begin(),active[sy].end(),edge)!=active[sy].end())
-                        next_order.push_back(edge);
+                    if(active_set.erase(edge)) next_order.push_back(edge);
                 for(auto* edge:active[sy])
-                    if(std::find(next_order.begin(),next_order.end(),edge)==next_order.end())
-                        next_order.push_back(edge);
+                    if(active_set.erase(edge)) next_order.push_back(edge);
                 // Cache each active edge intersection and advance it by dy.
                 // Newly active edges are evaluated directly at this sample row.
                 std::vector<double> next_x;
                 next_x.reserve(next_order.size());
                 for(auto* e:next_order) {
-                    auto prior=std::find(ordered_edges.begin(),ordered_edges.end(),e);
-                    if(have_previous_row && prior!=ordered_edges.end()) {
-                        const auto index=std::size_t(prior-ordered_edges.begin());
-                        next_x.push_back(ordered_x[index]+(py-previous_py)*e->dx/e->dy);
-                    } else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
+                    const auto prior=prior_index.find(e);
+                    if(have_previous_row && prior!=prior_index.end())
+                        next_x.push_back(ordered_x[prior->second]+(py-previous_py)*e->dx/e->dy);
+                    else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
                 }
                 std::unordered_map<const WindingEdge*,double> x_values;
                 x_values.reserve(next_order.size());
@@ -511,6 +512,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 for(auto* e:next_order) sorted_x.push_back(x_at(e));
                 ordered_edges=std::move(next_order);
                 ordered_x=std::move(sorted_x);
+                prior_index.clear();
+                prior_index.reserve(ordered_edges.size());
+                for(std::size_t k=0;k<ordered_edges.size();++k)
+                    prior_index.emplace(ordered_edges[k],k);
                 previous_py=py;
                 have_previous_row=true;
                 auto& row=crossings[sy];
