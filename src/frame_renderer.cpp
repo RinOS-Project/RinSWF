@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <limits>
 #include <array>
+#include <bit>
 #include <unordered_map>
 namespace rinswf {
 static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m) {
@@ -385,11 +386,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     const auto mask_width=std::size_t(mask_right-mask_left);
     const auto mask_height=std::size_t(mask_bottom-mask_top);
     constexpr std::size_t tile_side=64;
-    using CoverageTile=std::array<std::uint8_t,tile_side*tile_side>;
+    using CoverageTile=std::array<std::uint16_t,tile_side*tile_side>;
     std::unordered_map<std::uint64_t,CoverageTile> coverage;
     // Apply caller-selected limits to the affine union path too.
     const std::size_t max_tiles=std::min(limits.max_tiles,
-        limits.max_mask_bytes/(tile_side*tile_side));
+        limits.max_mask_bytes/(tile_side*tile_side*sizeof(std::uint16_t)));
     if(!max_tiles)return {Error::size_limit,"stroke union mask budget too small"};
     auto tile_key=[](std::uint32_t x,std::uint32_t y)->std::uint64_t {
         return (std::uint64_t(y)<<32)|x;
@@ -397,20 +398,13 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     ShapeGeometry one;
     one.fills=quad.fills;
     std::size_t contours=0;
-    Surface scratch;
     auto flush=[&]()->RenderResult {
         if(one.commands.empty())return {};
         if(++contours>8192)return {Error::size_limit,"stroke contour limit exceeded"};
-        // A contour with fewer than three distinct points has zero area.
-        // Avoid allocating scratch and touching tiles for degenerate outlines.
-        if(one.commands.size()<4) {
-            one.commands.clear();
-            return {};
-        }
+        if(one.commands.size()<4) {one.commands.clear();return {};}
         double minx=double(dst.width),miny=double(dst.height),maxx=0,maxy=0;
         for(const auto& cmd:one.commands) {
-            const double x=double(cmd.endpoint.x)/20.0;
-            const double y=double(cmd.endpoint.y)/20.0;
+            const double x=double(cmd.endpoint.x)/20.0,y=double(cmd.endpoint.y)/20.0;
             minx=std::min(minx,x);maxx=std::max(maxx,x);
             miny=std::min(miny,y);maxy=std::max(maxy,y);
         }
@@ -418,44 +412,42 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         const auto top=std::int64_t(std::clamp(std::floor(miny)-1.0,0.0,double(dst.height)));
         const auto right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
         const auto bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
-        if(right>left && bottom>top) {
-            const auto width=std::uint32_t(right-left);
-            const auto height=std::uint32_t(bottom-top);
-            if(scratch.width!=width || scratch.height!=height) {
-                auto allocated=make_surface(width,height,scratch);
-                if(!allocated)return allocated;
-            } else clear(scratch,{0,0,0,0});
-            const auto offsetx=-left*20,offsety=-top*20;
-            if(offsetx<std::numeric_limits<std::int32_t>::min() ||
-               offsety<std::numeric_limits<std::int32_t>::min())
-                return {Error::size_limit,"contour offset overflow"};
-            auto result=draw_shape_fills(scratch,one,std::int32_t(offsetx),std::int32_t(offsety));
-            if(!result)return result;
-            std::uint64_t cached_key=std::numeric_limits<std::uint64_t>::max();
-            CoverageTile* cached_tile=nullptr;
-            for(std::int64_t y=0;y<bottom-top;++y)
-                for(std::int64_t x=0;x<right-left;++x) {
-                    const auto src=(std::size_t(y)*scratch.width+std::size_t(x))*4+3;
-                    const auto alpha=scratch.rgba[src];
-                    if(!alpha)continue;
-                    const auto px=std::uint32_t(x+left-mask_left);
-                    const auto py=std::uint32_t(y+top-mask_top);
-                    const auto key=tile_key(px/tile_side,py/tile_side);
-                    // Rows usually touch many pixels in the same tile.
-                    // Reuse the last lookup instead of hashing each pixel.
-                    if(key!=cached_key || !cached_tile) {
-                        auto it=coverage.find(key);
-                        if(it==coverage.end()) {
-                            if(coverage.size()>=max_tiles)
-                                return {Error::size_limit,"stroke union tile limit"};
-                            it=coverage.emplace(key,CoverageTile{}).first;
-                        }
-                        cached_key=key;
-                        cached_tile=&it->second;
-                    }
-                    const auto index=std::size_t(py%tile_side)*tile_side+(px%tile_side);
-                    (*cached_tile)[index]=std::max((*cached_tile)[index],alpha);
+        // Evaluate the same 4x4 sample grid for every contour and OR masks.
+        // This preserves two disjoint partial coverages within one pixel.
+        std::uint64_t cached_key=std::numeric_limits<std::uint64_t>::max();
+        CoverageTile* cached_tile=nullptr;
+        for(auto y=top;y<bottom;++y) for(auto x=left;x<right;++x) {
+            std::uint16_t bits=0;
+            for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
+                const double px=double(x)+(sx+0.5)/4.0;
+                const double py=double(y)+(sy+0.5)/4.0;
+                int winding=0;
+                for(std::size_t j=1;j<one.commands.size();++j) {
+                    const auto& from=one.commands[j-1].endpoint;
+                    const auto& to=one.commands[j].endpoint;
+                    const double ax=double(from.x)/20.0,ay=double(from.y)/20.0;
+                    const double bx=double(to.x)/20.0,by=double(to.y)/20.0;
+                    const double cross=(bx-ax)*(py-ay)-(by-ay)*(px-ax);
+                    if(ay<=py && by>py && cross>0)++winding;
+                    else if(by<=py && ay>py && cross<0)--winding;
                 }
+                if(winding)bits|=std::uint16_t(1u<<(sy*4+sx));
+            }
+            if(!bits)continue;
+            const auto ux=std::uint32_t(x-mask_left),uy=std::uint32_t(y-mask_top);
+            const auto key=tile_key(ux/tile_side,uy/tile_side);
+            if(key!=cached_key || !cached_tile) {
+                auto it=coverage.find(key);
+                if(it==coverage.end()) {
+                    if(coverage.size()>=max_tiles)
+                        return {Error::size_limit,"stroke union tile limit"};
+                    it=coverage.emplace(key,CoverageTile{}).first;
+                }
+                cached_key=key;
+                cached_tile=&it->second;
+            }
+            auto& sample_mask=(*cached_tile)[std::size_t(uy%tile_side)*tile_side+ux%tile_side];
+            sample_mask|=bits;
         }
         one.commands.clear();
         return {};
@@ -476,7 +468,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         const auto base_y=std::size_t(key>>32)*tile_side;
         for(std::size_t y=0;y<tile_side;++y) for(std::size_t x=0;x<tile_side;++x) {
             if(base_x+x>=mask_width || base_y+y>=mask_height)continue;
-            const unsigned sa=(unsigned(tile[y*tile_side+x])*opacity+127)/255;
+            const unsigned hits=std::popcount(tile[y*tile_side+x]);
+            const unsigned sa=(hits*opacity+8)/16;
             if(!sa)continue;
             const auto xx=mask_left+std::int64_t(base_x+x);
             const auto yy=mask_top+std::int64_t(base_y+y);
