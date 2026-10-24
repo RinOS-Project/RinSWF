@@ -189,5 +189,10 @@ int main() {
     distant.objects.push_back(far_entry);
     assert(render_frame(distant,assets,clipped));
     assert(clipped.rgba[3]==0);
+    // The union mask must composite correctly at a nonzero origin.
+    Surface offset_surface;
+    assert(make_surface(256,256,offset_surface));
+    assert(render_frame(distant,assets,offset_surface));
+    assert(offset_surface.rgba[3]==0);
     return 0;
 }
