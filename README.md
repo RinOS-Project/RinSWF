@@ -8,7 +8,7 @@ RinSWFは、SWF (Adobe Flash) ファイルを安全に解析・描画・再生�
 - SWF RECT（ステージ座標）、フレームレート、フレーム数
 - SWFタグヘッダー（短形式・長形式）、ペイロードの抽出
 - ファイル・タグごとの上限制御と不正な境界の拒否
-- DefineBitsJPEG2/3/4の画像バイト列とアルファチャネル分離・アルファzlib展開（JPEG画像自体のピクセルデコードは未実装）
+- DefineBitsJPEG2/3/4の画像バイト列とアルファチャネル分離・アルファzlib展開（JPEG画像のRGBA変換はlibjpeg利用可能時に対応（PNG/GIFは未対応））
 - DefineBitsLossless / DefineBitsLossless2 (パレット、15-bit RGB、32-bit ARGB) のzlib展開とRGBAアセット管理
 - 基本タグの型付き解析（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）と境界チェック
 - PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる表示リストのフレームスナップショット生成、MATRIX変換値の保持（描画・ActionScript実行は未対応）
@@ -25,7 +25,7 @@ meson compile -C build
 meson test -C build --print-errorlogs
 ```
 
-zlib開発パッケージ、C++20コンパイラ、Mesonが必要です。
+zlib開発パッケージ、C++20コンパイラ、Mesonが必要です。JPEGデコードには任意依存のlibjpegが必要です。未導入の場合、JPEGピクセル変換は明示的なエラーになります。
 
 ## 利用例
 
