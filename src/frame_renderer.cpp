@@ -394,6 +394,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     ShapeGeometry one;
     one.fills=quad.fills;
     std::size_t contours=0;
+    Surface scratch;
     auto flush=[&]()->RenderResult {
         if(one.commands.empty())return {};
         if(++contours>8192)return {Error::size_limit,"stroke contour limit exceeded"};
@@ -409,19 +410,22 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         const auto right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
         const auto bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
         if(right>left && bottom>top) {
-            Surface individual;
-            auto result=make_surface(std::uint32_t(right-left),std::uint32_t(bottom-top),individual);
-            if(!result)return result;
+            const auto width=std::uint32_t(right-left);
+            const auto height=std::uint32_t(bottom-top);
+            if(scratch.width!=width || scratch.height!=height) {
+                auto allocated=make_surface(width,height,scratch);
+                if(!allocated)return allocated;
+            } else clear(scratch,{0,0,0,0});
             const auto offsetx=-left*20,offsety=-top*20;
             if(offsetx<std::numeric_limits<std::int32_t>::min() ||
                offsety<std::numeric_limits<std::int32_t>::min())
                 return {Error::size_limit,"contour offset overflow"};
-            result=draw_shape_fills(individual,one,std::int32_t(offsetx),std::int32_t(offsety));
+            auto result=draw_shape_fills(scratch,one,std::int32_t(offsetx),std::int32_t(offsety));
             if(!result)return result;
             for(std::int64_t y=0;y<bottom-top;++y)
                 for(std::int64_t x=0;x<right-left;++x) {
-                    const auto src=(std::size_t(y)*individual.width+std::size_t(x))*4+3;
-                    const auto alpha=individual.rgba[src];
+                    const auto src=(std::size_t(y)*scratch.width+std::size_t(x))*4+3;
+                    const auto alpha=scratch.rgba[src];
                     if(!alpha)continue;
                     const auto px=std::uint32_t(x+left-mask_left);
                     const auto py=std::uint32_t(y+top-mask_top);
