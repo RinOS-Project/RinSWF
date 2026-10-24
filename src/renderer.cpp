@@ -110,11 +110,12 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
 }
 struct CoverageMask {
     std::uint32_t width=0,height=0;
+    std::int64_t origin_x=0,origin_y=0;
     std::vector<std::uint8_t> coverage;
 };
 void mask_pixel(CoverageMask& s,std::int64_t x,std::int64_t y,ShapeColor c) {
-    if(x<0||y<0||x>=s.width||y>=s.height) return;
-    const auto p=std::size_t(y)*s.width+std::size_t(x);
+    if(x<s.origin_x||y<s.origin_y||x>=s.origin_x+s.width||y>=s.origin_y+s.height) return;
+    const auto p=std::size_t(y-s.origin_y)*s.width+std::size_t(x-s.origin_x);
     s.coverage[p]=std::max(s.coverage[p],c.a);
 }
 void segment(CoverageMask& s,double x0,double y0,double x1,double y1,
@@ -128,11 +129,11 @@ void segment(CoverageMask& s,double x0,double y0,double x1,double y1,
     const double hi_x=std::max(x0,x1)+radius+1.0;
     const double lo_y=std::min(y0,y1)-radius-1.0;
     const double hi_y=std::max(y0,y1)+radius+1.0;
-    if(hi_x<0 || hi_y<0 || lo_x>=s.width || lo_y>=s.height) return;
-    const auto left=static_cast<std::int64_t>(std::max(0.0,std::floor(lo_x)));
-    const auto right=static_cast<std::int64_t>(std::min(double(s.width),std::ceil(hi_x)));
-    const auto top=static_cast<std::int64_t>(std::max(0.0,std::floor(lo_y)));
-    const auto bottom=static_cast<std::int64_t>(std::min(double(s.height),std::ceil(hi_y)));
+    if(hi_x<s.origin_x || hi_y<s.origin_y || lo_x>=s.origin_x+s.width || lo_y>=s.origin_y+s.height) return;
+    const auto left=static_cast<std::int64_t>(std::max(double(s.origin_x),std::floor(lo_x)));
+    const auto right=static_cast<std::int64_t>(std::min(double(s.origin_x+s.width),std::ceil(hi_x)));
+    const auto top=static_cast<std::int64_t>(std::max(double(s.origin_y),std::floor(lo_y)));
+    const auto bottom=static_cast<std::int64_t>(std::min(double(s.origin_y+s.height),std::ceil(hi_y)));
     const double dx=x1-x0,dy=y1-y0,denom=dx*dx+dy*dy;
     const double length=std::sqrt(denom);
     for(auto y=top;y<bottom;++y) for(auto x=left;x<right;++x) {
@@ -168,10 +169,10 @@ void segment(CoverageMask& s,double x0,double y0,double x1,double y1,
 // Rasterize a join wedge with the same coverage scheme as line segments.
 void join_wedge(CoverageMask& surface,double ax,double ay,double bx,double by,
                 double cx,double cy,ShapeColor color) {
-    const double minx=std::max(0.0,std::floor(std::min({ax,bx,cx})-1));
-    const double maxx=std::min(double(surface.width),std::ceil(std::max({ax,bx,cx})+1));
-    const double miny=std::max(0.0,std::floor(std::min({ay,by,cy})-1));
-    const double maxy=std::min(double(surface.height),std::ceil(std::max({ay,by,cy})+1));
+    const double minx=std::max(double(surface.origin_x),std::floor(std::min({ax,bx,cx})-1));
+    const double maxx=std::min(double(surface.origin_x+surface.width),std::ceil(std::max({ax,bx,cx})+1));
+    const double miny=std::max(double(surface.origin_y),std::floor(std::min({ay,by,cy})-1));
+    const double maxy=std::min(double(surface.origin_y+surface.height),std::ceil(std::max({ay,by,cy})+1));
     const auto cross=[](double ux,double uy,double vx,double vy){return ux*vy-uy*vx;};
     const double area=cross(bx-ax,by-ay,cx-ax,cy-ay);
     if(std::abs(area)<1e-10) return;
@@ -259,17 +260,48 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     // A per-style coverage buffer prevents double-alpha compositing at joints.
     std::vector<CoverageMask> masks(shape.lines.size());
-    // Allocate only for referenced line styles; unused styles consume no surface.
+    // Conservative per-style bounds include endpoints, Bezier control points and joins.
+    struct Bounds { double minx=0,miny=0,maxx=0,maxy=0; bool used=false; };
+    std::vector<Bounds> bounds(shape.lines.size());
+    ShapePoint cursor{};
     for(const auto& command:shape.commands) {
-        if(command.line>shape.lines.size())
-            return fail(Error::malformed_tag,"line style index out of range");
-        if(!command.line || command.kind==ShapeCommandKind::move_to) continue;
-        auto& mask=masks[command.line-1];
-        if(mask.coverage.empty()) {
-            mask.width=target.width;
-            mask.height=target.height;
-            mask.coverage.resize(std::size_t(target.width)*target.height);
+        if(command.line>shape.lines.size() || command.fill0>shape.fills.size() ||
+           command.fill1>shape.fills.size())
+            return fail(Error::malformed_tag,"invalid style reference");
+        if(command.kind==ShapeCommandKind::move_to) {cursor=command.endpoint;continue;}
+        if(command.kind!=ShapeCommandKind::line_to && command.kind!=ShapeCommandKind::quadratic_to)
+            return fail(Error::malformed_tag,"unknown stroke command");
+        if(command.line) {
+            auto& bound=bounds[command.line-1];
+            auto add=[&](ShapePoint p) {
+                const double x=(double(p.x)+offset_x)/20.0;
+                const double y=(double(p.y)+offset_y)/20.0;
+                if(!bound.used) {bound={x,y,x,y,true};}
+                else {bound.minx=std::min(bound.minx,x);bound.maxx=std::max(bound.maxx,x);
+                      bound.miny=std::min(bound.miny,y);bound.maxy=std::max(bound.maxy,y);}
+            };
+            add(cursor);add(command.endpoint);
+            if(command.kind==ShapeCommandKind::quadratic_to) add(command.control);
         }
+        cursor=command.endpoint;
+    }
+    for(std::size_t i=0;i<bounds.size();++i) {
+        const auto& bound=bounds[i];
+        if(!bound.used) continue;
+        const auto& line=shape.lines[i];
+        const double radius=std::max(0.75,double(line.width?line.width:20)/40.0);
+        const double extension=radius*std::clamp(line.join==2?line.miter_limit:1.0,1.0,1000.0)+2.0;
+        const auto clampx=[&](double v){return std::clamp(v,0.0,double(target.width));};
+        const auto clampy=[&](double v){return std::clamp(v,0.0,double(target.height));};
+        const auto left=std::int64_t(clampx(std::floor(bound.minx-extension)));
+        const auto top=std::int64_t(clampy(std::floor(bound.miny-extension)));
+        const auto right=std::int64_t(clampx(std::ceil(bound.maxx+extension)));
+        const auto bottom=std::int64_t(clampy(std::ceil(bound.maxy+extension)));
+        if(right<=left || bottom<=top) continue;
+        auto& mask=masks[i];
+        mask.origin_x=left;mask.origin_y=top;
+        mask.width=std::uint32_t(right-left);mask.height=std::uint32_t(bottom-top);
+        mask.coverage.resize(std::size_t(mask.width)*mask.height);
     }
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
@@ -283,7 +315,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             have_prior_segment=false;
             previous_line=0;
         }
-        if(command.kind!=ShapeCommandKind::move_to && command.line) {
+        if(command.kind!=ShapeCommandKind::move_to && command.line &&
+           !masks[command.line-1].coverage.empty()) {
             const auto& line_style=shape.lines[command.line-1];
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
@@ -321,7 +354,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         previous=command.endpoint;
     }
     for(std::size_t style=0;style<masks.size();++style) {
-        const auto& coverage=masks[style].coverage;
+        const auto& mask=masks[style];
+        const auto& coverage=mask.coverage;
         const auto color=shape.lines[style].color;
         if(coverage.empty()) continue;
         for(std::size_t i=0;i<coverage.size();++i) {
@@ -329,7 +363,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             auto sample=color;
             sample.a=static_cast<std::uint8_t>(
                 (unsigned(color.a)*coverage[i]+127)/255);
-            pixel(target,i%target.width,i/target.width,sample);
+            pixel(target,mask.origin_x+std::int64_t(i%mask.width),
+                  mask.origin_y+std::int64_t(i/mask.width),sample);
         }
     }
     return {};
