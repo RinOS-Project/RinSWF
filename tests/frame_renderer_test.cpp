@@ -117,5 +117,12 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(2*16+9)*4+3]>0);
+    // Two straight edges with butt caps can share the affine outline path.
+    ShapeGeometry polyline=stroked;
+    polyline.commands.push_back({ShapeCommandKind::line_to,{}, {100,120},0,0,1});
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
