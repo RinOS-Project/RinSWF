@@ -11,7 +11,7 @@ RinSWFは、SWF (Adobe Flash) ファイルを安全に解析・描画・再生�
 - 基本タグの型付き解析（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）と境界チェック
 - PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる表示リストのフレームスナップショット生成、MATRIX変換値の保持（描画・ActionScript実行は未対応）
 
-DefineShapeのMove/Line/Quadratic輪郭抽出に加え、DefineShape 1/2/3の単色Fill・LINESTYLEとスタイル番号を解析します。Gradient/Bitmap Fill、DefineShape4のLINESTYLE2、NewStylesはまだ未対応です。
+DefineShapeのMove/Line/Quadratic輪郭抽出に加え、DefineShape 1/2/3の単色Fill・LINESTYLEとスタイル番号を解析します。Linear/Radial/Focal Gradientの行列とカラー停止点の解析を追加しました。Bitmap Fill、DefineShape4のLINESTYLE2、NewStylesはまだ未対応です。
 
 **未実装:** ZWS/LZMA、Shape等の複合タグ、描画、ActionScript、音声再生、プレイヤー。現時点ではSWFを実行できません。
 
