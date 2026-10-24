@@ -268,7 +268,17 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
     std::vector<Crossing> intersections;
     for(std::size_t style=0;style<edges.size();++style) {
         if(edges[style].empty()) continue;
-        for(std::uint32_t y=0;y<target.height;++y) {
+        // Limit work to scanlines intersecting the shape, rather than full-surface height.
+        double min_y=double(target.height),max_y=0.0;
+        for(const auto& edge:edges[style]) {
+            min_y=std::min(min_y,std::min(edge.y0,edge.y1));
+            max_y=std::max(max_y,std::max(edge.y0,edge.y1));
+        }
+        const auto ybegin=static_cast<std::uint32_t>(
+            std::clamp(std::floor(min_y),0.0,double(target.height)));
+        const auto yend=static_cast<std::uint32_t>(
+            std::clamp(std::ceil(max_y),0.0,double(target.height)));
+        for(std::uint32_t y=ybegin;y<yend;++y) {
             const double sy=double(y)+0.5;
             intersections.clear();
             for(const auto& edge:edges[style]) {
