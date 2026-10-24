@@ -29,6 +29,18 @@ int main() {
     assert(grad.shape.fills[0].kind==FillKind::linear_gradient);
     assert(grad.shape.fills[0].stops.size()==1);
     assert(grad.shape.fills[0].stops[0].color.r==255);
-    styled.data[4]=0x10; // gradient fill: unsupported explicitly
+    // Bitmap fill references character 42 and carries its own identity matrix.
+    Tag bitmap{2,0,{11,0,0,1,0x40,42,0,0,0,0,0}};
+    auto bmp=decode_shape(bitmap);
+    assert(bmp);
+    assert(bmp.shape.fills.size()==1);
+    assert(bmp.shape.fills[0].bitmap_id==42);
+    assert(bmp.shape.fills[0].kind==FillKind::repeating_bitmap);
+    bitmap.data[4]=0x43;
+    auto clipped=decode_shape(bitmap);
+    assert(clipped && clipped.shape.fills[0].kind==FillKind::nonsmoothed_clipped_bitmap);
+    bitmap.data.resize(6);
+    assert(!decode_shape(bitmap));
+    styled.data[4]=0x7f; // unsupported fill type
     assert(!decode_shape(styled));
 }
