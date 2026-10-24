@@ -192,8 +192,6 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 constexpr double pi=3.14159265358979323846;
                 const double angle=std::atan2(p1y-b.y,p1x-b.x);
                 double sweep=std::remainder(std::atan2(p2y-b.y,p2x-b.x)-angle,2*pi);
-                if(cross>0 && sweep>0) sweep-=2*pi;
-                if(cross<0 && sweep<0) sweep+=2*pi;
                 const unsigned steps=std::clamp(unsigned(std::ceil(std::abs(sweep)/(pi/24))),1u,64u);
                 for(unsigned j=0;j<steps;++j) {
                     const double a0=angle+sweep*double(j)/steps;
