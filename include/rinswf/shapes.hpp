@@ -27,7 +27,13 @@ struct ShapeFill {
     double focal_point=0.0;
     std::uint16_t bitmap_id=0;
 };
-struct ShapeLine { std::uint16_t width=0; ShapeColor color; };
+struct ShapeLine {
+    std::uint16_t width=0;
+    ShapeColor color;
+    std::uint8_t start_cap=0, end_cap=0, join=0;
+    bool no_hscale=false, no_vscale=false, pixel_hinting=false, no_close=false;
+    double miter_limit=0.0;
+};
 struct ShapeGeometry {
     std::uint16_t character_id=0;
     std::vector<ShapeCommand> commands;
@@ -42,6 +48,6 @@ struct ShapeResult {
 };
 // Supports solid and gradient fills in DefineShape 1/2/3/4.
 // Bitmap fills retain the character reference and transform; bitmap decoding/rendering remains separate.
-// LINESTYLE2 and NewStyles fail explicitly.
+// LINESTYLE2 solid-color strokes are parsed; fill-strokes and NewStyles fail explicitly.
 [[nodiscard]] ShapeResult decode_shape(const Tag& tag, std::size_t max_commands=100000);
 }
