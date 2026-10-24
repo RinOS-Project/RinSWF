@@ -108,6 +108,11 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
     }
     return stops.back().color;
 }
+void mask_pixel(Surface& s,std::int64_t x,std::int64_t y,ShapeColor c) {
+    if(x<0||y<0||x>=s.width||y>=s.height) return;
+    const auto p=(std::size_t(y)*s.width+std::size_t(x))*4+3;
+    s.rgba[p]=std::max(s.rgba[p],c.a);
+}
 void segment(Surface& s,double x0,double y0,double x1,double y1,
              ShapeColor c,double width,unsigned start_cap,unsigned end_cap) {
     // Coverage-AA stroke with independent start/end cap clipping.
@@ -152,7 +157,7 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
         if(covered) {
             ShapeColor sample=c;
             sample.a=static_cast<std::uint8_t>((unsigned(c.a)*covered+8)/16);
-            pixel(s,x,y,sample);
+            mask_pixel(s,x,y,sample);
         }
     }
 }
@@ -179,7 +184,7 @@ void join_wedge(Surface& surface,double ax,double ay,double bx,double by,
             if(hits) {
                 auto c=color;
                 c.a=std::uint8_t((unsigned(c.a)*hits+8)/16);
-                pixel(surface,x,y,c);
+                mask_pixel(surface,x,y,c);
             }
         }
 }
@@ -248,6 +253,12 @@ RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,std::int32_t x,std
 RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                                 std::int32_t offset_x,std::int32_t offset_y) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
+    // A per-style coverage buffer prevents double-alpha compositing at joints.
+    std::vector<Surface> masks(shape.lines.size());
+    for(auto& mask:masks) {
+        auto result=make_surface(target.width,target.height,mask);
+        if(!result) return result;
+    }
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
     bool have_prior_segment=false;
@@ -266,13 +277,13 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
             if(have_prior_segment && previous_line==command.line && line_style.join!=0 &&
                command.kind==ShapeCommandKind::line_to) {
-                stroke_join(target,previous_start,previous,command.endpoint,
+                stroke_join(masks[command.line-1],previous_start,previous,command.endpoint,
                             offset_x,offset_y,line_style);
             }
             if(have_prior_segment && previous_line==command.line && line_style.join==0) {
                 // Round join: bridge the adjacent stroked edges at their shared vertex.
                 // A coverage union for the complete path is a separate follow-up.
-                segment(target,to_x(previous),to_y(previous),
+                segment(masks[command.line-1],to_x(previous),to_y(previous),
                         to_x(previous),to_y(previous),color,stroke_width,0,0);
             }
             if(command.kind==ShapeCommandKind::line_to) {
@@ -296,6 +307,18 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             previous_start=previous;
         }
         previous=command.endpoint;
+    }
+    for(std::size_t style=0;style<masks.size();++style) {
+        const auto& rgba=masks[style].rgba;
+        const auto color=shape.lines[style].color;
+        for(std::size_t i=0;i<rgba.size();i+=4) {
+            if(!rgba[i+3]) continue;
+            auto sample=color;
+            sample.a=static_cast<std::uint8_t>(
+                (unsigned(color.a)*rgba[i+3]+127)/255);
+            const auto offset=i/4;
+            pixel(target,offset%target.width,offset/target.width,sample);
+        }
     }
     return {};
 }
