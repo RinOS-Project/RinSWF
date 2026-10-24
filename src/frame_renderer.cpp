@@ -269,12 +269,36 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 return {Error::size_limit,"bevel join coordinate overflow"};
         }
     }
-    if(shape.lines[0].color.a==255) return draw_shape_fills(dst,quad);
-    Surface mask;
+    // Union all generated contour masks. A single nonzero-winding pass may
+    // cancel two identical contours traversed in opposite directions.
+    Surface mask,individual;
     auto allocated=make_surface(dst.width,dst.height,mask);
-    if(!allocated) return allocated;
-    auto filled=draw_shape_fills(mask,quad);
-    if(!filled) return filled;
+    if(!allocated)return allocated;
+    allocated=make_surface(dst.width,dst.height,individual);
+    if(!allocated)return allocated;
+    ShapeGeometry one;
+    one.fills=quad.fills;
+    std::size_t contours=0;
+    auto flush=[&]()->RenderResult {
+        if(one.commands.empty())return {};
+        if(++contours>8192)return {Error::size_limit,"stroke contour limit exceeded"};
+        clear(individual,{0,0,0,0});
+        auto result=draw_shape_fills(individual,one);
+        if(!result)return result;
+        for(std::size_t i=3;i<mask.rgba.size();i+=4)
+            mask.rgba[i]=std::max(mask.rgba[i],individual.rgba[i]);
+        one.commands.clear();
+        return {};
+    };
+    for(const auto& cmd:quad.commands) {
+        if(cmd.kind==ShapeCommandKind::move_to) {
+            auto result=flush();
+            if(!result)return result;
+        }
+        one.commands.push_back(cmd);
+    }
+    auto result=flush();
+    if(!result)return result;
     const unsigned opacity=shape.lines[0].color.a;
     const auto color=shape.lines[0].color;
     for(std::size_t i=0;i<mask.rgba.size();i+=4) {
