@@ -245,5 +245,16 @@ int main() {
     assets.shapes[88]=closed_curve;
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
+    // Crossing reversed strokes should render without cancellation or repeated alpha.
+    ShapeGeometry cross=translucent;
+    cross.commands.clear();
+    cross.commands.push_back({ShapeCommandKind::move_to,{}, {20,40},0,0,0});
+    cross.commands.push_back({ShapeCommandKind::line_to,{}, {100,120},0,0,1});
+    cross.commands.push_back({ShapeCommandKind::move_to,{}, {100,40},0,0,0});
+    cross.commands.push_back({ShapeCommandKind::line_to,{}, {20,120},0,0,1});
+    assets.shapes[88]=cross;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
