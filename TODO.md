@@ -27,7 +27,8 @@
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] FrameSnapshotの深度順オブジェクトからShapeとLossless BitmapをRGBAサーフェスへ描画する基本API（平行移動限定）
 - [x] フレーム描画アセット収集へJPEG2/3/4を追加し、重複character IDを拒否
-- [ ] フレーム描画の変換行列対応・クリップ/色変換・Sprite対応
+- [x] Bitmap配置のアフィン逆変換（拡大縮小・回転・スキュー・サブピクセル平行移動、最近傍）
+- [ ] Shape配置の変換行列対応・Bitmap高品質補間・クリップ/色変換・Sprite対応
 - [x] 初期RGBAフレームバッファ、Bitmap転送、線分/二次曲線の簡易ストローク描画
 - [x] LINESTYLE幅を反映したクリップ付き簡易太線描画（丸端、4x4被覆率AA）
 - [x] FillStyle0/1の辺方向を反映した非ゼロ巻き数スキャンライン塗り（基礎実装）
