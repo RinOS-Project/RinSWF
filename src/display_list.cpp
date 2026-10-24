@@ -24,13 +24,31 @@ struct Reader {
     }
     void align() { bit=(bit+7)&~std::size_t(7); }
     std::size_t pos() const { return bit/8; }
-    bool matrix() {
+    bool signed_value(unsigned n, std::int32_t& value) {
+        std::uint32_t raw=0;
+        if (!take(n,raw)) return false;
+        if (n==0) { value=0; return true; }
+        if (n==32) { value=static_cast<std::int32_t>(raw); return true; }
+        const auto sign=std::uint32_t(1)<<(n-1);
+        value=static_cast<std::int32_t>((raw ^ sign)-sign);
+        return true;
+    }
+    bool matrix(Matrix& out) {
         std::uint32_t has=0,n=0;
         if(!take(1,has)) return false;
-        if(has && (!take(5,n)||!skip(std::size_t(2)*n))) return false;
+        std::int32_t a=0,b=0;
+        if(has) {
+            if(!take(5,n)||!signed_value(n,a)||!signed_value(n,b)) return false;
+            out.scale_x=static_cast<double>(a)/65536.0;
+            out.scale_y=static_cast<double>(b)/65536.0;
+        }
         if(!take(1,has)) return false;
-        if(has && (!take(5,n)||!skip(std::size_t(2)*n))) return false;
-        if(!take(5,n)||!skip(std::size_t(2)*n)) return false;
+        if(has) {
+            if(!take(5,n)||!signed_value(n,a)||!signed_value(n,b)) return false;
+            out.rotate_skew_0=static_cast<double>(a)/65536.0;
+            out.rotate_skew_1=static_cast<double>(b)/65536.0;
+        }
+        if(!take(5,n)||!signed_value(n,out.translate_x)||!signed_value(n,out.translate_y)) return false;
         align(); return bit<=d.size()*8;
     }
     bool cxform_alpha() {
@@ -59,13 +77,16 @@ TimelineResult build_timeline(const Document& document) {
             if(d.size()<5) return fail("PlaceObject truncated");
             const auto id=u16(d,0),depth=u16(d,2);
             Reader reader{d,32};
-            if(!reader.matrix()) return fail("PlaceObject MATRIX truncated");
+            Matrix matrix;
+            if(!reader.matrix(matrix)) return fail("PlaceObject MATRIX truncated");
             if(reader.pos()<d.size()) {
                 // PlaceObject contains CXFORM (RGB), not CXFORMWITHALPHA;
                 // defer color-transform support rather than misinterpret it.
                 return fail("PlaceObject CXFORM not supported");
             }
-            display[depth]={depth,id,true,{}};
+            DisplayEntry entry;
+            entry.depth=depth; entry.character_id=id; entry.has_matrix=true; entry.matrix=matrix;
+            display[depth]=std::move(entry);
         } else if(tag.code==26) { // PlaceObject2
             if(d.size()<3) return fail("PlaceObject2 truncated");
             const std::uint8_t flags=d[0];
@@ -86,7 +107,8 @@ TimelineResult build_timeline(const Document& document) {
                 if(d.size()-reader.pos()<2) return fail("PlaceObject2 missing character ID");
                 id=u16(d,reader.pos());reader.bit+=16;
             }
-            if(has_matrix && !reader.matrix()) return fail("PlaceObject2 MATRIX truncated");
+            Matrix matrix;
+            if(has_matrix && !reader.matrix(matrix)) return fail("PlaceObject2 MATRIX truncated");
             if(has_color && !reader.cxform_alpha()) return fail("PlaceObject2 CXFORM truncated");
             if(has_ratio) {
                 if(d.size()-reader.pos()<2) return fail("PlaceObject2 ratio truncated");
@@ -100,13 +122,16 @@ TimelineResult build_timeline(const Document& document) {
                 if(it==display.end()) return fail("PlaceObject2 move to unoccupied depth");
                 auto entry=it->second;
                 if(has_character) entry.character_id=id;
-                if(has_matrix) entry.has_matrix=true;
+                if(has_matrix) { entry.has_matrix=true; entry.matrix=matrix; }
                 if(has_name) entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
                 if(!has_character) return fail("PlaceObject2 insertion missing character");
                 if(it!=display.end()) return fail("PlaceObject2 insertion into occupied depth");
-                display[depth]={depth,id,has_matrix,std::move(name)};
+                DisplayEntry entry;
+                entry.depth=depth; entry.character_id=id; entry.has_matrix=has_matrix;
+                entry.matrix=matrix; entry.name=std::move(name);
+                display[depth]=std::move(entry);
             }
         } else if(tag.code==5) { // RemoveObject: CharacterId, Depth
             if(d.size()!=4) return fail("RemoveObject invalid size");
