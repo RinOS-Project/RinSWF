@@ -380,7 +380,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         i=end;
     }
     // Internal vertices of a continuous subpath should not use external caps.
-    ShapePoint previous{},previous_start{};
+    ShapePoint previous{},previous_tangent{};
+    bool have_tangent=false;
     std::uint32_t previous_line=0;
     bool have_prior_segment=false;
     for(const auto& command:shape.commands) {
@@ -391,6 +392,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         if(command.kind==ShapeCommandKind::move_to) {
             have_prior_segment=false;
             previous_line=0;
+            have_tangent=false;
         }
         if(command.kind!=ShapeCommandKind::move_to && command.line &&
            masks[command.line-1].width!=0) {
@@ -441,7 +443,11 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         if(command.kind!=ShapeCommandKind::move_to) {
             have_prior_segment=command.line!=0;
             previous_line=command.line;
-            previous_start=previous;
+            previous_tangent=command.kind==ShapeCommandKind::quadratic_to
+                ? command.control : previous;
+            if(previous_tangent.x==command.endpoint.x && previous_tangent.y==command.endpoint.y)
+                previous_tangent=previous;
+            have_tangent=true;
         }
         previous=command.endpoint;
     }
