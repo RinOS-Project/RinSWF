@@ -99,6 +99,16 @@ int main() {
     one_style.commands.push_back({ShapeCommandKind::line_to,{}, {120,60},0,0,1});
     assert(draw_shape_strokes(alpha_canvas,one_style));
     assert(alpha_canvas.rgba[(3*8+3)*4+3]==128);
+    // A small stroke on a large surface must composite at the correct global offset.
+    Surface large;
+    assert(make_surface(256,256,large));
+    ShapeGeometry local;
+    local.lines.push_back({20,{75,150,225,255}});
+    local.commands.push_back({ShapeCommandKind::move_to,{}, {3000,3000},0,0,0});
+    local.commands.push_back({ShapeCommandKind::line_to,{}, {3200,3000},0,0,1});
+    assert(draw_shape_strokes(large,local));
+    assert(large.rgba[(150*256+155)*4+3]>0);
+    assert(large.rgba[3]==0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
