@@ -178,5 +178,16 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(2*16+9)*4+3]>0);
+    // Clipped contour scratch space must preserve pixels away from a local stroke.
+    Surface clipped;
+    assert(make_surface(256,256,clipped));
+    FrameSnapshot distant;
+    DisplayEntry far_entry;
+    far_entry.depth=1;far_entry.character_id=88;far_entry.has_matrix=true;
+    far_entry.matrix.scale_x=3;far_entry.matrix.scale_y=1;
+    far_entry.matrix.translate_x=3000;far_entry.matrix.translate_y=3000;
+    distant.objects.push_back(far_entry);
+    assert(render_frame(distant,assets,clipped));
+    assert(clipped.rgba[3]==0);
     return 0;
 }
