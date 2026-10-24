@@ -140,5 +140,11 @@ int main() {
     assets.shapes[88]=polyline;
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
+    // Round joins use a tessellated circular sector under affine scaling.
+    polyline.lines[0].join=0;
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
