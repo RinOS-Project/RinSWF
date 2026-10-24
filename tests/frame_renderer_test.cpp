@@ -81,5 +81,13 @@ int main() {
     assert(render_frame(filtered,assets,filtered_surface));
     assert(filtered_surface.rgba[(0*4+1)*4]>0);
     assert(filtered_surface.rgba[(0*4+1)*4+2]>0);
+    // A solid vector square should retain its filled interior under rotation.
+    placed.matrix.scale_x=0; placed.matrix.scale_y=0;
+    placed.matrix.rotate_skew_0=-1; placed.matrix.rotate_skew_1=1;
+    placed.matrix.translate_x=100; placed.matrix.translate_y=0;
+    shape_frame.objects[0]=placed;
+    clear(shape_surface,{0,0,0,0});
+    assert(render_frame(shape_frame,assets,shape_surface));
+    assert(shape_surface.rgba[(1*16+4)*4+3]>0);
     return 0;
 }
