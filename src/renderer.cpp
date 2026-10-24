@@ -397,9 +397,18 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const auto& line_style=shape.lines[command.line-1];
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
-            if(have_prior_segment && previous_line==command.line && line_style.join!=0 &&
-               command.kind==ShapeCommandKind::line_to) {
-                stroke_join(masks[command.line-1],previous_start,previous,command.endpoint,
+            if(have_prior_segment && previous_line==command.line && line_style.join!=0) {
+                const auto index=std::size_t(&command-shape.commands.data());
+                const auto& incoming=shape.commands[index-1];
+                // For a quadratic edge, the end/start control point defines its tangent.
+                // Fall back to the chord when the control point is coincident with the join.
+                const ShapePoint before=incoming.kind==ShapeCommandKind::quadratic_to &&
+                    (incoming.control.x!=previous.x || incoming.control.y!=previous.y)
+                    ? incoming.control : previous_start;
+                const ShapePoint after=command.kind==ShapeCommandKind::quadratic_to &&
+                    (command.control.x!=previous.x || command.control.y!=previous.y)
+                    ? command.control : command.endpoint;
+                stroke_join(masks[command.line-1],before,previous,after,
                             offset_x,offset_y,line_style);
             }
             if(have_prior_segment && previous_line==command.line && line_style.join==0) {
