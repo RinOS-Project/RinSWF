@@ -75,6 +75,20 @@ int main() {
     joined.lines[0].miter_limit=1.0; // bevel fallback
     clear(caps,{0,0,0,0});
     assert(draw_shape_strokes(caps,joined));
+    // Overlapping segments using the same style must not double-composite alpha.
+    Surface overlap;
+    assert(make_surface(8,8,overlap));
+    ShapeGeometry translucent;
+    translucent.lines.push_back({40,{255,0,0,128}});
+    translucent.commands.push_back({ShapeCommandKind::move_to,{}, {20,60},0,0,0});
+    translucent.commands.push_back({ShapeCommandKind::line_to,{}, {120,60},0,0,1});
+    assert(draw_shape_strokes(overlap,translucent));
+    const auto once=overlap.rgba[(3*8+3)*4+3];
+    translucent.commands.push_back({ShapeCommandKind::move_to,{}, {20,60},0,0,0});
+    translucent.commands.push_back({ShapeCommandKind::line_to,{}, {120,60},0,0,1});
+    clear(overlap,{0,0,0,0});
+    assert(draw_shape_strokes(overlap,translucent));
+    assert(overlap.rgba[(3*8+3)*4+3]==once);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
