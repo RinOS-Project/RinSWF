@@ -427,14 +427,33 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         // This preserves two disjoint partial coverages within one pixel.
         std::uint64_t cached_key=std::numeric_limits<std::uint64_t>::max();
         CoverageTile* cached_tile=nullptr;
-        // Build active edge sets once per subpixel scanline.
+        // Edge events are indexed in quarter-pixel rows. Each edge enters
+        // exactly once and leaves exactly once as the scanline advances.
+        using EdgePtr=const WindingEdge*;
+        const auto row_count=std::size_t(bottom-top)*4;
+        std::vector<std::vector<EdgePtr>> starts(row_count+1),ends(row_count+1);
+        for(const auto& e:edges) {
+            const double low=std::min(e.ay,e.by),high=std::max(e.ay,e.by);
+            const auto first=std::int64_t(std::ceil(4.0*(low-double(top))-0.5));
+            const auto last=std::int64_t(std::ceil(4.0*(high-double(top))-0.5));
+            const auto begin=std::size_t(std::clamp(first,std::int64_t(0),std::int64_t(row_count)));
+            const auto finish=std::size_t(std::clamp(last,std::int64_t(0),std::int64_t(row_count)));
+            if(begin<finish) {
+                starts[begin].push_back(&e);
+                ends[finish].push_back(&e);
+            }
+        }
+        std::vector<EdgePtr> active_edges;
         for(auto y=top;y<bottom;++y) {
-            std::array<std::vector<const WindingEdge*>,4> active;
+            std::array<std::vector<EdgePtr>,4> active;
             for(unsigned sy=0;sy<4;++sy) {
-                const double py=double(y)+(sy+0.5)/4.0;
-                for(const auto& e:edges)
-                    if(py>=std::min(e.ay,e.by) && py<std::max(e.ay,e.by))
-                        active[sy].push_back(&e);
+                const auto row=std::size_t(y-top)*4+sy;
+                for(auto e:ends[row]) {
+                    auto it=std::find(active_edges.begin(),active_edges.end(),e);
+                    if(it!=active_edges.end()) active_edges.erase(it);
+                }
+                active_edges.insert(active_edges.end(),starts[row].begin(),starts[row].end());
+                active[sy]=active_edges;
             }
             for(auto x=left;x<right;++x) {
             std::uint16_t bits=0;
