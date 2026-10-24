@@ -21,6 +21,14 @@ int main() {
     assert(parsed.shape.lines.size()==1);
     assert(parsed.shape.lines[0].width==20);
     assert(parsed.shape.lines[0].color.b==255);
+    // One-stop linear gradient with identity MATRIX and red stop.
+    Tag gradient{2,0,{10,0,0,1,0x10,0,0x01,0,255,0,0,0,0,0}};
+    auto grad=decode_shape(gradient);
+    assert(grad);
+    assert(grad.shape.fills.size()==1);
+    assert(grad.shape.fills[0].kind==FillKind::linear_gradient);
+    assert(grad.shape.fills[0].stops.size()==1);
+    assert(grad.shape.fills[0].stops[0].color.r==255);
     styled.data[4]=0x10; // gradient fill: unsupported explicitly
     assert(!decode_shape(styled));
 }
