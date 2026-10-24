@@ -271,10 +271,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     }
     // Union all generated contour masks. A single nonzero-winding pass may
     // cancel two identical contours traversed in opposite directions.
-    Surface mask,individual;
+    // Keep a single union surface; each contour is rasterized in its own
+    // clipped bounding rectangle rather than clearing a full-frame scratch.
+    Surface mask;
     auto allocated=make_surface(dst.width,dst.height,mask);
-    if(!allocated)return allocated;
-    allocated=make_surface(dst.width,dst.height,individual);
     if(!allocated)return allocated;
     ShapeGeometry one;
     one.fills=quad.fills;
@@ -282,11 +282,34 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     auto flush=[&]()->RenderResult {
         if(one.commands.empty())return {};
         if(++contours>8192)return {Error::size_limit,"stroke contour limit exceeded"};
-        clear(individual,{0,0,0,0});
-        auto result=draw_shape_fills(individual,one);
-        if(!result)return result;
-        for(std::size_t i=3;i<mask.rgba.size();i+=4)
-            mask.rgba[i]=std::max(mask.rgba[i],individual.rgba[i]);
+        double minx=double(dst.width),miny=double(dst.height),maxx=0,maxy=0;
+        for(const auto& cmd:one.commands) {
+            const double x=double(cmd.endpoint.x)/20.0;
+            const double y=double(cmd.endpoint.y)/20.0;
+            minx=std::min(minx,x);maxx=std::max(maxx,x);
+            miny=std::min(miny,y);maxy=std::max(maxy,y);
+        }
+        const auto left=std::int64_t(std::clamp(std::floor(minx)-1.0,0.0,double(dst.width)));
+        const auto top=std::int64_t(std::clamp(std::floor(miny)-1.0,0.0,double(dst.height)));
+        const auto right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
+        const auto bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
+        if(right>left && bottom>top) {
+            Surface individual;
+            auto result=make_surface(std::uint32_t(right-left),std::uint32_t(bottom-top),individual);
+            if(!result)return result;
+            const auto offsetx=-left*20,offsety=-top*20;
+            if(offsetx<std::numeric_limits<std::int32_t>::min() ||
+               offsety<std::numeric_limits<std::int32_t>::min())
+                return {Error::size_limit,"contour offset overflow"};
+            result=draw_shape_fills(individual,one,std::int32_t(offsetx),std::int32_t(offsety));
+            if(!result)return result;
+            for(std::int64_t y=0;y<bottom-top;++y)
+                for(std::int64_t x=0;x<right-left;++x) {
+                    const auto src=(std::size_t(y)*individual.width+std::size_t(x))*4+3;
+                    const auto dest=(std::size_t(y+top)*mask.width+std::size_t(x+left))*4+3;
+                    mask.rgba[dest]=std::max(mask.rgba[dest],individual.rgba[src]);
+                }
+        }
         one.commands.clear();
         return {};
     };
