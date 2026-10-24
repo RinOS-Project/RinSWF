@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 #include "rinswf/swf.hpp"
+#include "rinswf/bitmaps.hpp"
 #include <cstdint>
 #include <vector>
 namespace rinswf {
@@ -17,8 +18,14 @@ struct JpegResult {
     JpegAsset asset;
     explicit operator bool() const noexcept { return error==Error::none; }
 };
-// Splits JPEG2/3/4 payloads without pretending to decode JPEG pixels.
+// Parses JPEG2/3/4 payloads.
 [[nodiscard]] JpegResult parse_jpeg_asset(const Tag& tag);
+// Uses optional libjpeg when available, otherwise returns unsupported_compression.
+[[nodiscard]] BitmapResult decode_jpeg_bitmap(const JpegAsset& asset,
+                                              std::size_t max_pixels=16*1024*1024);
+[[nodiscard]] Error collect_jpeg_bitmaps(const Document& document,
+                                         BitmapLibrary& library,
+                                         std::size_t max_pixels=16*1024*1024);
 [[nodiscard]] Error decode_jpeg_alpha(const JpegAsset& asset,
                                      std::size_t width, std::size_t height,
                                      std::vector<std::uint8_t>& alpha,
