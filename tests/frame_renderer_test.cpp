@@ -124,5 +124,11 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // An anisotropically scaled polyline also supports a bevel outer join.
+    polyline.lines[0].join=1;
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
