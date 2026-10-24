@@ -113,6 +113,31 @@ int main() {
     clear(canvas,{0,0,0,0});
     assert(draw_shape_fills(canvas,nested));
     assert(canvas.rgba[(1*4+1)*4+3]==255); // nonzero, not even-odd
+    // A reversed inner contour cancels winding and forms a transparent hole.
+    ShapeGeometry hole;
+    hole.fills.push_back({{40,80,220,255}});
+    auto add_edge=[&](int x,int y) {
+        hole.commands.push_back({ShapeCommandKind::line_to,{}, {x,y},0,1,0});
+    };
+    hole.commands.push_back({ShapeCommandKind::move_to,{}, {0,0},0,0,0});
+    add_edge(80,0);add_edge(80,80);add_edge(0,80);add_edge(0,0);
+    hole.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
+    add_edge(20,60);add_edge(60,60);add_edge(60,20);add_edge(20,20);
+    clear(canvas,{0,0,0,0});
+    assert(draw_shape_fills(canvas,hole));
+    assert(canvas.rgba[(1*4+1)*4+3]==0);
+    assert(canvas.rgba[(0*4+0)*4+3]==255);
+    // A shape entirely outside the surface must not change the target.
+    ShapeGeometry outside;
+    outside.fills.push_back({{255,0,0,255}});
+    outside.commands.push_back({ShapeCommandKind::move_to,{}, {200,200},0,0,0});
+    outside.commands.push_back({ShapeCommandKind::line_to,{}, {260,200},0,1,0});
+    outside.commands.push_back({ShapeCommandKind::line_to,{}, {260,260},0,1,0});
+    outside.commands.push_back({ShapeCommandKind::line_to,{}, {200,260},0,1,0});
+    outside.commands.push_back({ShapeCommandKind::line_to,{}, {200,200},0,1,0});
+    const auto before_outside=canvas.rgba;
+    assert(draw_shape_fills(canvas,outside));
+    assert(canvas.rgba==before_outside);
     rectangle.commands[1].fill1=2;
     assert(!draw_shape_fills(canvas,rectangle));
     assert(!make_surface(0,2,canvas));
