@@ -277,26 +277,16 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 return {Error::size_limit,"round end cap overflow"};
             i=end;
         }
-        for(std::size_t i=2;i<shape.commands.size();++i) {
-            const auto& before=shape.commands[i-1];
-            const auto& next=shape.commands[i];
-            if(before.kind!=ShapeCommandKind::line_to ||
-               next.kind!=ShapeCommandKind::line_to) continue;
-            // The previous segment must belong to the same uninterrupted subpath.
-            const auto& earlier=shape.commands[i-2];
-            if(earlier.kind!=ShapeCommandKind::move_to &&
-               earlier.kind!=ShapeCommandKind::line_to) continue;
-            const auto& a=earlier.endpoint;
-            const auto& b=before.endpoint;
-            const auto& c=next.endpoint;
+        auto join_corner=[&](const ShapePoint& a,const ShapePoint& b,
+                             const ShapePoint& c)->RenderResult {
             const double ux=double(b.x)-a.x,uy=double(b.y)-a.y;
             const double vx=double(c.x)-b.x,vy=double(c.y)-b.y;
             const double ul=std::hypot(ux,uy),vl=std::hypot(vx,vy);
-            if(ul<1e-8||vl<1e-8) continue;
+            if(ul<1e-8||vl<1e-8) return {};
             const double cross=ux*vy-uy*vx;
             // Nearly collinear subdivisions of the same curve do not
             // need an explicit join wedge; the edge rectangles already meet.
-            if(std::abs(cross)<=ul*vl*1e-4) continue;
+            if(std::abs(cross)<=ul*vl*1e-4) return {};
             const double sign=cross>0?-1.0:1.0;
             const double radius=double(shape.lines[0].width?shape.lines[0].width:20)*0.5;
             const double p1x=b.x-sign*uy/ul*radius,p1y=b.y+sign*ux/ul*radius;
@@ -314,7 +304,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         b.y+radius*std::sin(a1)))
                         return {Error::size_limit,"round join coordinate overflow"};
                 }
-                continue;
+                return {};
             }
             if(shape.lines[0].join==2) {
                 const double d1x=ux/ul,d1y=uy/ul,d2x=vx/vl,d2y=vy/vl;
@@ -328,12 +318,40 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                        ratio<=std::max(1.0,shape.lines[0].miter_limit)) {
                         if(!add_triangle(p1x,p1y,mx,my,p2x,p2y))
                             return {Error::size_limit,"miter join coordinate overflow"};
-                        continue;
+                        return {};
                     }
                 }
             }
             if(!add_triangle(b.x,b.y,p1x,p1y,p2x,p2y))
                 return {Error::size_limit,"bevel join coordinate overflow"};
+            return {};
+        };
+        for(std::size_t i=2;i<shape.commands.size();++i) {
+            const auto& before=shape.commands[i-1];
+            const auto& next=shape.commands[i];
+            if(before.kind!=ShapeCommandKind::line_to ||
+               next.kind!=ShapeCommandKind::line_to)continue;
+            const auto& earlier=shape.commands[i-2];
+            if(earlier.kind!=ShapeCommandKind::move_to &&
+               earlier.kind!=ShapeCommandKind::line_to)continue;
+            auto result=join_corner(earlier.endpoint,before.endpoint,next.endpoint);
+            if(!result)return result;
+        }
+        // Each explicitly closed subpath needs the final-to-first join too.
+        for(std::size_t i=0;i<shape.commands.size();) {
+            if(shape.commands[i].kind!=ShapeCommandKind::move_to) {++i;continue;}
+            std::size_t end=i+1;
+            while(end<shape.commands.size() &&
+                  shape.commands[end].kind!=ShapeCommandKind::move_to)++end;
+            if(end>=i+4 &&
+               shape.commands[end-1].endpoint.x==shape.commands[i].endpoint.x &&
+               shape.commands[end-1].endpoint.y==shape.commands[i].endpoint.y) {
+                auto result=join_corner(shape.commands[end-2].endpoint,
+                                        shape.commands[i].endpoint,
+                                        shape.commands[i+1].endpoint);
+                if(!result)return result;
+            }
+            i=end;
         }
     }
     // Union all generated contour masks. A single nonzero-winding pass may
