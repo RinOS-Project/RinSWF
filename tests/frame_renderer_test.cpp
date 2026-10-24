@@ -157,5 +157,18 @@ int main() {
     assets.shapes[88]=polyline;
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
+    // Repeating a translucent edge must not double its opacity.
+    ShapeGeometry translucent=polyline;
+    translucent.lines[0].color.a=128;
+    assets.shapes[88]=translucent;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    const auto alpha_once=stroke_surface.rgba[(2*16+9)*4+3];
+    translucent.commands.push_back({ShapeCommandKind::move_to,{}, {20,40},0,0,0});
+    translucent.commands.push_back({ShapeCommandKind::line_to,{}, {100,40},0,0,1});
+    assets.shapes[88]=translucent;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(2*16+9)*4+3]==alpha_once);
     return 0;
 }
