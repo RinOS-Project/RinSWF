@@ -130,5 +130,15 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // Miter joins and limit-triggered bevel fallback use the same transformed outlines.
+    polyline.lines[0].join=2;
+    polyline.lines[0].miter_limit=5.0;
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    polyline.lines[0].miter_limit=1.0;
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
     return 0;
 }
