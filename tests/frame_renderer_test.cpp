@@ -213,5 +213,12 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(5*16+9)*4+3]>0);
+    // Extremely curved segments must be rejected rather than silently clamped.
+    ShapeGeometry extreme=curved_stroke;
+    extreme.commands[1].control={0,2000000000};
+    assets.shapes[88]=extreme;
+    auto preserved=stroke_surface.rgba;
+    assert(!render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba==preserved);
     return 0;
 }
