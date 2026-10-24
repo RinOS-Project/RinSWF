@@ -94,4 +94,66 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
     }
     return {};
 }
+
+RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
+                              std::int32_t offset_x,std::int32_t offset_y) {
+    if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
+    struct Edge {double x0,y0,x1,y1;};
+    std::vector<std::vector<Edge>> edges(shape.fills.size());
+    ShapePoint previous{};
+    auto to_x=[&](ShapePoint p){return (double(p.x)+offset_x)/20.0;};
+    auto to_y=[&](ShapePoint p){return (double(p.y)+offset_y)/20.0;};
+    auto add=[&](std::uint32_t index,double x0,double y0,double x1,double y1) {
+        if(index) edges[index-1].push_back({x0,y0,x1,y1});
+    };
+    for(const auto& cmd:shape.commands) {
+        if(cmd.fill0>shape.fills.size() || cmd.fill1>shape.fills.size())
+            return fail(Error::malformed_tag,"fill style index out of range");
+        if(cmd.kind==ShapeCommandKind::move_to) {previous=cmd.endpoint;continue;}
+        if(cmd.kind!=ShapeCommandKind::line_to && cmd.kind!=ShapeCommandKind::quadratic_to)
+            return fail(Error::malformed_tag,"unknown shape command");
+        const unsigned steps=cmd.kind==ShapeCommandKind::line_to?1:32;
+        double x0=to_x(previous),y0=to_y(previous);
+        for(unsigned i=1;i<=steps;++i) {
+            const double t=double(i)/steps,u=1.0-t;
+            const double x1=steps==1?to_x(cmd.endpoint):
+                u*u*to_x(previous)+2*u*t*to_x(cmd.control)+t*t*to_x(cmd.endpoint);
+            const double y1=steps==1?to_y(cmd.endpoint):
+                u*u*to_y(previous)+2*u*t*to_y(cmd.control)+t*t*to_y(cmd.endpoint);
+            add(cmd.fill0,x0,y0,x1,y1);
+            add(cmd.fill1,x0,y0,x1,y1);
+            x0=x1;y0=y1;
+        }
+        previous=cmd.endpoint;
+    }
+    for(std::size_t style=0;style<edges.size();++style)
+        if(!edges[style].empty() && shape.fills[style].kind!=FillKind::solid)
+            return fail(Error::malformed_tag,"non-solid fill rendering unsupported");
+    std::vector<double> intersections;
+    for(std::size_t style=0;style<edges.size();++style) {
+        if(edges[style].empty()) continue;
+        for(std::uint32_t y=0;y<target.height;++y) {
+            const double sy=double(y)+0.5;
+            intersections.clear();
+            for(const auto& edge:edges[style]) {
+                if((edge.y0<=sy && sy<edge.y1)||(edge.y1<=sy && sy<edge.y0)) {
+                    const double x=edge.x0+(sy-edge.y0)*(edge.x1-edge.x0)/(edge.y1-edge.y0);
+                    if(std::isfinite(x)) intersections.push_back(x);
+                }
+            }
+            std::sort(intersections.begin(),intersections.end());
+            for(std::size_t i=0;i+1<intersections.size();i+=2) {
+                const double left=std::max(0.0,intersections[i]);
+                const double right=std::min(double(target.width),intersections[i+1]);
+                if(left>=right) continue;
+                const auto start=static_cast<std::uint32_t>(std::ceil(left-0.5));
+                const auto end=static_cast<std::uint32_t>(std::ceil(right-0.5));
+                for(std::uint32_t x=start;x<end;++x)
+                    pixel(target,x,y,shape.fills[style].color);
+            }
+        }
+    }
+    return {};
+}
+
 }
