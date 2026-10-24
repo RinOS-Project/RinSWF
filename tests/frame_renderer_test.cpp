@@ -204,5 +204,14 @@ int main() {
     assert(make_surface(256,256,sparse_union));
     assert(render_frame(distant,assets,sparse_union));
     assert(sparse_union.rgba==offset_surface.rgba);
+    // A quadratic centerline can be tessellated and transformed anisotropically.
+    ShapeGeometry curved_stroke=polyline;
+    curved_stroke.commands.clear();
+    curved_stroke.commands.push_back({ShapeCommandKind::move_to,{}, {20,40},0,0,0});
+    curved_stroke.commands.push_back({ShapeCommandKind::quadratic_to,{60,140},{100,40},0,0,1});
+    assets.shapes[88]=curved_stroke;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(5*16+9)*4+3]>0);
     return 0;
 }
