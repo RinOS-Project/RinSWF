@@ -5,3 +5,6 @@ test('tags', tags_test_exe)
 
 display_test_exe = executable('rinswf-display-list-test', 'display_list_test.cpp', dependencies: rinswf_dep)
 test('display-list', display_test_exe)
+
+shapes_test_exe = executable('rinswf-shapes-test', 'shapes_test.cpp', dependencies: rinswf_dep)
+test('shapes', shapes_test_exe)
