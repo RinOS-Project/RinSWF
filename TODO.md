@@ -11,7 +11,8 @@
 - [x] DefineShape 1/2/3/4のRECT・基本edgeレコード解析（スタイルなし限定）
 - [x] DefineShape 1/2/3 のSolid FillとLINESTYLE、スタイル参照
 - [x] Linear / Radial / Focal Gradientの解析（行列・停止点・補間情報）
-- [ ] Bitmap Fill、LINESTYLE2、NewStyles、PlaceObject3、Bitmap、Font
+- [x] Bitmap Fill 0x40–0x43 の参照IDと変換行列の解析
+- [ ] Bitmap定義デコード・ピクセル展開、LINESTYLE2、NewStyles、PlaceObject3、Font
 - [ ] ストリーム読み込みとエラー位置の詳細化
 - [ ] C ABI（DLL/共有ライブラリ向け）
 
