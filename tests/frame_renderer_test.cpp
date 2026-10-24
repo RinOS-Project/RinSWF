@@ -146,5 +146,16 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // Round and square endcaps must remain valid after nonuniform transforms.
+    polyline.lines[0].start_cap=0;
+    polyline.lines[0].end_cap=0;
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    polyline.lines[0].start_cap=2;
+    polyline.lines[0].end_cap=2;
+    assets.shapes[88]=polyline;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
     return 0;
 }
