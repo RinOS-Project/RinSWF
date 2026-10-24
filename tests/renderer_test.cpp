@@ -35,6 +35,22 @@ int main() {
     assert(draw_shape_strokes(aa,thin));
     const auto partial=aa.rgba[(2*8+3)*4+3];
     assert(partial>0 && partial<255);
+    // LINESTYLE2 cap comparison: square extends beyond endpoint, butt does not.
+    Surface caps;
+    assert(make_surface(12,12,caps));
+    ShapeGeometry cap_line;
+    ShapeLine cap_style;
+    cap_style.width=40;cap_style.color={255,255,0,255};
+    cap_style.start_cap=1;cap_style.end_cap=1;
+    cap_line.lines.push_back(cap_style);
+    cap_line.commands.push_back({ShapeCommandKind::move_to,{}, {60,100},0,0,0});
+    cap_line.commands.push_back({ShapeCommandKind::line_to,{}, {140,100},0,0,1});
+    assert(draw_shape_strokes(caps,cap_line));
+    assert(caps.rgba[(5*12+2)*4+3]==0);
+    clear(caps,{0,0,0,0});
+    cap_line.lines[0].start_cap=2;cap_line.lines[0].end_cap=2;
+    assert(draw_shape_strokes(caps,cap_line));
+    assert(caps.rgba[(5*12+2)*4+3]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
