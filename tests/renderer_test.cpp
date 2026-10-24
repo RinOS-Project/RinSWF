@@ -51,6 +51,19 @@ int main() {
     cap_line.lines[0].start_cap=2;cap_line.lines[0].end_cap=2;
     assert(draw_shape_strokes(caps,cap_line));
     assert(caps.rgba[(5*12+2)*4+3]>0);
+    ShapeGeometry joined;
+    ShapeLine joined_style;
+    joined_style.width=40;
+    joined_style.color={180,40,240,255};
+    joined_style.join=0; // round
+    joined_style.start_cap=1;joined_style.end_cap=1;
+    joined.lines.push_back(joined_style);
+    joined.commands.push_back({ShapeCommandKind::move_to,{}, {40,80},0,0,0});
+    joined.commands.push_back({ShapeCommandKind::line_to,{}, {80,80},0,0,1});
+    joined.commands.push_back({ShapeCommandKind::line_to,{}, {80,120},0,0,1});
+    clear(caps,{0,0,0,0});
+    assert(draw_shape_strokes(caps,joined));
+    assert(caps.rgba[(4*12+4)*4+3]>0);
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
