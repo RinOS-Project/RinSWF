@@ -60,6 +60,34 @@ static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m
     }
     return {};
 }
+static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
+                                 const BitmapLibrary& bitmaps,const Matrix& m,
+                                 StrokeLimits limits) {
+    // Only solid fills without strokes: fill-matrix and stroke metrics need
+    // independent affine handling before this path can be generalized.
+    if(!shape.lines.empty()) return {Error::malformed_tag,"vector stroke unsupported"};
+    for(const auto& fill:shape.fills)
+        if(fill.kind!=FillKind::solid)
+            return {Error::malformed_tag,"vector gradient or bitmap fill unsupported"};
+    ShapeGeometry transformed=shape;
+    auto apply=[&](ShapePoint& p)->bool {
+        const double x=double(p.x),y=double(p.y);
+        const double nx=m.scale_x*x+m.rotate_skew_0*y+m.translate_x;
+        const double ny=m.rotate_skew_1*x+m.scale_y*y+m.translate_y;
+        constexpr double bound=double(std::numeric_limits<std::int32_t>::max())-1;
+        if(!std::isfinite(nx)||!std::isfinite(ny)||
+           std::abs(nx)>bound||std::abs(ny)>bound) return false;
+        p.x=std::int32_t(std::llround(nx));
+        p.y=std::int32_t(std::llround(ny));
+        return true;
+    };
+    for(auto& cmd:transformed.commands) {
+        if(!apply(cmd.endpoint))return {Error::size_limit,"transformed point overflow"};
+        if(cmd.kind==ShapeCommandKind::quadratic_to && !apply(cmd.control))
+            return {Error::size_limit,"transformed control point overflow"};
+    }
+    return draw_shape_fills(dst,transformed,0,0,&bitmaps);
+}
 static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
                                  const BitmapLibrary& bitmaps,const Matrix& matrix,
                                  StrokeLimits limits) {
@@ -130,7 +158,12 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
         auto it=assets.shapes.find(entry.character_id);
         if(it!=assets.shapes.end()) {
             if(affine) {
-                auto a=affine_shape(stage,it->second,assets.bitmaps,m,limits);
+                bool solid_only=it->second.lines.empty();
+                for(const auto& fill:it->second.fills)
+                    if(fill.kind!=FillKind::solid) solid_only=false;
+                auto a=solid_only
+                    ? vector_shape(stage,it->second,assets.bitmaps,m,limits)
+                    : affine_shape(stage,it->second,assets.bitmaps,m,limits);
                 if(!a)return a;
             } else {
                 auto a=draw_shape_fills(stage,it->second,tx,ty,&assets.bitmaps);
