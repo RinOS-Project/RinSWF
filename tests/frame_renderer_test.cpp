@@ -322,5 +322,13 @@ int main() {
     sample_frame.objects.push_back(sample_entry);
     assert(render_frame(sample_frame,assets,samples));
     assert(samples.rgba[3]>0);
+    // Slanted intersecting contours exercise all four scanline sample rows.
+    ShapeGeometry slanted=cross;
+    slanted.commands.push_back({ShapeCommandKind::move_to,{}, {30,30},0,0,0});
+    slanted.commands.push_back({ShapeCommandKind::line_to,{}, {110,110},0,0,1});
+    assets.shapes[88]=slanted;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
