@@ -406,7 +406,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                 // Fall back to the chord when the control point is coincident with the join.
                 const ShapePoint before=incoming.kind==ShapeCommandKind::quadratic_to &&
                     (incoming.control.x!=previous.x || incoming.control.y!=previous.y)
-                    ? incoming.control : previous_start;
+                    ? incoming.control : previous_tangent;
                 const ShapePoint after=command.kind==ShapeCommandKind::quadratic_to &&
                     (command.control.x!=previous.x || command.control.y!=previous.y)
                     ? command.control : command.endpoint;
