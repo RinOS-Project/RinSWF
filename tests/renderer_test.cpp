@@ -16,6 +16,15 @@ int main() {
     shape.commands.push_back({ShapeCommandKind::line_to,{}, {60,0},0,0,1});
     assert(draw_shape_strokes(canvas,shape));
     assert(canvas.rgba[1]==255);
+    Surface thick;
+    assert(make_surface(12,12,thick));
+    ShapeGeometry wide_line;
+    wide_line.lines.push_back({100,{255,180,0,255}}); // five-pixel stroke
+    wide_line.commands.push_back({ShapeCommandKind::move_to,{}, {40,100},0,0,0});
+    wide_line.commands.push_back({ShapeCommandKind::line_to,{}, {180,100},0,0,1});
+    assert(draw_shape_strokes(thick,wide_line));
+    assert(thick.rgba[(3*12+5)*4+3]==255); // within thickness
+    assert(thick.rgba[(0*12+5)*4+3]==0);   // outside thickness
     ShapeGeometry rectangle;
     rectangle.fills.push_back({{240,40,20,255}});
     rectangle.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
