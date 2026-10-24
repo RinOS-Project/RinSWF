@@ -24,15 +24,31 @@ void pixel(Surface& s,std::int64_t x,std::int64_t y,ShapeColor c) {
     }
     s.rgba[p+3]=static_cast<std::uint8_t>(outa);
 }
-ShapeColor sample_fill(const ShapeFill& fill,double px,double py) {
+ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLibrary* library) {
     if(fill.kind==FillKind::solid) return fill.color;
     // Gradient space is -16384..16384 in each axis; MATRIX translation is twips.
     const auto& m=fill.matrix;
     const double det=m.scale_x*m.scale_y-m.skew_x*m.skew_y;
-    if(!std::isfinite(det)||std::abs(det)<1e-12 || fill.stops.empty()) return {};
+    if(!std::isfinite(det)||std::abs(det)<1e-12) return {};
     const double x=px*20.0-m.translate_x, y=py*20.0-m.translate_y;
     const double gx=(m.scale_y*x-m.skew_x*y)/det;
     const double gy=(-m.skew_y*x+m.scale_x*y)/det;
+    if(fill.kind==FillKind::repeating_bitmap || fill.kind==FillKind::clipped_bitmap ||
+       fill.kind==FillKind::nonsmoothed_repeating_bitmap || fill.kind==FillKind::nonsmoothed_clipped_bitmap) {
+        const Bitmap* bmp=library?library->find(fill.bitmap_id):nullptr;
+        if(!bmp || !bmp->width || !bmp->height) return {};
+        const bool repeat=fill.kind==FillKind::repeating_bitmap ||
+                          fill.kind==FillKind::nonsmoothed_repeating_bitmap;
+        const auto ix=static_cast<std::int64_t>(std::floor(gx));
+        const auto iy=static_cast<std::int64_t>(std::floor(gy));
+        if(!repeat && (ix<0 || iy<0 || ix>=bmp->width || iy>=bmp->height))
+            return {0,0,0,0};
+        auto wrap=[](std::int64_t v,std::int64_t n){return (v%n+n)%n;};
+        const auto bx=repeat?wrap(ix,bmp->width):ix;
+        const auto by=repeat?wrap(iy,bmp->height):iy;
+        const std::size_t p=(std::size_t(by)*bmp->width+std::size_t(bx))*4;
+        return {bmp->rgba[p],bmp->rgba[p+1],bmp->rgba[p+2],bmp->rgba[p+3]};
+    }
     double t=fill.kind==FillKind::linear_gradient?(gx/16384.0+1.0)*0.5:
              std::hypot(gx,gy)/16384.0;
     if(fill.spread==1) { t=std::fmod(t,2.0);if(t<0)t+=2.0;if(t>1)t=2-t; }
@@ -125,7 +141,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
 }
 
 RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
-                              std::int32_t offset_x,std::int32_t offset_y) {
+                              std::int32_t offset_x,std::int32_t offset_y,const BitmapLibrary* bitmaps) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     struct Edge {double x0,y0,x1,y1;};
     std::vector<std::vector<Edge>> edges(shape.fills.size());
@@ -158,11 +174,21 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
     for(std::size_t style=0;style<edges.size();++style) {
         if(edges[style].empty()) continue;
         const auto& fill=shape.fills[style];
+        const bool bitmap=fill.kind==FillKind::repeating_bitmap ||
+            fill.kind==FillKind::clipped_bitmap ||
+            fill.kind==FillKind::nonsmoothed_repeating_bitmap ||
+            fill.kind==FillKind::nonsmoothed_clipped_bitmap;
         if(fill.kind!=FillKind::solid && fill.kind!=FillKind::linear_gradient &&
-           fill.kind!=FillKind::radial_gradient)
+           fill.kind!=FillKind::radial_gradient && !bitmap)
             return fail(Error::malformed_tag,"fill kind not yet rendered");
+        if(bitmap) {
+            const auto* bmp=bitmaps?bitmaps->find(fill.bitmap_id):nullptr;
+            if(!bmp || !bmp->width || !bmp->height ||
+               bmp->rgba.size()!=std::size_t(bmp->width)*bmp->height*4)
+                return fail(Error::malformed_tag,"bitmap fill image unavailable");
+        }
         if(fill.kind!=FillKind::solid) {
-            if(fill.stops.empty() || fill.interpolation!=0 || fill.spread>2)
+            if(!bitmap && (fill.stops.empty() || fill.interpolation!=0 || fill.spread>2))
                 return fail(Error::malformed_tag,"unsupported gradient parameters");
             const auto& m=fill.matrix;
             if(!std::isfinite(m.scale_x)||!std::isfinite(m.scale_y)||
@@ -191,7 +217,7 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
                 const auto start=static_cast<std::uint32_t>(std::ceil(left-0.5));
                 const auto end=static_cast<std::uint32_t>(std::ceil(right-0.5));
                 for(std::uint32_t x=start;x<end;++x)
-                    pixel(target,x,y,sample_fill(shape.fills[style],double(x)+0.5-double(offset_x)/20.0,double(y)+0.5-double(offset_y)/20.0));
+                    pixel(target,x,y,sample_fill(shape.fills[style],double(x)+0.5-double(offset_x)/20.0,double(y)+0.5-double(offset_y)/20.0,bitmaps));
             }
         }
     }
