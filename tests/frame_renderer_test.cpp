@@ -330,5 +330,13 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
     assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
+    // Adjacent overlapping and reversed contours exercise sorted X intersections.
+    ShapeGeometry winding=slanted;
+    winding.commands.push_back({ShapeCommandKind::move_to,{}, {110,110},0,0,0});
+    winding.commands.push_back({ShapeCommandKind::line_to,{}, {30,30},0,0,1});
+    assets.shapes[88]=winding;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    assert(stroke_surface.rgba[(4*16+9)*4+3]>0);
     return 0;
 }
