@@ -109,8 +109,8 @@ ShapeColor sample_fill(const ShapeFill& fill,double px,double py,const BitmapLib
     return stops.back().color;
 }
 void segment(Surface& s,double x0,double y0,double x1,double y1,
-             ShapeColor c,double width) {
-    // Aliased round-cap stroke, measured in device pixels.
+             ShapeColor c,double width,unsigned start_cap,unsigned end_cap) {
+    // Coverage-AA stroke with independent start/end cap clipping.
     // Evaluate distance within a clipped bounding box, not along an unbounded line.
     const double radius=std::max(0.75,width*0.5);
     if(!std::isfinite(x0)||!std::isfinite(y0)||!std::isfinite(x1)||
@@ -125,6 +125,7 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
     const auto top=static_cast<std::int64_t>(std::max(0.0,std::floor(lo_y)));
     const auto bottom=static_cast<std::int64_t>(std::min(double(s.height),std::ceil(hi_y)));
     const double dx=x1-x0,dy=y1-y0,denom=dx*dx+dy*dy;
+    const double length=std::sqrt(denom);
     for(auto y=top;y<bottom;++y) for(auto x=left;x<right;++x) {
         // 4x4 coverage AA for each stroke segment, blended once per pixel.
         // Note: adjacent segments are still composited independently.
@@ -132,9 +133,21 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
         for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
             const double px=double(x)+(double(sx)+0.5)/4.0;
             const double py=double(y)+(double(sy)+0.5)/4.0;
-            const double t=denom>0?std::clamp(((px-x0)*dx+(py-y0)*dy)/denom,0.0,1.0):0.0;
-            const double ex=px-(x0+t*dx),ey=py-(y0+t*dy);
-            if(ex*ex+ey*ey<=radius*radius) ++covered;
+            if(length==0) {
+                if(start_cap==0 && std::hypot(px-x0,py-y0)<=radius) ++covered;
+                continue;
+            }
+            const double along=((px-x0)*dx+(py-y0)*dy)/length;
+            const double perpendicular=std::abs((px-x0)*dy-(py-y0)*dx)/length;
+            bool inside=false;
+            if(along<0) {
+                if(start_cap==0) inside=std::hypot(px-x0,py-y0)<=radius;
+                else if(start_cap==2) inside=along>=-radius && perpendicular<=radius;
+            } else if(along>length) {
+                if(end_cap==0) inside=std::hypot(px-x1,py-y1)<=radius;
+                else if(end_cap==2) inside=along<=length+radius && perpendicular<=radius;
+            } else inside=perpendicular<=radius;
+            if(inside) ++covered;
         }
         if(covered) {
             ShapeColor sample=c;
@@ -185,7 +198,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
             const auto color=line_style.color;
             const double stroke_width=line_style.width?double(line_style.width)/20.0:1.0;
             if(command.kind==ShapeCommandKind::line_to) {
-                segment(target,to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width);
+                segment(target,to_x(previous),to_y(previous),to_x(command.endpoint),to_y(command.endpoint),color,stroke_width,line_style.start_cap,line_style.end_cap);
             } else if(command.kind==ShapeCommandKind::quadratic_to) {
                 ShapePoint start=previous;
                 constexpr unsigned subdivisions=32;
