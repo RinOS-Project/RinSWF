@@ -327,6 +327,22 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
         mask.width=std::uint32_t(right-left);mask.height=std::uint32_t(bottom-top);
         // Sparse 64x64 tiles are allocated only when a pixel is covered.
     }
+    std::vector<bool> closed_edges(shape.commands.size(),false);
+    for(std::size_t i=0;i<shape.commands.size();) {
+        if(shape.commands[i].kind!=ShapeCommandKind::move_to) {++i;continue;}
+        std::size_t end=i+1;
+        while(end<shape.commands.size() && shape.commands[end].kind!=ShapeCommandKind::move_to) ++end;
+        if(end>i+2) {
+            const auto& first=shape.commands[i].endpoint;
+            const auto& last=shape.commands[end-1].endpoint;
+            const auto line=shape.commands[i+1].line;
+            bool one_style=line!=0;
+            for(std::size_t j=i+1;j<end;++j) if(shape.commands[j].line!=line) one_style=false;
+            if(one_style && first.x==last.x && first.y==last.y)
+                for(std::size_t j=i+1;j<end;++j) closed_edges[j]=true;
+        }
+        i=end;
+    }
     // Internal vertices of a continuous subpath should not use external caps.
     ShapePoint previous{},previous_start{};
     std::uint32_t previous_line=0;
