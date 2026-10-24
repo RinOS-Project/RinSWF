@@ -138,12 +138,33 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
     }
     if(!style_count(b,extended,lines)) return bad(Error::truncated,"truncated line count");
     if(lines>65535) return bad(Error::size_limit,"too many lines");
-    if(tag.code==83 && lines) return bad(Error::malformed_tag,"LINESTYLE2 not yet implemented");
+
     for(std::uint32_t i=0;i<lines;++i) {
         std::uint32_t low=0,high=0;
         if(!b.byte(low)||!b.byte(high)) return bad(Error::truncated,"truncated line width");
         ShapeLine line;
         line.width=static_cast<std::uint16_t>(low|(high<<8));
+        if(tag.code==83) {
+            std::uint32_t start=0,join=0,has_fill=0,nh=0,nv=0,hint=0,reserved=0,noclose=0,end=0;
+            if(!b.read(2,start)||!b.read(2,join)||!b.read(1,has_fill)||
+               !b.read(1,nh)||!b.read(1,nv)||!b.read(1,hint)||
+               !b.read(5,reserved)||!b.read(1,noclose)||!b.read(2,end))
+                return bad(Error::truncated,"LINESTYLE2 flags truncated");
+            if(reserved || start==3 || end==3 || join==3)
+                return bad(Error::malformed_tag,"LINESTYLE2 invalid flags");
+            line.start_cap=static_cast<std::uint8_t>(start);
+            line.end_cap=static_cast<std::uint8_t>(end);
+            line.join=static_cast<std::uint8_t>(join);
+            line.no_hscale=nh!=0;line.no_vscale=nv!=0;
+            line.pixel_hinting=hint!=0;line.no_close=noclose!=0;
+            if(join==2) {
+                std::uint32_t lo=0,hi=0;
+                if(!b.byte(lo)||!b.byte(hi))
+                    return bad(Error::truncated,"LINESTYLE2 miter limit truncated");
+                line.miter_limit=double(lo|(hi<<8))/256.0;
+            }
+            if(has_fill) return bad(Error::malformed_tag,"LINESTYLE2 fill strokes not implemented");
+        }
         if(!color(b,alpha,line.color)) return bad(Error::truncated,"truncated line color");
         geometry.lines.push_back(line);
     }
