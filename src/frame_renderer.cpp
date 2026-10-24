@@ -401,6 +401,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     auto flush=[&]()->RenderResult {
         if(one.commands.empty())return {};
         if(++contours>8192)return {Error::size_limit,"stroke contour limit exceeded"};
+        // A contour with fewer than three distinct points has zero area.
+        // Avoid allocating scratch and touching tiles for degenerate outlines.
+        if(one.commands.size()<4) {
+            one.commands.clear();
+            return {};
+        }
         double minx=double(dst.width),miny=double(dst.height),maxx=0,maxy=0;
         for(const auto& cmd:one.commands) {
             const double x=double(cmd.endpoint.x)/20.0;
