@@ -109,10 +109,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     // Transform each straight edge's rectangular outline into one fill geometry.
     // The common nonzero-winding pass keeps opaque segment overlaps solid.
     if(shape.lines.size()!=1 || !shape.fills.empty() ||
-       shape.lines[0].color.a!=255 || shape.commands.size()<2)
+       shape.commands.size()<2)
         return {Error::malformed_tag,"unsupported affine stroke geometry"};
     ShapeGeometry quad;
-    quad.fills.push_back({shape.lines[0].color});
+    auto opaque=shape.lines[0].color;
+    opaque.a=255;
+    quad.fills.push_back({opaque});
     ShapePoint cursor{};
     bool have_cursor=false;
     for(std::size_t edge_index=0;edge_index<shape.commands.size();++edge_index) {
@@ -267,7 +269,28 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 return {Error::size_limit,"bevel join coordinate overflow"};
         }
     }
-    return draw_shape_fills(dst,quad);
+    if(shape.lines[0].color.a==255) return draw_shape_fills(dst,quad);
+    Surface mask;
+    auto allocated=make_surface(dst.width,dst.height,mask);
+    if(!allocated) return allocated;
+    auto filled=draw_shape_fills(mask,quad);
+    if(!filled) return filled;
+    const unsigned opacity=shape.lines[0].color.a;
+    const auto color=shape.lines[0].color;
+    for(std::size_t i=0;i<mask.rgba.size();i+=4) {
+        const unsigned sa=(unsigned(mask.rgba[i+3])*opacity+127)/255;
+        if(!sa)continue;
+        const unsigned da=dst.rgba[i+3];
+        const unsigned outa=sa+(da*(255-sa)+127)/255;
+        for(unsigned k=0;k<3;++k) {
+            const unsigned source=k==0?color.r:k==1?color.g:color.b;
+            const unsigned premul=source*sa+
+                (unsigned(dst.rgba[i+k])*da*(255-sa)+127)/255;
+            dst.rgba[i+k]=std::uint8_t((premul+outa/2)/outa);
+        }
+        dst.rgba[i+3]=std::uint8_t(outa);
+    }
+    return {};
 }
 static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
                                  const BitmapLibrary& bitmaps,const Matrix& matrix,
