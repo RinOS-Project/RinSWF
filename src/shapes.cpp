@@ -33,6 +33,23 @@ struct Bits {
     void align() { pos=(pos+7)&~std::size_t(7); }
     bool byte(std::uint32_t& v) { return read(8,v); }
 };
+bool matrix(Bits& b, ShapeMatrix& m) {
+    std::uint32_t flag=0,n=0;
+    std::int32_t a=0,c=0;
+    if(!b.read(1,flag)) return false;
+    if(flag) {
+        if(!b.read(5,n)||!b.signed_read(n,a)||!b.signed_read(n,c)) return false;
+        m.scale_x=double(a)/65536.0; m.scale_y=double(c)/65536.0;
+    }
+    if(!b.read(1,flag)) return false;
+    if(flag) {
+        if(!b.read(5,n)||!b.signed_read(n,a)||!b.signed_read(n,c)) return false;
+        m.skew_x=double(a)/65536.0; m.skew_y=double(c)/65536.0;
+    }
+    if(!b.read(5,n)||!b.signed_read(n,m.translate_x)||!b.signed_read(n,m.translate_y)) return false;
+    b.align();
+    return b.pos<=b.d.size()*8;
+}
 bool color(Bits& b,bool alpha,ShapeColor& c) {
     std::uint32_t v=0;
     if(!b.byte(v)) return false; c.r=static_cast<std::uint8_t>(v);
@@ -75,10 +92,39 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
     for(std::uint32_t i=0;i<fills;++i) {
         std::uint32_t type=0;
         if(!b.byte(type)) return bad(Error::truncated,"truncated fill type");
-        if(type!=0) return bad(Error::unsupported_compression,"gradient and bitmap fills not implemented");
         ShapeFill fill;
-        if(!color(b,alpha,fill.color)) return bad(Error::truncated,"truncated solid fill");
-        geometry.fills.push_back(fill);
+        if(type==0) {
+            if(!color(b,alpha,fill.color)) return bad(Error::truncated,"truncated solid fill");
+        } else if(type==0x10 || type==0x12 || type==0x13) {
+            fill.kind=type==0x10?FillKind::linear_gradient:
+                      type==0x12?FillKind::radial_gradient:FillKind::focal_gradient;
+            if(!matrix(b,fill.matrix)) return bad(Error::truncated,"truncated gradient matrix");
+            std::uint32_t spread=0,interp=0,count=0;
+            if(!b.read(2,spread)||!b.read(2,interp)||!b.read(4,count))
+                return bad(Error::truncated,"truncated gradient header");
+            if(count==0 || count>15) return bad(Error::malformed_tag,"invalid gradient count");
+            if(tag.code==2 && type==0x13)
+                return bad(Error::malformed_tag,"focal gradient not valid for DefineShape1");
+            fill.spread=static_cast<std::uint8_t>(spread);
+            fill.interpolation=static_cast<std::uint8_t>(interp);
+            for(std::uint32_t k=0;k<count;++k) {
+                std::uint32_t ratio=0;
+                GradientStop stop;
+                if(!b.byte(ratio)||!color(b,alpha,stop.color))
+                    return bad(Error::truncated,"truncated gradient stop");
+                stop.ratio=static_cast<std::uint8_t>(ratio);
+                fill.stops.push_back(stop);
+            }
+            if(type==0x13) {
+                std::uint32_t lo=0,hi=0;
+                if(!b.byte(lo)||!b.byte(hi)) return bad(Error::truncated,"truncated focal point");
+                const auto signed_value=static_cast<std::int16_t>(lo|(hi<<8));
+                fill.focal_point=double(signed_value)/256.0;
+            }
+        } else {
+            return bad(Error::malformed_tag,"unsupported fill style type");
+        }
+        geometry.fills.push_back(std::move(fill));
     }
     if(!style_count(b,extended,lines)) return bad(Error::truncated,"truncated line count");
     if(lines>65535) return bad(Error::size_limit,"too many lines");
