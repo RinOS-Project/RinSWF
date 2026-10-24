@@ -121,6 +121,16 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                 const auto signed_value=static_cast<std::int16_t>(lo|(hi<<8));
                 fill.focal_point=double(signed_value)/256.0;
             }
+        } else if(type>=0x40 && type<=0x43) {
+            std::uint32_t id_lo=0,id_hi=0;
+            if(!b.byte(id_lo)||!b.byte(id_hi))
+                return bad(Error::truncated,"truncated bitmap character ID");
+            fill.bitmap_id=static_cast<std::uint16_t>(id_lo|(id_hi<<8));
+            fill.kind=type==0x40?FillKind::repeating_bitmap:
+                      type==0x41?FillKind::clipped_bitmap:
+                      type==0x42?FillKind::nonsmoothed_repeating_bitmap:
+                                 FillKind::nonsmoothed_clipped_bitmap;
+            if(!matrix(b,fill.matrix)) return bad(Error::truncated,"truncated bitmap fill matrix");
         } else {
             return bad(Error::malformed_tag,"unsupported fill style type");
         }
