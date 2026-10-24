@@ -285,10 +285,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     const auto mask_right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
     const auto mask_bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
     if(mask_right<=mask_left || mask_bottom<=mask_top)return {};
-    Surface mask;
-    auto allocated=make_surface(std::uint32_t(mask_right-mask_left),
-                                std::uint32_t(mask_bottom-mask_top),mask);
-    if(!allocated)return allocated;
+    const auto mask_width=std::size_t(mask_right-mask_left);
+    const auto mask_height=std::size_t(mask_bottom-mask_top);
+    if(mask_width>std::numeric_limits<std::size_t>::max()/mask_height ||
+       mask_width*mask_height>16*1024*1024)
+        return {Error::size_limit,"stroke union mask size limit"};
+    std::vector<std::uint8_t> coverage(mask_width*mask_height,0);
     ShapeGeometry one;
     one.fills=quad.fills;
     std::size_t contours=0;
@@ -319,9 +321,9 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             for(std::int64_t y=0;y<bottom-top;++y)
                 for(std::int64_t x=0;x<right-left;++x) {
                     const auto src=(std::size_t(y)*individual.width+std::size_t(x))*4+3;
-                    const auto dest=(std::size_t(y+top-mask_top)*mask.width+
-                        std::size_t(x+left-mask_left))*4+3;
-                    mask.rgba[dest]=std::max(mask.rgba[dest],individual.rgba[src]);
+                    const auto dest=std::size_t(y+top-mask_top)*mask_width+
+                        std::size_t(x+left-mask_left);
+                    coverage[dest]=std::max(coverage[dest],individual.rgba[src]);
                 }
         }
         one.commands.clear();
@@ -338,11 +340,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     if(!result)return result;
     const unsigned opacity=shape.lines[0].color.a;
     const auto color=shape.lines[0].color;
-    for(std::size_t i=0;i<mask.rgba.size();i+=4) {
-        const unsigned sa=(unsigned(mask.rgba[i+3])*opacity+127)/255;
+    for(std::size_t i=0;i<coverage.size();++i) {
+        const unsigned sa=(unsigned(coverage[i])*opacity+127)/255;
         if(!sa)continue;
-        const auto xx=mask_left+std::int64_t((i/4)%mask.width);
-        const auto yy=mask_top+std::int64_t((i/4)/mask.width);
+        const auto xx=mask_left+std::int64_t(i%mask_width);
+        const auto yy=mask_top+std::int64_t(i/mask_width);
         const auto di=(std::size_t(yy)*dst.width+std::size_t(xx))*4;
         const unsigned da=dst.rgba[di+3];
         const unsigned outa=sa+(da*(255-sa)+127)/255;
