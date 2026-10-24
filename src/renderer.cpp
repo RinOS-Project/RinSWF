@@ -112,7 +112,7 @@ void segment(Surface& s,double x0,double y0,double x1,double y1,
              ShapeColor c,double width) {
     // Aliased round-cap stroke, measured in device pixels.
     // Evaluate distance within a clipped bounding box, not along an unbounded line.
-    const double radius=std::max(0.5,width*0.5);
+    const double radius=std::max(0.75,width*0.5);
     if(!std::isfinite(x0)||!std::isfinite(y0)||!std::isfinite(x1)||
        !std::isfinite(y1)||!std::isfinite(radius)) return;
     const double lo_x=std::min(x0,x1)-radius-1.0;
