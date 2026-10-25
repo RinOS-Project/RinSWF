@@ -904,6 +904,48 @@ void SpritePlayback::synchronize(const FrameSnapshot& frame,const FrameAssets& a
     }
     identities=std::move(visible);
 }
+void SpritePlayback::synchronize_nested(const FrameSnapshot& frame,
+                                        const FrameAssets& assets,
+                                        std::size_t playback_frame) {
+    using Path=std::vector<std::uint16_t>;
+    using Identity=std::pair<std::uint16_t,std::size_t>;
+    std::map<Path,Identity> visible;
+    auto walk=[&](auto&& self,const FrameSnapshot& snapshot,
+                  const Path& parent,std::size_t frame_index,unsigned depth)->void {
+        if(depth>=32)return;
+        for(const auto& entry:snapshot.objects) {
+            const auto sprite=assets.sprites.find(entry.character_id);
+            if(sprite==assets.sprites.end() || sprite->second.frames.empty())continue;
+            Path path=parent;
+            path.push_back(entry.depth);
+            const Identity identity={entry.character_id,entry.placed_frame};
+            if(depth>0)visible.emplace(path,identity);
+            std::size_t local_frame=frame_index>=entry.placed_frame
+                ?frame_index-entry.placed_frame:0;
+            if(depth==0) {
+                const auto it=instances.find(entry.depth);
+                if(it!=instances.end())local_frame=it->second.frame;
+            } else {
+                const auto it=nested_instances.find(path);
+                if(it!=nested_instances.end() &&
+                   (!nested_identities.contains(path) || nested_identities.at(path)==identity))
+                    local_frame=it->second.frame;
+            }
+            const auto& frames=sprite->second.frames;
+            self(self,frames[local_frame%frames.size()],path,local_frame,depth+1);
+        }
+    };
+    walk(walk,frame,{},playback_frame,0);
+    for(auto it=nested_instances.begin();it!=nested_instances.end();) {
+        const auto visible_it=visible.find(it->first);
+        const auto previous=nested_identities.find(it->first);
+        if(visible_it==visible.end() ||
+           (previous!=nested_identities.end() && previous->second!=visible_it->second))
+            it=nested_instances.erase(it);
+        else ++it;
+    }
+    nested_identities=std::move(visible);
+}
 void SpritePlayback::advance(std::size_t count) noexcept {
     const auto maximum=std::numeric_limits<std::size_t>::max();
     for(auto& [depth,instance]:instances) {
@@ -945,8 +987,10 @@ RenderResult TimelinePlayer::render(const TimelineResult& timeline,
         updated.instances.clear();
         updated.identities.clear();
         updated.nested_instances.clear();
+        updated.nested_identities.clear();
     }
     updated.synchronize(timeline.frames[root_frame],assets);
+    updated.synchronize_nested(timeline.frames[root_frame],assets,root_frame);
     Surface stage=target;
     auto result=render_frame_impl(timeline.frames[root_frame],assets,stage,
                                   limits,0,root_frame,&updated);
