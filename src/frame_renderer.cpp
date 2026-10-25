@@ -936,12 +936,31 @@ void SpritePlayback::synchronize_nested(const FrameSnapshot& frame,
         }
     };
     walk(walk,frame,{},playback_frame,0);
+    // A child path can look unchanged after its parent is replaced. Compare
+    // every ancestor identity too, not just the leaf's own character/frame.
+    auto changed_or_missing=[&](const Path& path)->bool {
+        for(std::size_t length=1;length<=path.size();++length) {
+            Path ancestor(path.begin(),path.begin()+length);
+            if(length==1) {
+                const auto depth=ancestor.front();
+                const auto old_root=identities.find(depth);
+                const auto new_root=std::find_if(frame.objects.begin(),frame.objects.end(),
+                    [&](const DisplayEntry& entry){return entry.depth==depth;});
+                if(old_root==identities.end() || new_root==frame.objects.end() ||
+                   old_root->second!=Identity{new_root->character_id,new_root->placed_frame})
+                    return true;
+            } else {
+                const auto old_id=nested_identities.find(ancestor);
+                const auto new_id=visible.find(ancestor);
+                if(new_id==visible.end() ||
+                   (old_id!=nested_identities.end() && old_id->second!=new_id->second))
+                    return true;
+            }
+        }
+        return false;
+    };
     for(auto it=nested_instances.begin();it!=nested_instances.end();) {
-        const auto visible_it=visible.find(it->first);
-        const auto previous=nested_identities.find(it->first);
-        if(visible_it==visible.end() ||
-           (previous!=nested_identities.end() && previous->second!=visible_it->second))
-            it=nested_instances.erase(it);
+        if(changed_or_missing(it->first))it=nested_instances.erase(it);
         else ++it;
     }
     nested_identities=std::move(visible);
