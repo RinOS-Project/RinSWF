@@ -542,7 +542,22 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 for(std::size_t k=row.size();k>0;--k)
                     suffix[sy][k-1]=suffix[sy][k]+row[k-1].second;
             }
-            for(auto x=left;x<right;++x) {
+            // No coverage exists outside the extreme scanline intersections.
+            // Restrict pixel work to rows with crossings and their X envelope.
+            double row_min=double(right),row_max=double(left);
+            bool has_crossings=false;
+            for(const auto& sample_row:crossings) {
+                if(sample_row.empty())continue;
+                has_crossings=true;
+                row_min=std::min(row_min,sample_row.front().first);
+                row_max=std::max(row_max,sample_row.back().first);
+            }
+            if(!has_crossings)continue;
+            const auto x_begin=std::int64_t(std::clamp(
+                std::floor(row_min)-1.0,double(left),double(right)));
+            const auto x_end=std::int64_t(std::clamp(
+                std::ceil(row_max)+1.0,double(left),double(right)));
+            for(auto x=x_begin;x<x_end;++x) {
             std::uint16_t bits=0;
             for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
                 const double px=double(x)+(sx+0.5)/4.0;
