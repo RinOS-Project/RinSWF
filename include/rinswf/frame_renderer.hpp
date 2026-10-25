@@ -7,6 +7,7 @@ namespace rinswf {
 struct FrameAssets {
     std::map<std::uint16_t,ShapeGeometry> shapes;
     BitmapLibrary bitmaps;
+    std::map<std::uint16_t,SpriteTimeline> sprites;
 };
 [[nodiscard]] RenderResult render_frame(const FrameSnapshot& frame,
                                         const FrameAssets& assets,Surface& target,
