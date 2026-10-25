@@ -567,5 +567,19 @@ int main() {
     assert(make_surface(32,32,churn_surface));
     assert(render_frame(clipped_frame,assets,churn_surface));
     assert(churn_surface.rgba[(1*32+10)*4+3]>0);
+    // A gap followed by another stroke must reset the re-anchoring cadence.
+    ShapeGeometry restart=stroked;
+    restart.commands.clear();
+    restart.commands.push_back({ShapeCommandKind::move_to,{}, {20,20},0,0,0});
+    restart.commands.push_back({ShapeCommandKind::line_to,{}, {200,20},0,0,1});
+    restart.commands.push_back({ShapeCommandKind::move_to,{}, {20,440},0,0,0});
+    restart.commands.push_back({ShapeCommandKind::line_to,{}, {200,440},0,0,1});
+    assets.shapes[88]=restart;
+    Surface restart_surface;
+    assert(make_surface(32,32,restart_surface));
+    assert(render_frame(clipped_frame,assets,restart_surface));
+    assert(restart_surface.rgba[(1*32+10)*4+3]>0);
+    assert(restart_surface.rgba[(22*32+10)*4+3]>0);
+    assert(restart_surface.rgba[(12*32+10)*4+3]==0);
     return 0;
 }
