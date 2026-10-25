@@ -457,6 +457,22 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             }
         }
         std::vector<EdgePtr> active_edges;
+        std::unordered_map<EdgePtr,std::size_t> active_index;
+        auto remove_active=[&](EdgePtr edge) {
+            const auto it=active_index.find(edge);
+            if(it==active_index.end())return;
+            const auto index=it->second;
+            const auto tail=active_edges.back();
+            active_edges[index]=tail;
+            active_index[tail]=index;
+            active_edges.pop_back();
+            active_index.erase(it);
+        };
+        auto insert_active=[&](EdgePtr edge) {
+            if(active_index.contains(edge))return;
+            active_index.emplace(edge,active_edges.size());
+            active_edges.push_back(edge);
+        };
         std::vector<EdgePtr> ordered_edges;
         std::unordered_map<EdgePtr,std::size_t> prior_index;
         std::vector<double> ordered_x;
@@ -477,14 +493,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             for(unsigned sy=0;sy<4;++sy) {
                 const auto row=std::size_t(y-top)*4+sy;
                 if(const auto expired=ends.find(row);expired!=ends.end()) {
-                    for(auto e:expired->second) {
-                        auto it=std::find(active_edges.begin(),active_edges.end(),e);
-                        if(it!=active_edges.end()) active_edges.erase(it);
-                    }
+                    for(auto e:expired->second)remove_active(e);
                 }
                 if(const auto arriving=starts.find(row);arriving!=starts.end())
-                    active_edges.insert(active_edges.end(),
-                                        arriving->second.begin(),arriving->second.end());
+                    for(auto edge:arriving->second)insert_active(edge);
                 active[sy]=active_edges;
             }
             // Reuse row buffers while precomputing sorted intersections and suffix sums.
