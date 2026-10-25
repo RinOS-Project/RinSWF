@@ -85,5 +85,14 @@ int main() {
     place3.tags[0].data[1]=0;
     place3.tags[0].data.pop_back(); // truncated MATRIX
     assert(!build_timeline(place3));
+    // PlaceObject3 with RGBA multiplicative CXFORM (alpha 128/256).
+    Document colored;
+    colored.header.frame_count=1;
+    colored.tags.push_back({70,0,{0x0a,0x00,1,0,42,0,0x69,0x00,0x40,0x10,0x02,0x00}});
+    colored.tags.push_back({1,0,{}});
+    auto color_frames=build_timeline(colored);
+    assert(color_frames);
+    assert(color_frames.frames[0].objects[0].has_color_transform);
+    assert(color_frames.frames[0].objects[0].color_transform.multiply[3]==0.5);
     return 0;
 }
