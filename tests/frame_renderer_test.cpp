@@ -349,5 +349,23 @@ int main() {
     assets.shapes[88]=dense;
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface));
+    // A tall slanted stroke traverses multiple X-reanchoring intervals.
+    ShapeGeometry tall=translucent;
+    tall.commands.clear();
+    tall.commands.push_back({ShapeCommandKind::move_to,{}, {400,400},0,0,0});
+    tall.commands.push_back({ShapeCommandKind::line_to,{}, {900,9000},0,0,1});
+    assets.shapes[88]=tall;
+    Surface tall_surface;
+    assert(make_surface(128,512,tall_surface));
+    FrameSnapshot tall_frame;
+    DisplayEntry tall_entry;
+    tall_entry.depth=1;
+    tall_entry.character_id=88;
+    tall_entry.has_matrix=true;
+    tall_entry.matrix.scale_x=2;
+    tall_entry.matrix.scale_y=1;
+    tall_frame.objects.push_back(tall_entry);
+    assert(render_frame(tall_frame,assets,tall_surface));
+    assert(tall_surface.rgba[(200*128+65)*4+3]>0);
     return 0;
 }
