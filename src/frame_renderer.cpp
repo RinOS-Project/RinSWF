@@ -859,6 +859,17 @@ RenderResult render_playback(const FrameSnapshot& snapshot,
                              const TimelinePlayback& playback,StrokeLimits limits) {
     return render_frame_at(snapshot,assets,target,playback.frame,limits);
 }
+RenderResult render_timeline_playback(const TimelineResult& timeline,
+                                      const FrameAssets& assets,Surface& target,
+                                      const TimelinePlayback& playback,StrokeLimits limits) {
+    if(!timeline)return {timeline.error,timeline.message};
+    if(timeline.frames.empty())
+        return {Error::malformed_tag,"root timeline has no frames"};
+    // Use the frame within this root cycle for both the display list and
+    // child sprite ages; placement offsets belong to this same cycle.
+    const auto local_frame=playback.frame%timeline.frames.size();
+    return render_frame_at(timeline.frames[local_frame],assets,target,local_frame,limits);
+}
 RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
                                   std::size_t max_pixels) {
     FrameAssets stage;
