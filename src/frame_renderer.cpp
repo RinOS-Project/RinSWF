@@ -663,6 +663,10 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
     Surface stage=target;
     for(const auto& entry:frame.objects) {
         const auto& m=entry.matrix;
+        if(entry.has_matrix && (!std::isfinite(m.scale_x) ||
+           !std::isfinite(m.scale_y) || !std::isfinite(m.rotate_skew_0) ||
+           !std::isfinite(m.rotate_skew_1)))
+            return {Error::malformed_tag,"nonfinite placement matrix"};
         const bool affine=entry.has_matrix && (m.scale_x!=1 || m.scale_y!=1 ||
             m.rotate_skew_0!=0 || m.rotate_skew_1!=0);
         const auto tx=entry.has_matrix?m.translate_x:0;
