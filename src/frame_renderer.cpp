@@ -487,6 +487,15 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             std::array<std::vector<int>,4> suffix;
             for(unsigned sy=0;sy<4;++sy) {
                 const double py=double(y)+(sy+0.5)/4.0;
+                // No active edges: invalidate the previous ordering and
+                // avoid rebuilding hash tables for this empty sample row.
+                if(active[sy].empty()) {
+                    ordered_edges.clear();
+                    ordered_x.clear();
+                    prior_index.clear();
+                    have_previous_row=false;
+                    continue;
+                }
                 // Retain existing edge order from the preceding sample row.
                 // Insert newly active edges, then restore X order if edges cross.
                 next_order.clear();
