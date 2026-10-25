@@ -39,6 +39,24 @@ struct TimelinePlayback {
                                                     Surface& target,
                                                     const TimelinePlayback& playback,
                                                     StrokeLimits limits={});
+// Opt-in per-root-depth Sprite controls. State is caller-owned, so multiple
+// instances of the same character can be paused and seeked independently.
+struct SpriteInstancePlayback {
+    std::size_t frame=0;
+    bool playing=true;
+};
+struct SpritePlayback {
+    std::map<std::uint16_t,SpriteInstancePlayback> instances;
+    void stop(std::uint16_t depth) {instances[depth].playing=false;}
+    void play(std::uint16_t depth) {instances[depth].playing=true;}
+    void seek(std::uint16_t depth,std::size_t frame) {instances[depth].frame=frame;}
+    void advance(std::size_t count=1) noexcept;
+    void erase(std::uint16_t depth) {instances.erase(depth);}
+};
+[[nodiscard]] RenderResult render_timeline_playback(
+    const TimelineResult& timeline,const FrameAssets& assets,Surface& target,
+    const TimelinePlayback& playback,const SpritePlayback& sprites,
+    StrokeLimits limits={});
 // Decodes supported shape/lossless/JPEG definitions. Unsupported placed
 // characters and unsupported transforms fail during frame rendering.
 [[nodiscard]] RenderResult collect_frame_assets(const Document& document,
