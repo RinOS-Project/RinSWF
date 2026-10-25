@@ -51,11 +51,19 @@ struct Reader {
         if(!take(5,n)||!signed_value(n,out.translate_x)||!signed_value(n,out.translate_y)) return false;
         align(); return bit<=d.size()*8;
     }
-    bool cxform_alpha() {
-        std::uint32_t add=0,mult=0,n=0;
-        if(!take(1,add)||!take(1,mult)||!take(4,n)) return false;
-        if(mult && !skip(std::size_t(4)*n)) return false;
-        if(add && !skip(std::size_t(4)*n)) return false;
+    bool cxform_alpha(ColorTransform& out) {
+        std::uint32_t has_add=0,has_mult=0,n=0;
+        if(!take(1,has_add)||!take(1,has_mult)||!take(4,n))return false;
+        for(unsigned c=0;c<4;++c) {
+            if(has_mult) {
+                std::int32_t raw=0;
+                if(!signed_value(n,raw))return false;
+                out.multiply[c]=double(raw)/256.0;
+            }
+        }
+        for(unsigned c=0;c<4;++c) {
+            if(has_add && !signed_value(n,out.add[c]))return false;
+        }
         align();return bit<=d.size()*8;
     }
     bool cstring(std::string& s) {
@@ -100,7 +108,7 @@ TimelineResult build_timeline(const Document& document) {
             // PlaceObject3 extends PlaceObject2 with filter/blend/cache,
             // class-name, image and visibility/opaque-background options.
             // Reject unsupported visual features instead of losing them.
-            if((flags&0xc0)!=0 || (flags2&0xff)!=0 || has_color)
+            if((flags&0xc0)!=0 || (flags2&0xff)!=0)
                 return fail("PlaceObject3 clip/color/extended features unsupported");
             Reader reader{d,32};
             std::uint16_t id=0;
@@ -113,6 +121,9 @@ TimelineResult build_timeline(const Document& document) {
             Matrix matrix;
             if(has_matrix && !reader.matrix(matrix))
                 return fail("PlaceObject3 MATRIX truncated");
+            ColorTransform color;
+            if(has_color && !reader.cxform_alpha(color))
+                return fail("PlaceObject3 CXFORMWITHALPHA truncated");
             if(has_ratio) {
                 if(d.size()-reader.pos()<2)
                     return fail("PlaceObject3 ratio truncated");
@@ -136,6 +147,7 @@ TimelineResult build_timeline(const Document& document) {
                     entry.has_matrix=true;
                     entry.matrix=matrix;
                 }
+                if(has_color) {entry.has_color_transform=true;entry.color_transform=color;}
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -150,6 +162,8 @@ TimelineResult build_timeline(const Document& document) {
                 entry.has_matrix=has_matrix;
                 entry.matrix=matrix;
                 entry.name=std::move(name);
+                entry.has_color_transform=has_color;
+                entry.color_transform=color;
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==26) { // PlaceObject2
@@ -174,7 +188,8 @@ TimelineResult build_timeline(const Document& document) {
             }
             Matrix matrix;
             if(has_matrix && !reader.matrix(matrix)) return fail("PlaceObject2 MATRIX truncated");
-            if(has_color && !reader.cxform_alpha()) return fail("PlaceObject2 CXFORM truncated");
+            ColorTransform color;
+            if(has_color && !reader.cxform_alpha(color)) return fail("PlaceObject2 CXFORM truncated");
             if(has_ratio) {
                 if(d.size()-reader.pos()<2) return fail("PlaceObject2 ratio truncated");
                 reader.bit+=16;
@@ -188,6 +203,7 @@ TimelineResult build_timeline(const Document& document) {
                 auto entry=it->second;
                 if(has_character) { entry.character_id=id; entry.placed_frame=frames.size(); }
                 if(has_matrix) { entry.has_matrix=true; entry.matrix=matrix; }
+                if(has_color) { entry.has_color_transform=true; entry.color_transform=color; }
                 if(has_name) entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -196,6 +212,7 @@ TimelineResult build_timeline(const Document& document) {
                 DisplayEntry entry;
                 entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size(); entry.has_matrix=has_matrix;
                 entry.matrix=matrix; entry.name=std::move(name);
+                entry.has_color_transform=has_color;entry.color_transform=color;
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==5) { // RemoveObject: CharacterId, Depth
