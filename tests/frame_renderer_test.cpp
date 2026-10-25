@@ -644,5 +644,34 @@ int main() {
     const auto unchanged_sprite=sprite_surface.rgba;
     assert(!render_frame(root_sprite,assets,sprite_surface));
     assert(sprite_surface.rgba==unchanged_sprite);
+    // Sprite frame selection follows the parent playback clock and loops.
+    SpriteTimeline animated;
+    animated.character_id=92;
+    FrameSnapshot first,second;
+    DisplayEntry first_image;
+    first_image.depth=1;
+    first_image.character_id=42;
+    first.objects.push_back(first_image);
+    DisplayEntry second_image=first_image;
+    second_image.matrix.translate_x=80;
+    second_image.has_matrix=true;
+    second.objects.push_back(second_image);
+    animated.frames={first,second};
+    assets.sprites.emplace(92,animated);
+    FrameSnapshot animated_root;
+    DisplayEntry animated_instance;
+    animated_instance.depth=1;
+    animated_instance.character_id=92;
+    animated_root.objects.push_back(animated_instance);
+    Surface animated_a,animated_b,animated_loop;
+    assert(make_surface(8,8,animated_a));
+    assert(make_surface(8,8,animated_b));
+    assert(make_surface(8,8,animated_loop));
+    assert(render_frame_at(animated_root,assets,animated_a,0));
+    assert(render_frame_at(animated_root,assets,animated_b,1));
+    assert(render_frame_at(animated_root,assets,animated_loop,2));
+    assert(animated_a.rgba[3]>0);
+    assert(animated_b.rgba[(0*8+4)*4+3]>0);
+    assert(animated_a.rgba==animated_loop.rgba);
     return 0;
 }
