@@ -131,3 +131,4 @@
 - [x] ネストしたSpriteのdepth経路（例: {2,7}）別にstop/play/seek/advanceを管理して描画へ伝播（子の置換・削除に伴う自動状態破棄は未実装）
 - [x] TimelinePlayer描画前にnested SpriteのDepth経路・character ID・配置フレームを照合し、子の置換・削除や親の消失時に古い再生状態を破棄
 - [x] 親Spriteの配置ID・配置フレームが変化または削除された時点で、該当Depth配下のネストした再生状態を全破棄（親のidentity更新前に処理）
+- [x] 中間階層のSprite置換時に子孫の再生クロックを引き継がず、孫の状態も破棄する回帰ケースを追加
