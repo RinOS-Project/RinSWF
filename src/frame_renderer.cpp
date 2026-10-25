@@ -450,6 +450,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         std::vector<double> ordered_x;
         double previous_py=0;
         bool have_previous_row=false;
+        std::size_t incremental_rows=0;
         std::vector<EdgePtr> next_order;
         std::vector<double> next_x,sorted_x;
         std::unordered_set<EdgePtr> active_set;
@@ -487,7 +488,9 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 next_x.reserve(next_order.size());
                 for(auto* e:next_order) {
                     const auto prior=prior_index.find(e);
-                    if(have_previous_row && prior!=prior_index.end())
+                    // Re-anchor periodically to avoid floating-point drift
+                    // after many incremental scanline updates.
+                    if(have_previous_row && incremental_rows<64 && prior!=prior_index.end())
                         next_x.push_back(ordered_x[prior->second]+(py-previous_py)*e->dx/e->dy);
                     else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
                 }
@@ -524,6 +527,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     prior_index.emplace(ordered_edges[k],k);
                 previous_py=py;
                 have_previous_row=true;
+                incremental_rows=(incremental_rows+1)%65;
                 auto& row=crossings[sy];
                 for(auto* edge:ordered_edges)
                     row.emplace_back(x_at(edge),edge->dy>0?1:-1);
