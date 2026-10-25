@@ -476,14 +476,13 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             active_index.emplace(edge,active_edges.size());
             active_edges.push_back(edge);
         };
-        std::vector<EdgePtr> ordered_edges;
+        using Intersection=std::pair<EdgePtr,double>;
+        std::vector<Intersection> ordered;
         std::unordered_map<EdgePtr,std::size_t> prior_index;
-        std::vector<double> ordered_x;
         double previous_py=0;
         bool have_previous_row=false;
         std::size_t incremental_rows=0;
         std::vector<EdgePtr> next_order;
-        using Intersection=std::pair<EdgePtr,double>;
         std::vector<Intersection> positioned;
         std::unordered_set<EdgePtr> active_set;
         std::array<std::vector<std::pair<double,int>>,4> crossings;
@@ -504,8 +503,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 // No active edges: invalidate the previous ordering and
                 // avoid rebuilding hash tables for this empty sample row.
                 if(active_edges.empty()) {
-                    ordered_edges.clear();
-                    ordered_x.clear();
+                    ordered.clear();
                     prior_index.clear();
                     have_previous_row=false;
                     continue;
@@ -517,8 +515,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 active_set.reserve(active_edges.size());
                 active_set.insert(active_edges.begin(),active_edges.end());
                 next_order.reserve(active_edges.size());
-                for(auto* edge:ordered_edges)
-                    if(active_set.erase(edge)) next_order.push_back(edge);
+                for(const auto& entry:ordered)
+                    if(active_set.erase(entry.first)) next_order.push_back(entry.first);
                 for(auto* edge:active_edges)
                     if(active_set.erase(edge)) next_order.push_back(edge);
                 // Keep the edge and its intersection together while sorting.
@@ -529,7 +527,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     const auto prior=prior_index.find(e);
                     double x;
                     if(have_previous_row && incremental_rows<64 && prior!=prior_index.end())
-                        x=ordered_x[prior->second]+(py-previous_py)*e->dx/e->dy;
+                        x=ordered[prior->second].second+(py-previous_py)*e->dx/e->dy;
                     else x=e->ax+(py-e->ay)*e->dx/e->dy;
                     if(!std::isfinite(x))
                         return {Error::size_limit,"nonfinite affine stroke intersection"};
@@ -551,20 +549,14 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         positioned[j]=value;
                     }
                 }
-                ordered_edges.clear();
-                ordered_x.clear();
-                ordered_edges.reserve(positioned.size());
-                ordered_x.reserve(positioned.size());
+                ordered.swap(positioned);
                 auto& row=crossings[sy];
-                for(const auto& entry:positioned) {
-                    ordered_edges.push_back(entry.first);
-                    ordered_x.push_back(entry.second);
+                for(const auto& entry:ordered)
                     row.emplace_back(entry.second,entry.first->dy>0?1:-1);
-                }
                 prior_index.clear();
-                prior_index.reserve(ordered_edges.size());
-                for(std::size_t k=0;k<ordered_edges.size();++k)
-                    prior_index.emplace(ordered_edges[k],k);
+                prior_index.reserve(ordered.size());
+                for(std::size_t k=0;k<ordered.size();++k)
+                    prior_index.emplace(ordered[k].first,k);
                 previous_py=py;
                 have_previous_row=true;
                 incremental_rows=(incremental_rows+1)%65;
