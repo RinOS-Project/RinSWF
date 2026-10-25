@@ -62,5 +62,28 @@ int main() {
     assert(instance_frames.frames[1].objects[0].placed_frame==0);
     assert(instance_frames.frames[2].objects[0].placed_frame==2);
     assert(instance_frames.frames[3].objects[0].placed_frame==2);
+    // PlaceObject3: Flags1, Flags2, Depth, CharacterId, MATRIX.
+    Document place3;
+    place3.header.frame_count=3;
+    place3.tags.push_back({70,0,{0x06,0x00,2,0,17,0,0x00}});
+    place3.tags.push_back({1,0,{}});
+    // Move same instance and change its name without restarting its clock.
+    place3.tags.push_back({70,0,{0x21,0x00,2,0,'c','l','i','p',0}});
+    place3.tags.push_back({1,0,{}});
+    // Character replacement restarts its local clock.
+    place3.tags.push_back({70,0,{0x03,0x00,2,0,18,0}});
+    place3.tags.push_back({1,0,{}});
+    auto p3=build_timeline(place3);
+    assert(p3);
+    assert(p3.frames[0].objects[0].character_id==17);
+    assert(p3.frames[1].objects[0].name=="clip");
+    assert(p3.frames[1].objects[0].placed_frame==0);
+    assert(p3.frames[2].objects[0].character_id==18);
+    assert(p3.frames[2].objects[0].placed_frame==2);
+    place3.tags[0].data[1]=0x02; // BlendMode cannot yet be rendered
+    assert(!build_timeline(place3));
+    place3.tags[0].data[1]=0;
+    place3.tags[0].data.pop_back(); // truncated MATRIX
+    assert(!build_timeline(place3));
     return 0;
 }
