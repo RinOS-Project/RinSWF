@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/frame_renderer.hpp"
 #include <cassert>
+#include <limits>
 int main() {
     using namespace rinswf;
     Surface target;
@@ -52,6 +53,10 @@ int main() {
     // Singular transforms must fail without modifying the target.
     frame.objects[0].matrix.rotate_skew_1=0;
     const auto preserved=rotated.rgba;
+    assert(!render_frame(frame,assets,rotated));
+    assert(rotated.rgba==preserved);
+    // Nonfinite placement matrices are rejected without touching the target.
+    frame.objects[0].matrix.scale_x=std::numeric_limits<double>::infinity();
     assert(!render_frame(frame,assets,rotated));
     assert(rotated.rgba==preserved);
     // Affine Shape: scale a solid square through the frame renderer.
