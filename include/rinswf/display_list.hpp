@@ -11,10 +11,16 @@ struct Matrix {
     double rotate_skew_0=0.0, rotate_skew_1=0.0;
     std::int32_t translate_x=0, translate_y=0; // SWF twips
 };
+struct ColorTransform {
+    double multiply[4]={1,1,1,1};
+    std::int32_t add[4]={0,0,0,0};
+};
 struct DisplayEntry {
     std::uint16_t depth=0;
     std::uint16_t character_id=0;
     std::size_t placed_frame=0; // zero-based parent frame when this instance was placed
+    bool has_color_transform=false;
+    ColorTransform color_transform{};
     bool has_matrix=false;
     Matrix matrix{};
     std::string name;
