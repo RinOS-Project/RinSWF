@@ -516,9 +516,16 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 for(const auto& entry:ordered) {
                     if(!active_set.erase(entry.first))continue;
                     const auto* e=entry.first;
-                    const double x=have_previous_row && incremental_rows<64
+                    // Intersections near a quarter-pixel sample boundary
+                    // are re-evaluated from the original edge to avoid drift
+                    // flipping antialiasing coverage after many rows.
+                    double x=have_previous_row && incremental_rows<64
                         ?entry.second+(py-previous_py)*e->dx/e->dy
                         :e->ax+(py-e->ay)*e->dx/e->dy;
+                    const double sample_phase=4.0*x-0.5;
+                    if(std::isfinite(sample_phase) &&
+                       std::abs(sample_phase-std::round(sample_phase))<1e-6)
+                        x=e->ax+(py-e->ay)*e->dx/e->dy;
                     if(!std::isfinite(x))
                         return {Error::size_limit,"nonfinite affine stroke intersection"};
                     positioned.emplace_back(e,x);
