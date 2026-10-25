@@ -23,7 +23,7 @@
 ## Phase 2 — 表示エンジン
 - [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
 - [x] PlaceObject / PlaceObject2 のMATRIX（scale/skew/translation）値の保持
-- [ ] PlaceObject3、色変換・クリップの保持
+- [ ] PlaceObject3の拡張フィールド、色変換・クリップの保持（PlaceObject3の基本配置・移動・置換・MATRIX・名前・ratio解析は実装済み。拡張描画機能は明示拒否）
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] FrameSnapshotの深度順オブジェクトからShapeとLossless BitmapをRGBAサーフェスへ描画する基本API（平行移動限定）
 - [x] フレーム描画アセット収集へJPEG2/3/4を追加し、重複character IDを拒否
