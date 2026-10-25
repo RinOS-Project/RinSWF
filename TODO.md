@@ -126,3 +126,4 @@
 - [x] TimelinePlaybackで親タイムラインの外部クロック・pause/resume/seek/advanceとrender_playback APIを追加
 - [x] TimelineResultの親フレーム切替・ループ選択・ループ起点のSprite再生をrender_timeline_playbackで追加（独立再生状態とActionScriptは未実装）
 - [x] SpritePlaybackにroot depth別のstop/play/seek/advance/eraseと独立描画オーバーロードを追加（ネストSprite・配置置換との状態同期は未対応）
+- [x] SpritePlayback::synchronizeでroot depthのSprite配置ID・配置フレームを照合し、移動時は再生状態を保持、置換・削除時は古い状態を破棄（呼び出し側による同期が必要）
