@@ -483,9 +483,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         bool have_previous_row=false;
         std::size_t incremental_rows=0;
         std::vector<EdgePtr> next_order;
-        std::vector<double> next_x,sorted_x;
         std::unordered_set<EdgePtr> active_set;
-        std::unordered_map<EdgePtr,double> x_values;
         std::array<std::vector<std::pair<double,int>>,4> crossings;
         std::array<std::vector<int>,4> suffix;
         for(auto y=top;y<bottom;++y) {
@@ -521,48 +519,47 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     if(active_set.erase(edge)) next_order.push_back(edge);
                 for(auto* edge:active_edges)
                     if(active_set.erase(edge)) next_order.push_back(edge);
-                // Cache each active edge intersection and advance it by dy.
-                // Newly active edges are evaluated directly at this sample row.
-                next_x.clear();
-                next_x.reserve(next_order.size());
+                // Keep the edge and its intersection together while sorting.
+                // This removes the temporary X hash map and the extra sorted-X copy.
+                using Intersection=std::pair<EdgePtr,double>;
+                std::vector<Intersection> positioned;
+                positioned.reserve(next_order.size());
                 for(auto* e:next_order) {
                     const auto prior=prior_index.find(e);
-                    // Re-anchor periodically to avoid floating-point drift
-                    // after many incremental scanline updates.
+                    double x;
                     if(have_previous_row && incremental_rows<64 && prior!=prior_index.end())
-                        next_x.push_back(ordered_x[prior->second]+(py-previous_py)*e->dx/e->dy);
-                    else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
-                }
-                x_values.clear();
-                x_values.reserve(next_order.size());
-                for(std::size_t k=0;k<next_order.size();++k) {
-                    if(!std::isfinite(next_x[k]))
+                        x=ordered_x[prior->second]+(py-previous_py)*e->dx/e->dy;
+                    else x=e->ax+(py-e->ay)*e->dx/e->dy;
+                    if(!std::isfinite(x))
                         return {Error::size_limit,"nonfinite affine stroke intersection"};
-                    x_values.emplace(next_order[k],next_x[k]);
+                    positioned.emplace_back(e,x);
                 }
-                auto x_at=[&](const WindingEdge* e) {
-                    return x_values.at(e);
+                auto less=[](const Intersection& a,const Intersection& b) {
+                    return a.second<b.second;
                 };
-                // Small changes usually need only a few adjacent swaps.
-                if(next_order.size()>64) {
-                    std::sort(next_order.begin(),next_order.end(),
-                        [&](auto* a,auto* b){return x_at(a)<x_at(b);});
+                if(positioned.size()>64) {
+                    std::sort(positioned.begin(),positioned.end(),less);
                 } else {
-                    for(std::size_t k=1;k<next_order.size();++k) {
-                        auto* value=next_order[k];
+                    for(std::size_t k=1;k<positioned.size();++k) {
+                        const auto value=positioned[k];
                         auto j=k;
-                        while(j>0 && x_at(next_order[j-1])>x_at(value)) {
-                            next_order[j]=next_order[j-1];
+                        while(j>0 && less(value,positioned[j-1])) {
+                            positioned[j]=positioned[j-1];
                             --j;
                         }
-                        next_order[j]=value;
+                        positioned[j]=value;
                     }
                 }
-                sorted_x.clear();
-                sorted_x.reserve(next_order.size());
-                for(auto* e:next_order) sorted_x.push_back(x_at(e));
-                ordered_edges.assign(next_order.begin(),next_order.end());
-                ordered_x.assign(sorted_x.begin(),sorted_x.end());
+                ordered_edges.clear();
+                ordered_x.clear();
+                ordered_edges.reserve(positioned.size());
+                ordered_x.reserve(positioned.size());
+                auto& row=crossings[sy];
+                for(const auto& entry:positioned) {
+                    ordered_edges.push_back(entry.first);
+                    ordered_x.push_back(entry.second);
+                    row.emplace_back(entry.second,entry.first->dy>0?1:-1);
+                }
                 prior_index.clear();
                 prior_index.reserve(ordered_edges.size());
                 for(std::size_t k=0;k<ordered_edges.size();++k)
@@ -570,12 +567,6 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 previous_py=py;
                 have_previous_row=true;
                 incremental_rows=(incremental_rows+1)%65;
-                auto& row=crossings[sy];
-                for(auto* edge:ordered_edges)
-                    row.emplace_back(x_at(edge),edge->dy>0?1:-1);
-                // Coalesce equal-X crossings before the sample sweep.
-                // Their individual order is immaterial: only the sum of
-                // winding changes at that exact boundary is observable.
                 std::size_t write=0;
                 for(std::size_t read=0;read<row.size();) {
                     const double x=row[read].first;
