@@ -130,3 +130,4 @@
 - [x] TimelinePlayerでフレーム選択・Spriteライフサイクル同期・描画を一体化し、親タイムラインループ時に状態をリセット（ネスト個別状態・AVM連携は未実装）
 - [x] ネストしたSpriteのdepth経路（例: {2,7}）別にstop/play/seek/advanceを管理して描画へ伝播（子の置換・削除に伴う自動状態破棄は未実装）
 - [x] TimelinePlayer描画前にnested SpriteのDepth経路・character ID・配置フレームを照合し、子の置換・削除や親の消失時に古い再生状態を破棄
+- [x] 親Spriteの配置ID・配置フレームが変化または削除された時点で、該当Depth配下のネストした再生状態を全破棄（親のidentity更新前に処理）
