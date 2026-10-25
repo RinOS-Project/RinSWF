@@ -581,5 +581,30 @@ int main() {
     assert(restart_surface.rgba[(1*32+10)*4+3]>0);
     assert(restart_surface.rgba[(22*32+10)*4+3]>0);
     assert(restart_surface.rgba[(12*32+10)*4+3]==0);
+    // Exact quarter-grid sampling boundary: x=2.125 pixels after the
+    // anisotropic affine transform. A translated viewport must agree.
+    ShapeGeometry sample_edge=stroked;
+    sample_edge.commands.clear();
+    sample_edge.commands.push_back({ShapeCommandKind::move_to,{}, {17,20},0,0,0});
+    sample_edge.commands.push_back({ShapeCommandKind::line_to,{}, {17,460},0,0,1});
+    assets.shapes[88]=sample_edge;
+    FrameSnapshot edge_origin=stroke_frame,edge_shifted=stroke_frame;
+    edge_origin.objects[0].matrix.scale_x=2.5;
+    edge_origin.objects[0].matrix.scale_y=1.0;
+    edge_origin.objects[0].matrix.translate_x=0;
+    edge_origin.objects[0].matrix.translate_y=0;
+    edge_shifted=edge_origin;
+    edge_shifted.objects[0].matrix.translate_x=16*20;
+    edge_shifted.objects[0].matrix.translate_y=16*20;
+    Surface edge_small,edge_large;
+    assert(make_surface(16,32,edge_small));
+    assert(make_surface(48,64,edge_large));
+    assert(render_frame(edge_origin,assets,edge_small));
+    assert(render_frame(edge_shifted,assets,edge_large));
+    for(std::size_t yy=0;yy<32;++yy)
+        for(std::size_t xx=0;xx<16;++xx)
+            for(std::size_t ch=0;ch<4;++ch)
+                assert(edge_small.rgba[(yy*16+xx)*4+ch] ==
+                       edge_large.rgba[((yy+16)*48+xx+16)*4+ch]);
     return 0;
 }
