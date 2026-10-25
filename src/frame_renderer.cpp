@@ -432,7 +432,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         // exactly once and leaves exactly once as the scanline advances.
         using EdgePtr=const WindingEdge*;
         const auto row_count=std::size_t(bottom-top)*4;
-        std::vector<std::vector<EdgePtr>> starts(row_count+1),ends(row_count+1);
+        // Only rows containing events consume memory, regardless of surface height.
+        std::unordered_map<std::size_t,std::vector<EdgePtr>> starts,ends;
+        starts.reserve(edges.size());
+        ends.reserve(edges.size());
         for(const auto& e:edges) {
             const double low=std::min(e.ay,e.by),high=std::max(e.ay,e.by);
             const auto first=std::int64_t(std::ceil(4.0*(low-double(top))-0.5));
@@ -459,11 +462,15 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             std::array<std::vector<EdgePtr>,4> active;
             for(unsigned sy=0;sy<4;++sy) {
                 const auto row=std::size_t(y-top)*4+sy;
-                for(auto e:ends[row]) {
-                    auto it=std::find(active_edges.begin(),active_edges.end(),e);
-                    if(it!=active_edges.end()) active_edges.erase(it);
+                if(const auto expired=ends.find(row);expired!=ends.end()) {
+                    for(auto e:expired->second) {
+                        auto it=std::find(active_edges.begin(),active_edges.end(),e);
+                        if(it!=active_edges.end()) active_edges.erase(it);
+                    }
                 }
-                active_edges.insert(active_edges.end(),starts[row].begin(),starts[row].end());
+                if(const auto arriving=starts.find(row);arriving!=starts.end())
+                    active_edges.insert(active_edges.end(),
+                                        arriving->second.begin(),arriving->second.end());
                 active[sy]=active_edges;
             }
             // Precompute sorted X intersections and suffix winding sums per row.
