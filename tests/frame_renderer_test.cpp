@@ -850,5 +850,25 @@ int main() {
     parent_reset.synchronize(FrameSnapshot{},assets);
     parent_reset.synchronize_nested(FrameSnapshot{},assets,5);
     assert(!parent_reset.nested_instances.contains({6,3}));
+    // Replacing a nested child must also invalidate a grandchild's clock.
+    SpriteTimeline middle;
+    middle.character_id=95;
+    FrameSnapshot middle_frame;
+    DisplayEntry grandchild;
+    grandchild.depth=4;
+    grandchild.character_id=92;
+    middle_frame.objects.push_back(grandchild);
+    middle.frames.push_back(middle_frame);
+    assets.sprites.emplace(95,middle);
+    assets.sprites.at(94).frames[0].objects[0].character_id=95;
+    assets.sprites.at(94).frames[0].objects[0].placed_frame=0;
+    SpritePlayback generations;
+    generations.synchronize(parent_root,assets);
+    generations.synchronize_nested(parent_root,assets,0);
+    generations.seek_path({6,3,4},8);
+    generations.seek_path({6,3},0);
+    assets.sprites.at(94).frames[0].objects[0].placed_frame=2;
+    generations.synchronize_nested(parent_root,assets,2);
+    assert(!generations.nested_instances.contains({6,3,4}));
     return 0;
 }
