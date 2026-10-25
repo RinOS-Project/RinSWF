@@ -522,6 +522,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     double x=have_previous_row && incremental_rows<64
                         ?entry.second+(py-previous_py)*e->dx/e->dy
                         :e->ax+(py-e->ay)*e->dx/e->dy;
+                    // Compare against actual sample X positions (1/8, 3/8,
+                    // 5/8, 7/8), not the quarter-pixel boundaries.
                     const double sample_phase=4.0*x-0.5;
                     if(std::isfinite(sample_phase) &&
                        std::abs(sample_phase-std::round(sample_phase))<1e-6)
