@@ -45,5 +45,22 @@ int main() {
     assert(!build_sprite_timeline(sprite));
     sprite.data[2]=1;
     assert(!build_sprite_timeline(sprite,Limits{1024,0,1024}));
+    // Moving a placed instance preserves its clock; replacing its character
+    // starts a fresh instance on the current parent frame.
+    Document instances;
+    instances.header.frame_count=4;
+    instances.tags.push_back({26,0,{0x06,1,0,7,0,0x00}});
+    instances.tags.push_back({1,0,{}});
+    instances.tags.push_back({26,0,{0x01,1,0}});
+    instances.tags.push_back({1,0,{}});
+    instances.tags.push_back({26,0,{0x03,1,0,8,0}});
+    instances.tags.push_back({1,0,{}});
+    instances.tags.push_back({1,0,{}});
+    auto instance_frames=build_timeline(instances);
+    assert(instance_frames);
+    assert(instance_frames.frames[0].objects[0].placed_frame==0);
+    assert(instance_frames.frames[1].objects[0].placed_frame==0);
+    assert(instance_frames.frames[2].objects[0].placed_frame==2);
+    assert(instance_frames.frames[3].objects[0].placed_frame==2);
     return 0;
 }
