@@ -436,7 +436,7 @@ int main() {
                 assert(clipped_small.rgba[(y*16+x)*4+channel] ==
                        clipped_large.rgba[(y*32+x)*4+channel]);
     // The same world-space pixels must survive right, top and bottom clipping.
-    // The large viewport is shifted to contain negative world coordinates.
+    // Compare the common top-left viewport against a larger surface.
     for(int boundary=0;boundary<3;++boundary) {
         ShapeGeometry edge_shape=stroked;
         edge_shape.commands.clear();
@@ -466,6 +466,28 @@ int main() {
                 for(std::size_t c=0;c<4;++c)
                     assert(small.rgba[(y*16+x)*4+c]==large.rgba[(y*32+x)*4+c]);
     }
+    // Compare with a translated larger viewport too: the same world-space
+    // region must render identically even when a negative edge is visible.
+    ShapeGeometry shifted_shape=stroked;
+    shifted_shape.commands.clear();
+    shifted_shape.commands.push_back({ShapeCommandKind::move_to,{}, {-150,-120},0,0,0});
+    shifted_shape.commands.push_back({ShapeCommandKind::line_to,{}, {380,370},0,0,1});
+    assets.shapes[88]=shifted_shape;
+    Surface shifted_small,shifted_large;
+    assert(make_surface(16,16,shifted_small));
+    assert(make_surface(48,48,shifted_large));
+    FrameSnapshot origin_frame=stroke_frame,offset_frame=stroke_frame;
+    origin_frame.objects[0].matrix.translate_x=0;
+    origin_frame.objects[0].matrix.translate_y=0;
+    offset_frame.objects[0].matrix.translate_x=16*20;
+    offset_frame.objects[0].matrix.translate_y=16*20;
+    assert(render_frame(origin_frame,assets,shifted_small));
+    assert(render_frame(offset_frame,assets,shifted_large));
+    for(std::size_t y=0;y<16;++y)
+        for(std::size_t x=0;x<16;++x)
+            for(std::size_t c=0;c<4;++c)
+                assert(shifted_small.rgba[(y*16+x)*4+c] ==
+                       shifted_large.rgba[((y+16)*48+x+16)*4+c]);
     // Multiple contours crossing different edges must union consistently.
     ShapeGeometry multi=stroked;
     multi.commands.clear();
