@@ -761,5 +761,31 @@ int main() {
     lifecycle.synchronize(FrameSnapshot{},assets);
     assert(!lifecycle.instances.contains(7));
     assert(!lifecycle.identities.contains(7));
+    // Stateful player synchronizes removals and replacements without
+    // requiring the caller to invoke SpritePlayback::synchronize().
+    TimelineResult lifecycle_timeline;
+    FrameSnapshot with_sprite;
+    DisplayEntry lifecycle_entry;
+    lifecycle_entry.depth=5;
+    lifecycle_entry.character_id=92;
+    with_sprite.objects.push_back(lifecycle_entry);
+    FrameSnapshot without_sprite;
+    lifecycle_timeline.frames={with_sprite,without_sprite};
+    TimelinePlayer player;
+    Surface player_surface;
+    assert(make_surface(8,8,player_surface));
+    assert(player.render(lifecycle_timeline,assets,player_surface));
+    player.sprites.stop(5);
+    assert(player.sprites.instances.contains(5));
+    player.advance();
+    assert(player.render(lifecycle_timeline,assets,player_surface));
+    assert(!player.sprites.instances.contains(5));
+    player.advance();
+    assert(player.render(lifecycle_timeline,assets,player_surface));
+    assert(player.clock.frame==2 && player.last_cycle==1);
+    player.sprites.seek(5,1);
+    player.seek(0);
+    assert(player.render(lifecycle_timeline,assets,player_surface));
+    assert(!player.sprites.instances.contains(5));
     return 0;
 }
