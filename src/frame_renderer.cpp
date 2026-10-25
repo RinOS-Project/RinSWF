@@ -503,12 +503,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 if(active_edges.empty()) {
                     ordered.clear();
                     have_previous_row=false;
+                    incremental_rows=0;
                     continue;
                 }
-                // Retain existing edge order from the preceding sample row.
-                // Insert newly active edges, then restore X order if edges cross.
-                // Retain surviving ordered intersections and append newly
-                // active edges directly; no intermediate pointer vector needed.
+                // Retain survivors in their prior order, append new edges,
+                // then re-sort the actual X intersections to handle crossings.
                 active_set.clear();
                 active_set.reserve(active_edges.size());
                 active_set.insert(active_edges.begin(),active_edges.end());
