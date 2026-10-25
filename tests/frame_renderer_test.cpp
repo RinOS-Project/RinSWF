@@ -870,5 +870,24 @@ int main() {
     assets.sprites.at(94).frames[0].objects[0].placed_frame=2;
     generations.synchronize_nested(parent_root,assets,2);
     assert(!generations.nested_instances.contains({6,3,4}));
+    // Color transforms apply to the isolated source, not the backdrop.
+    FrameSnapshot color_frame;
+    DisplayEntry tinted;
+    tinted.depth=1;
+    tinted.character_id=42;
+    tinted.has_color_transform=true;
+    tinted.color_transform.multiply[3]=0.5;
+    color_frame.objects.push_back(tinted);
+    Surface tinted_surface;
+    assert(make_surface(8,8,tinted_surface));
+    assert(render_frame(color_frame,assets,tinted_surface));
+    assert(tinted_surface.rgba[3]==128);
+    // An additive channel term changes the source color before blending.
+    color_frame.objects[0].color_transform.multiply[0]=0.0;
+    color_frame.objects[0].color_transform.add[2]=100;
+    clear(tinted_surface,{0,0,0,0});
+    assert(render_frame(color_frame,assets,tinted_surface));
+    assert(tinted_surface.rgba[0]==0);
+    assert(tinted_surface.rgba[2]==100);
     return 0;
 }
