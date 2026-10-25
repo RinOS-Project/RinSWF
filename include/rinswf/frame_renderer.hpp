@@ -12,6 +12,13 @@ struct FrameAssets {
 [[nodiscard]] RenderResult render_frame(const FrameSnapshot& frame,
                                         const FrameAssets& assets,Surface& target,
                                         StrokeLimits limits={});
+// Renders a snapshot at a specified zero-based playback frame.
+// Sprites advance with the parent clock and wrap at their frame count.
+// Instance-specific start/reset times are not yet tracked.
+[[nodiscard]] RenderResult render_frame_at(const FrameSnapshot& frame,
+                                           const FrameAssets& assets,Surface& target,
+                                           std::size_t playback_frame,
+                                           StrokeLimits limits={});
 // Decodes supported shape/lossless/JPEG definitions. Unsupported placed
 // characters and unsupported transforms fail during frame rendering.
 [[nodiscard]] RenderResult collect_frame_assets(const Document& document,
