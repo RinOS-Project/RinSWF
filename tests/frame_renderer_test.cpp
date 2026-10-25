@@ -801,5 +801,33 @@ int main() {
     assert(nested_controls.nested_instances.at({1,3}).frame==5);
     nested_controls.erase_path({2,3});
     assert(!nested_controls.nested_instances.contains({2,3}));
+    // Nested Sprite states are removed when their parent disappears, and
+    // replacement at the same nested depth resets the old local clock.
+    SpriteTimeline parent_sprite;
+    parent_sprite.character_id=94;
+    FrameSnapshot parent_child;
+    DisplayEntry nested_child;
+    nested_child.depth=3;
+    nested_child.character_id=92;
+    parent_child.objects.push_back(nested_child);
+    parent_sprite.frames.push_back(parent_child);
+    assets.sprites.emplace(94,parent_sprite);
+    FrameSnapshot parent_root;
+    DisplayEntry parent_entry;
+    parent_entry.depth=6;
+    parent_entry.character_id=94;
+    parent_root.objects.push_back(parent_entry);
+    SpritePlayback nested_lifecycle;
+    nested_lifecycle.synchronize(parent_root,assets);
+    nested_lifecycle.synchronize_nested(parent_root,assets,0);
+    nested_lifecycle.seek_path({6,3},7);
+    nested_lifecycle.synchronize_nested(parent_root,assets,0);
+    assert(nested_lifecycle.nested_instances.at({6,3}).frame==7);
+    assets.sprites.at(94).frames[0].objects[0].placed_frame=1;
+    nested_lifecycle.synchronize_nested(parent_root,assets,1);
+    assert(!nested_lifecycle.nested_instances.contains({6,3}));
+    nested_lifecycle.seek_path({6,3},4);
+    nested_lifecycle.synchronize_nested(FrameSnapshot{},assets,1);
+    assert(!nested_lifecycle.nested_instances.contains({6,3}));
     return 0;
 }
