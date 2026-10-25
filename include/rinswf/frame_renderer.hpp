@@ -31,6 +31,14 @@ struct TimelinePlayback {
                                            const FrameAssets& assets,Surface& target,
                                            const TimelinePlayback& playback,
                                            StrokeLimits limits={});
+// Selects the root display-list snapshot from a built timeline, wrapping at
+// its frame count. Sprite clocks restart with each root timeline loop.
+// The caller clears the surface when it wants a fresh frame.
+[[nodiscard]] RenderResult render_timeline_playback(const TimelineResult& timeline,
+                                                    const FrameAssets& assets,
+                                                    Surface& target,
+                                                    const TimelinePlayback& playback,
+                                                    StrokeLimits limits={});
 // Decodes supported shape/lossless/JPEG definitions. Unsupported placed
 // characters and unsupported transforms fail during frame rendering.
 [[nodiscard]] RenderResult collect_frame_assets(const Document& document,
