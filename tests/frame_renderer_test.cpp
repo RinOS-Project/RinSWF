@@ -59,6 +59,10 @@ int main() {
     frame.objects[0].matrix.scale_x=std::numeric_limits<double>::infinity();
     assert(!render_frame(frame,assets,rotated));
     assert(rotated.rgba==preserved);
+    frame.objects[0].matrix.scale_x=1.0;
+    frame.objects[0].matrix.rotate_skew_0=std::numeric_limits<double>::quiet_NaN();
+    assert(!render_frame(frame,assets,rotated));
+    assert(rotated.rgba==preserved);
     // Affine Shape: scale a solid square through the frame renderer.
     ShapeGeometry square;
     square.character_id=7;
