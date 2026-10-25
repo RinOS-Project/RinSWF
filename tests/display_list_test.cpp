@@ -26,5 +26,24 @@ int main() {
     assert(moved.frames[1].objects[0].matrix.translate_x==20);
     d.tags[0].data={0x06,4,0,7,0};
     assert(!build_timeline(d)); // malformed MATRIX
+    // DefineSprite (39) has its own independent ShowFrame and End tags.
+    // Character 13 is placed at depth 2 inside sprite 9.
+    Tag sprite;
+    sprite.code=39;
+    sprite.data={9,0,1,0, 0x86,0x06, 0x06,2,0,13,0,0x00,
+                 0x40,0x00, 0x00,0x00};
+    auto decoded=build_sprite_timeline(sprite);
+    assert(decoded);
+    assert(decoded.sprite.character_id==9);
+    assert(decoded.sprite.frames.size()==1);
+    assert(decoded.sprite.frames[0].objects.size()==1);
+    assert(decoded.sprite.frames[0].objects[0].character_id==13);
+    sprite.data.pop_back();
+    assert(!build_sprite_timeline(sprite));
+    sprite.data.push_back(0);
+    sprite.data[2]=2; // declared frame count disagrees with ShowFrame
+    assert(!build_sprite_timeline(sprite));
+    sprite.data[2]=1;
+    assert(!build_sprite_timeline(sprite,Limits{1024,0,1024}));
     return 0;
 }
