@@ -757,7 +757,8 @@ static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
 }
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
-                                     StrokeLimits limits,unsigned nesting,std::size_t playback_frame) {
+                                     StrokeLimits limits,unsigned nesting,std::size_t playback_frame,
+                                     const SpritePlayback* sprite_controls=nullptr) {
     if(nesting>32)return {Error::size_limit,"sprite nesting limit exceeded"};
     for(const auto& entry:frame.objects) {
         const auto& m=entry.matrix;
@@ -816,8 +817,15 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             FrameSnapshot nested_frame;
             // Each placed sprite has its own local clock. A replacement with
             // a new character starts from its new placement frame.
-            const std::size_t local_frame=playback_frame>=entry.placed_frame
+            std::size_t local_frame=playback_frame>=entry.placed_frame
                 ?playback_frame-entry.placed_frame:0;
+            // Overrides are keyed by root depth, not character ID. A sprite
+            // at another depth therefore has its own playback state.
+            if(nesting==0 && sprite_controls) {
+                const auto control=sprite_controls->instances.find(entry.depth);
+                if(control!=sprite_controls->instances.end())
+                    local_frame=control->second.frame;
+            }
             const auto& sprite_frame=sprite->second.frames[
                 local_frame % sprite->second.frames.size()];
             nested_frame.objects.reserve(sprite_frame.objects.size());
@@ -869,6 +877,29 @@ RenderResult render_timeline_playback(const TimelineResult& timeline,
     // child sprite ages; placement offsets belong to this same cycle.
     const auto local_frame=playback.frame%timeline.frames.size();
     return render_frame_at(timeline.frames[local_frame],assets,target,local_frame,limits);
+}
+void SpritePlayback::advance(std::size_t count) noexcept {
+    const auto maximum=std::numeric_limits<std::size_t>::max();
+    for(auto& [depth,instance]:instances) {
+        (void)depth;
+        if(instance.playing)
+            instance.frame=count>maximum-instance.frame?maximum:instance.frame+count;
+    }
+}
+RenderResult render_timeline_playback(const TimelineResult& timeline,
+                                      const FrameAssets& assets,Surface& target,
+                                      const TimelinePlayback& playback,
+                                      const SpritePlayback& sprites,
+                                      StrokeLimits limits) {
+    if(!timeline)return {timeline.error,timeline.message};
+    if(timeline.frames.empty())
+        return {Error::malformed_tag,"root timeline has no frames"};
+    const auto root_frame=playback.frame%timeline.frames.size();
+    Surface stage=target;
+    auto result=render_frame_impl(timeline.frames[root_frame],assets,stage,
+                                  limits,0,root_frame,&sprites);
+    if(result)target=std::move(stage);
+    return result;
 }
 RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
                                   std::size_t max_pixels) {
