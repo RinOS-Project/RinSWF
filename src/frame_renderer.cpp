@@ -416,6 +416,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         const auto top=std::int64_t(std::clamp(std::floor(miny)-1.0,0.0,double(dst.height)));
         const auto right=std::int64_t(std::clamp(std::ceil(maxx)+1.0,0.0,double(dst.width)));
         const auto bottom=std::int64_t(std::clamp(std::ceil(maxy)+1.0,0.0,double(dst.height)));
+        // Most generated pieces of an offscreen stroke never reach the union.
+        // Skip the AET allocation and scanline setup for these contours.
+        if(right<=left || bottom<=top) {
+            one.commands.clear();
+            return {};
+        }
         struct WindingEdge {double ax,ay,bx,by,dx,dy;};
         std::vector<WindingEdge> edges;
         edges.reserve(one.commands.size());
