@@ -507,5 +507,21 @@ int main() {
         for(std::size_t x=0;x<16;++x)
             for(std::size_t c=0;c<4;++c)
                 assert(multi_small.rgba[(y*16+x)*4+c]==multi_large.rgba[(y*32+x)*4+c]);
+    // A stroke crossing the pixel center exercises monotonic intersection cursors.
+    ShapeGeometry cursor_shape=stroked;
+    cursor_shape.commands.clear();
+    cursor_shape.commands.push_back({ShapeCommandKind::move_to,{}, {-30,120},0,0,0});
+    cursor_shape.commands.push_back({ShapeCommandKind::line_to,{}, {370,120},0,0,1});
+    assets.shapes[88]=cursor_shape;
+    Surface cursor_small,cursor_large;
+    assert(make_surface(16,16,cursor_small));
+    assert(make_surface(32,16,cursor_large));
+    assert(render_frame(clipped_frame,assets,cursor_small));
+    assert(render_frame(clipped_frame,assets,cursor_large));
+    for(std::size_t y=0;y<16;++y)
+        for(std::size_t x=0;x<16;++x)
+            for(std::size_t c=0;c<4;++c)
+                assert(cursor_small.rgba[(y*16+x)*4+c] ==
+                       cursor_large.rgba[(y*32+x)*4+c]);
     return 0;
 }
