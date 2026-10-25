@@ -435,5 +435,55 @@ int main() {
             for(std::size_t channel=0;channel<4;++channel)
                 assert(clipped_small.rgba[(y*16+x)*4+channel] ==
                        clipped_large.rgba[(y*32+x)*4+channel]);
+    // The same world-space pixels must survive right, top and bottom clipping.
+    // The large viewport is shifted to contain negative world coordinates.
+    for(int boundary=0;boundary<3;++boundary) {
+        ShapeGeometry edge_shape=stroked;
+        edge_shape.commands.clear();
+        if(boundary==0) { // right edge
+            edge_shape.commands.push_back({ShapeCommandKind::move_to,{}, {180,60},0,0,0});
+            edge_shape.commands.push_back({ShapeCommandKind::line_to,{}, {450,170},0,0,1});
+        } else if(boundary==1) { // top edge
+            edge_shape.commands.push_back({ShapeCommandKind::move_to,{}, {30,-110},0,0,0});
+            edge_shape.commands.push_back({ShapeCommandKind::line_to,{}, {180,130},0,0,1});
+        } else { // bottom edge
+            edge_shape.commands.push_back({ShapeCommandKind::move_to,{}, {30,210},0,0,0});
+            edge_shape.commands.push_back({ShapeCommandKind::line_to,{}, {180,420},0,0,1});
+        }
+        assets.shapes[88]=edge_shape;
+        Surface small,large;
+        assert(make_surface(16,16,small));
+        assert(make_surface(32,32,large));
+        FrameSnapshot a=stroke_frame,b=stroke_frame;
+        a.objects[0].matrix.translate_x=0;
+        a.objects[0].matrix.translate_y=0;
+        b.objects[0].matrix.translate_x=0;
+        b.objects[0].matrix.translate_y=0;
+        assert(render_frame(a,assets,small));
+        assert(render_frame(b,assets,large));
+        for(std::size_t y=0;y<16;++y)
+            for(std::size_t x=0;x<16;++x)
+                for(std::size_t c=0;c<4;++c)
+                    assert(small.rgba[(y*16+x)*4+c]==large.rgba[(y*32+x)*4+c]);
+    }
+    // Multiple contours crossing different edges must union consistently.
+    ShapeGeometry multi=stroked;
+    multi.commands.clear();
+    multi.commands.push_back({ShapeCommandKind::move_to,{}, {-40,80},0,0,0});
+    multi.commands.push_back({ShapeCommandKind::line_to,{}, {390,80},0,0,1});
+    multi.commands.push_back({ShapeCommandKind::move_to,{}, {160,-60},0,0,0});
+    multi.commands.push_back({ShapeCommandKind::line_to,{}, {160,390},0,0,1});
+    assets.shapes[88]=multi;
+    Surface multi_small,multi_large;
+    assert(make_surface(16,16,multi_small));
+    assert(make_surface(32,32,multi_large));
+    clipped_frame.objects[0].matrix.translate_x=0;
+    clipped_frame.objects[0].matrix.translate_y=0;
+    assert(render_frame(clipped_frame,assets,multi_small));
+    assert(render_frame(clipped_frame,assets,multi_large));
+    for(std::size_t y=0;y<16;++y)
+        for(std::size_t x=0;x<16;++x)
+            for(std::size_t c=0;c<4;++c)
+                assert(multi_small.rgba[(y*16+x)*4+c]==multi_large.rgba[(y*32+x)*4+c]);
     return 0;
 }
