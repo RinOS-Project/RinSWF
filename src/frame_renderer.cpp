@@ -550,7 +550,19 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 auto& row=crossings[sy];
                 for(auto* edge:ordered_edges)
                     row.emplace_back(x_at(edge),edge->dy>0?1:-1);
-                suffix[sy].resize(row.size()+1,0);
+                // Coalesce equal-X crossings before the sample sweep.
+                // Their individual order is immaterial: only the sum of
+                // winding changes at that exact boundary is observable.
+                std::size_t write=0;
+                for(std::size_t read=0;read<row.size();) {
+                    const double x=row[read].first;
+                    int delta=0;
+                    do {delta+=row[read++].second;}
+                    while(read<row.size() && row[read].first==x);
+                    if(delta)row[write++]={x,delta};
+                }
+                row.resize(write);
+                suffix[sy].assign(row.size()+1,0);
                 for(std::size_t k=row.size();k>0;--k)
                     suffix[sy][k-1]=suffix[sy][k]+row[k-1].second;
             }
