@@ -895,12 +895,27 @@ void SpritePlayback::synchronize(const FrameSnapshot& frame,const FrameAssets& a
         const auto identity=std::make_pair(entry.character_id,entry.placed_frame);
         visible.emplace(entry.depth,identity);
         const auto previous=identities.find(entry.depth);
-        if(previous!=identities.end() && previous->second!=identity)
+        if(previous!=identities.end() && previous->second!=identity) {
             instances.erase(entry.depth);
+            for(auto it=nested_instances.begin();it!=nested_instances.end();) {
+                if(!it->first.empty() && it->first.front()==entry.depth)
+                    it=nested_instances.erase(it);
+                else ++it;
+            }
+        }
     }
     for(auto it=instances.begin();it!=instances.end();) {
         if(!visible.contains(it->first))it=instances.erase(it);
         else ++it;
+    }
+    for(const auto& [depth,identity]:identities) {
+        (void)identity;
+        if(visible.contains(depth))continue;
+        for(auto it=nested_instances.begin();it!=nested_instances.end();) {
+            if(!it->first.empty() && it->first.front()==depth)
+                it=nested_instances.erase(it);
+            else ++it;
+        }
     }
     identities=std::move(visible);
 }
@@ -943,12 +958,9 @@ void SpritePlayback::synchronize_nested(const FrameSnapshot& frame,
             Path ancestor(path.begin(),path.begin()+length);
             if(length==1) {
                 const auto depth=ancestor.front();
-                const auto old_root=identities.find(depth);
-                const auto new_root=std::find_if(frame.objects.begin(),frame.objects.end(),
-                    [&](const DisplayEntry& entry){return entry.depth==depth;});
-                if(old_root==identities.end() || new_root==frame.objects.end() ||
-                   old_root->second!=Identity{new_root->character_id,new_root->placed_frame})
-                    return true;
+                // Root replacement is handled by synchronize() before this
+                // walk, while the previous root identity is still available.
+                if(!identities.contains(depth))return true;
             } else {
                 const auto old_id=nested_identities.find(ancestor);
                 const auto new_id=visible.find(ancestor);
