@@ -728,9 +728,37 @@ static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
     adjusted.translate_y=std::int32_t(std::llround(ty));
     return affine_bitmap(dst,image,adjusted);
 }
-RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
-                          Surface& target,StrokeLimits limits) {
-    Surface stage=target;
+// Combine child and parent SWF matrices (translation stays in twips).
+static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
+                                   Matrix& result) {
+    result.scale_x=parent.scale_x*child.scale_x+
+                   parent.rotate_skew_0*child.rotate_skew_1;
+    result.rotate_skew_0=parent.scale_x*child.rotate_skew_0+
+                         parent.rotate_skew_0*child.scale_y;
+    result.rotate_skew_1=parent.rotate_skew_1*child.scale_x+
+                         parent.scale_y*child.rotate_skew_1;
+    result.scale_y=parent.rotate_skew_1*child.rotate_skew_0+
+                   parent.scale_y*child.scale_y;
+    const double tx=double(parent.translate_x)+
+        parent.scale_x*child.translate_x+parent.rotate_skew_0*child.translate_y;
+    const double ty=double(parent.translate_y)+
+        parent.rotate_skew_1*child.translate_x+parent.scale_y*child.translate_y;
+    if(!std::isfinite(tx)||!std::isfinite(ty)||
+       tx<double(std::numeric_limits<std::int32_t>::min())||
+       tx>double(std::numeric_limits<std::int32_t>::max())||
+       ty<double(std::numeric_limits<std::int32_t>::min())||
+       ty>double(std::numeric_limits<std::int32_t>::max())||
+       !std::isfinite(result.scale_x)||!std::isfinite(result.scale_y)||
+       !std::isfinite(result.rotate_skew_0)||!std::isfinite(result.rotate_skew_1))
+        return {Error::size_limit,"sprite matrix overflow"};
+    result.translate_x=std::int32_t(std::llround(tx));
+    result.translate_y=std::int32_t(std::llround(ty));
+    return {};
+}
+static RenderResult render_frame_impl(const FrameSnapshot& frame,
+                                     const FrameAssets& assets,Surface& stage,
+                                     StrokeLimits limits,unsigned nesting) {
+    if(nesting>32)return {Error::size_limit,"sprite nesting limit exceeded"};
     for(const auto& entry:frame.objects) {
         const auto& m=entry.matrix;
         if(entry.has_matrix && (!std::isfinite(m.scale_x) ||
@@ -781,23 +809,51 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                 auto b=draw_shape_strokes(stage,it->second,tx,ty,limits);
                 if(!b)return b;
             }
+        } else if(const auto sprite=assets.sprites.find(entry.character_id);
+                  sprite!=assets.sprites.end()) {
+            if(sprite->second.frames.empty())
+                return {Error::malformed_tag,"sprite has no frames"};
+            FrameSnapshot nested_frame;
+            nested_frame.objects.reserve(sprite->second.frames.front().objects.size());
+            for(const auto& child:sprite->second.frames.front().objects) {
+                DisplayEntry transformed=child;
+                auto result=combine_matrix(m,child.matrix,transformed.matrix);
+                if(!result)return result;
+                transformed.has_matrix=true;
+                nested_frame.objects.push_back(std::move(transformed));
+            }
+            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1);
+            if(!result)return result;
         } else if(const auto* bmp=assets.bitmaps.find(entry.character_id)) {
             auto a=affine || tx%20 || ty%20
                 ? affine_bitmap(stage,*bmp,m) : blit_bitmap(stage,*bmp,tx/20,ty/20);
             if(!a)return a;
         } else return {Error::malformed_tag,"unknown placed character"};
     }
-    target=std::move(stage);
     return {};
+}
+RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
+                          Surface& target,StrokeLimits limits) {
+    Surface stage=target;
+    auto result=render_frame_impl(frame,assets,stage,limits,0);
+    if(result)target=std::move(stage);
+    return result;
 }
 RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
                                   std::size_t max_pixels) {
     FrameAssets stage;
     auto unique_id=[&](std::uint16_t id) {
-        return !stage.shapes.contains(id) && !stage.bitmaps.images.contains(id);
+        return !stage.shapes.contains(id) && !stage.bitmaps.images.contains(id) &&
+               !stage.sprites.contains(id);
     };
     for(const auto& tag:document.tags) {
-        if(tag.code==2||tag.code==22||tag.code==32||tag.code==83) {
+        if(tag.code==39) {
+            auto sprite=build_sprite_timeline(tag);
+            if(!sprite)return {sprite.error,sprite.message};
+            if(!unique_id(sprite.sprite.character_id))
+                return {Error::malformed_tag,"duplicate character id"};
+            stage.sprites.emplace(sprite.sprite.character_id,std::move(sprite.sprite));
+        } else if(tag.code==2||tag.code==22||tag.code==32||tag.code==83) {
             auto r=decode_shape(tag);
             if(!r)return {r.error,r.message};
             if(!unique_id(r.shape.character_id))
