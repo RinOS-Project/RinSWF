@@ -467,8 +467,13 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         std::vector<double> next_x,sorted_x;
         std::unordered_set<EdgePtr> active_set;
         std::unordered_map<EdgePtr,double> x_values;
+        std::array<std::vector<EdgePtr>,4> active;
+        std::array<std::vector<std::pair<double,int>>,4> crossings;
+        std::array<std::vector<int>,4> suffix;
         for(auto y=top;y<bottom;++y) {
-            std::array<std::vector<EdgePtr>,4> active;
+            for(auto& row:active) row.clear();
+            for(auto& row:crossings) row.clear();
+            for(auto& row:suffix) row.clear();
             for(unsigned sy=0;sy<4;++sy) {
                 const auto row=std::size_t(y-top)*4+sy;
                 if(const auto expired=ends.find(row);expired!=ends.end()) {
@@ -482,9 +487,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                                         arriving->second.begin(),arriving->second.end());
                 active[sy]=active_edges;
             }
-            // Precompute sorted X intersections and suffix winding sums per row.
-            std::array<std::vector<std::pair<double,int>>,4> crossings;
-            std::array<std::vector<int>,4> suffix;
+            // Reuse row buffers while precomputing sorted intersections and suffix sums.
             for(unsigned sy=0;sy<4;++sy) {
                 const double py=double(y)+(sy+0.5)/4.0;
                 // No active edges: invalidate the previous ordering and
