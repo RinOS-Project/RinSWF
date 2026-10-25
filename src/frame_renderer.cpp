@@ -556,7 +556,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             }
             // No coverage exists outside the extreme scanline intersections.
             // Restrict pixel work to rows with crossings and their X envelope.
-            double row_min=double(right),row_max=double(left);
+            double row_min=std::numeric_limits<double>::infinity();
+            double row_max=-std::numeric_limits<double>::infinity();
             bool has_crossings=false;
             for(const auto& sample_row:crossings) {
                 if(sample_row.empty())continue;
