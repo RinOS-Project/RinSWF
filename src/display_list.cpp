@@ -87,6 +87,71 @@ TimelineResult build_timeline(const Document& document) {
             DisplayEntry entry;
             entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size(); entry.has_matrix=true; entry.matrix=matrix;
             display[depth]=std::move(entry);
+        } else if(tag.code==70) { // PlaceObject3
+            if(d.size()<4)return fail("PlaceObject3 truncated");
+            const std::uint8_t flags=d[0],flags2=d[1];
+            const std::uint16_t depth=u16(d,2);
+            const bool move=(flags&0x01)!=0;
+            const bool has_character=(flags&0x02)!=0;
+            const bool has_matrix=(flags&0x04)!=0;
+            const bool has_color=(flags&0x08)!=0;
+            const bool has_ratio=(flags&0x10)!=0;
+            const bool has_name=(flags&0x20)!=0;
+            // PlaceObject3 extends PlaceObject2 with filter/blend/cache,
+            // class-name, image and visibility/opaque-background options.
+            // Reject unsupported visual features instead of losing them.
+            if((flags&0xc0)!=0 || (flags2&0xff)!=0 || has_color)
+                return fail("PlaceObject3 clip/color/extended features unsupported");
+            Reader reader{d,32};
+            std::uint16_t id=0;
+            if(has_character) {
+                if(d.size()-reader.pos()<2)
+                    return fail("PlaceObject3 character ID truncated");
+                id=u16(d,reader.pos());
+                reader.bit+=16;
+            }
+            Matrix matrix;
+            if(has_matrix && !reader.matrix(matrix))
+                return fail("PlaceObject3 MATRIX truncated");
+            if(has_ratio) {
+                if(d.size()-reader.pos()<2)
+                    return fail("PlaceObject3 ratio truncated");
+                reader.bit+=16;
+            }
+            std::string name;
+            if(has_name && !reader.cstring(name))
+                return fail("PlaceObject3 name truncated");
+            if(reader.pos()!=d.size())
+                return fail("PlaceObject3 trailing bytes");
+            const auto it=display.find(depth);
+            if(move) {
+                if(it==display.end())
+                    return fail("PlaceObject3 move to unoccupied depth");
+                auto entry=it->second;
+                if(has_character) {
+                    entry.character_id=id;
+                    entry.placed_frame=frames.size();
+                }
+                if(has_matrix) {
+                    entry.has_matrix=true;
+                    entry.matrix=matrix;
+                }
+                if(has_name)entry.name=std::move(name);
+                display[depth]=std::move(entry);
+            } else {
+                if(!has_character)
+                    return fail("PlaceObject3 insertion missing character");
+                if(it!=display.end())
+                    return fail("PlaceObject3 insertion into occupied depth");
+                DisplayEntry entry;
+                entry.depth=depth;
+                entry.character_id=id;
+                entry.placed_frame=frames.size();
+                entry.has_matrix=has_matrix;
+                entry.matrix=matrix;
+                entry.name=std::move(name);
+                display[depth]=std::move(entry);
+            }
         } else if(tag.code==26) { // PlaceObject2
             if(d.size()<3) return fail("PlaceObject2 truncated");
             const std::uint8_t flags=d[0];
