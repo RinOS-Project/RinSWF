@@ -553,5 +553,19 @@ int main() {
     assert(gap_surface.rgba[(2*32+10)*4+3]>0);
     assert(gap_surface.rgba[(14*32+10)*4+3]>0);
     assert(gap_surface.rgba[(8*32+10)*4+3]==0);
+    // Several contours entering and leaving on the same subpixel row must
+    // keep the active-edge index consistent, including the last element.
+    ShapeGeometry churn=stroked;
+    churn.commands.clear();
+    for(int i=0;i<12;++i) {
+        const int y=20+i*20;
+        churn.commands.push_back({ShapeCommandKind::move_to,{}, {20,y},0,0,0});
+        churn.commands.push_back({ShapeCommandKind::line_to,{}, {220,y},0,0,1});
+    }
+    assets.shapes[88]=churn;
+    Surface churn_surface;
+    assert(make_surface(32,32,churn_surface));
+    assert(render_frame(clipped_frame,assets,churn_surface));
+    assert(churn_surface.rgba[(1*32+10)*4+3]>0);
     return 0;
 }
