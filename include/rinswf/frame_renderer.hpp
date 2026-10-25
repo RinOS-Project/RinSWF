@@ -47,11 +47,14 @@ struct SpriteInstancePlayback {
 };
 struct SpritePlayback {
     std::map<std::uint16_t,SpriteInstancePlayback> instances;
+    // Tracks identity separately from explicit playback overrides.
+    std::map<std::uint16_t,std::pair<std::uint16_t,std::size_t>> identities;
+    void synchronize(const FrameSnapshot& frame,const FrameAssets& assets);
     void stop(std::uint16_t depth) {instances[depth].playing=false;}
     void play(std::uint16_t depth) {instances[depth].playing=true;}
     void seek(std::uint16_t depth,std::size_t frame) {instances[depth].frame=frame;}
     void advance(std::size_t count=1) noexcept;
-    void erase(std::uint16_t depth) {instances.erase(depth);}
+    void erase(std::uint16_t depth) {instances.erase(depth); identities.erase(depth);}
 };
 [[nodiscard]] RenderResult render_timeline_playback(
     const TimelineResult& timeline,const FrameAssets& assets,Surface& target,
