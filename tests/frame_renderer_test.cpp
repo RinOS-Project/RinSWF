@@ -399,5 +399,18 @@ int main() {
     assert(render_frame(stroke_frame,assets,stroke_surface));
     for(std::size_t i=3;i<stroke_surface.rgba.size();i+=4)
         assert(stroke_surface.rgba[i]==0);
+    // Offscreen contours should neither change the visible stroke nor
+    // consume the small sparse-mask budget.
+    assets.shapes[88]=stroked;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface,{1,8192}));
+    const auto visible_stroke=stroke_surface.rgba;
+    ShapeGeometry combined=stroked;
+    combined.commands.insert(combined.commands.end(),
+                             offscreen.commands.begin(),offscreen.commands.end());
+    assets.shapes[88]=combined;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface,{1,8192}));
+    assert(stroke_surface.rgba==visible_stroke);
     return 0;
 }
