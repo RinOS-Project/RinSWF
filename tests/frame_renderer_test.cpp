@@ -690,5 +690,24 @@ int main() {
     assert(make_surface(8,8,controlled));
     assert(render_playback(animated_root,assets,controlled,controller));
     assert(controlled.rgba==animated_loop.rgba);
+    // Root timeline playback switches snapshots and restarts at the loop.
+    TimelineResult root_timeline;
+    FrameSnapshot empty_root;
+    root_timeline.frames={animated_root,empty_root};
+    TimelinePlayback root_clock;
+    Surface root_first,root_second,root_looped;
+    assert(make_surface(8,8,root_first));
+    assert(make_surface(8,8,root_second));
+    assert(make_surface(8,8,root_looped));
+    assert(render_timeline_playback(root_timeline,assets,root_first,root_clock));
+    root_clock.advance();
+    assert(render_timeline_playback(root_timeline,assets,root_second,root_clock));
+    for(auto byte:root_second.rgba)assert(byte==0);
+    root_clock.advance();
+    assert(render_timeline_playback(root_timeline,assets,root_looped,root_clock));
+    assert(root_first.rgba==root_looped.rgba);
+    root_clock.pause();
+    root_clock.advance(5);
+    assert(root_clock.frame==2);
     return 0;
 }
