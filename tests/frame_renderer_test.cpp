@@ -416,5 +416,24 @@ int main() {
     clear(stroke_surface,{0,0,0,0});
     assert(render_frame(stroke_frame,assets,stroke_surface,{1,8192}));
     assert(stroke_surface.rgba==visible_stroke);
+    // Clipping against the left edge must agree with an unclipped rendering.
+    ShapeGeometry clipped=stroked;
+    clipped.commands.clear();
+    clipped.commands.push_back({ShapeCommandKind::move_to,{}, {-80,60},0,0,0});
+    clipped.commands.push_back({ShapeCommandKind::line_to,{}, {140,100},0,0,1});
+    assets.shapes[88]=clipped;
+    Surface clipped_small,clipped_large;
+    assert(make_surface(16,16,clipped_small));
+    assert(make_surface(32,16,clipped_large));
+    FrameSnapshot clipped_frame=stroke_frame;
+    clipped_frame.objects[0].matrix.translate_x=0;
+    clipped_frame.objects[0].matrix.translate_y=0;
+    assert(render_frame(clipped_frame,assets,clipped_small));
+    assert(render_frame(clipped_frame,assets,clipped_large));
+    for(std::size_t y=0;y<16;++y)
+        for(std::size_t x=0;x<16;++x)
+            for(std::size_t channel=0;channel<4;++channel)
+                assert(clipped_small.rgba[(y*16+x)*4+channel] ==
+                       clipped_large.rgba[(y*32+x)*4+channel]);
     return 0;
 }
