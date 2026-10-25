@@ -738,5 +738,28 @@ int main() {
     assert(instance_controls.instances.at(1).frame==1);
     instance_controls.erase(2);
     assert(!instance_controls.instances.contains(2));
+    // Replacing/removing a Sprite at an occupied depth discards its old clock,
+    // but a matrix-only move of the same placement preserves it.
+    SpritePlayback lifecycle;
+    FrameSnapshot first_placement;
+    DisplayEntry initial;
+    initial.depth=7;
+    initial.character_id=92;
+    initial.placed_frame=0;
+    first_placement.objects.push_back(initial);
+    lifecycle.synchronize(first_placement,assets);
+    lifecycle.seek(7,5);
+    FrameSnapshot moved_placement=first_placement;
+    moved_placement.objects[0].matrix.translate_x=20;
+    lifecycle.synchronize(moved_placement,assets);
+    assert(lifecycle.instances.at(7).frame==5);
+    FrameSnapshot replacement_placement=first_placement;
+    replacement_placement.objects[0].placed_frame=3;
+    lifecycle.synchronize(replacement_placement,assets);
+    assert(!lifecycle.instances.contains(7));
+    lifecycle.stop(7);
+    lifecycle.synchronize(FrameSnapshot{},assets);
+    assert(!lifecycle.instances.contains(7));
+    assert(!lifecycle.identities.contains(7));
     return 0;
 }
