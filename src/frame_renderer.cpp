@@ -571,15 +571,23 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             const auto x_end=std::int64_t(std::clamp(
                 std::ceil(row_max)+1.0,double(left),double(right)));
             if(x_end<=x_begin)continue;
+            // X samples advance monotonically; each intersection is crossed
+            // at most once per sample row instead of binary searching 4x/pixel.
+            std::array<std::size_t,4> crossing_cursor{};
+            for(unsigned sy=0;sy<4;++sy) {
+                const auto& row=crossings[sy];
+                crossing_cursor[sy]=std::size_t(std::upper_bound(
+                    row.begin(),row.end(),double(x_begin)+0.125,
+                    [](double x,const auto& item){return x<item.first;})-row.begin());
+            }
             for(auto x=x_begin;x<x_end;++x) {
             std::uint16_t bits=0;
             for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
                 const double px=double(x)+(sx+0.5)/4.0;
                 const auto& row=crossings[sy];
-                const auto it=std::upper_bound(row.begin(),row.end(),px,
-                    [](double x,const auto& entry){return x<entry.first;});
-                const auto index=std::size_t(it-row.begin());
-                if(suffix[sy][index])bits|=std::uint16_t(1u<<(sy*4+sx));
+                auto& cursor=crossing_cursor[sy];
+                while(cursor<row.size() && row[cursor].first<=px)++cursor;
+                if(suffix[sy][cursor])bits|=std::uint16_t(1u<<(sy*4+sx));
             }
             if(!bits)continue;
             const auto ux=std::uint32_t(x-mask_left),uy=std::uint32_t(y-mask_top);
