@@ -27,6 +27,21 @@ struct TimelineResult {
     std::vector<FrameSnapshot> frames;
     explicit operator bool() const noexcept { return error==Error::none; }
 };
+// Decodes a DefineSprite (tag 39) into its own independent timeline.
+// Nested DefineSprite definitions are not evaluated by this function.
+// Input limits bound contained tags; an End tag and exact frame count are required.
+struct SpriteTimeline {
+    std::uint16_t character_id=0;
+    std::vector<FrameSnapshot> frames;
+};
+struct SpriteTimelineResult {
+    Error error=Error::none;
+    std::string message;
+    SpriteTimeline sprite;
+    explicit operator bool() const noexcept {return error==Error::none;}
+};
+[[nodiscard]] SpriteTimelineResult build_sprite_timeline(const Tag& tag,
+                                                          Limits limits={});
 // Builds a display-list timeline without executing ActionScript.
 // Unsupported placement fields fail explicitly rather than silently changing playback.
 [[nodiscard]] TimelineResult build_timeline(const Document& document);
