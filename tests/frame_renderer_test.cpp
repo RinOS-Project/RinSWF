@@ -709,5 +709,34 @@ int main() {
     root_clock.pause();
     root_clock.advance(5);
     assert(root_clock.frame==2);
+    // Two root-depth instances of the same Sprite have independent clocks.
+    TimelineResult parallel;
+    FrameSnapshot parallel_frame;
+    DisplayEntry sprite_a,sprite_b;
+    sprite_a.depth=1; sprite_a.character_id=92;
+    sprite_b.depth=2; sprite_b.character_id=92;
+    sprite_b.has_matrix=true; sprite_b.matrix.translate_y=40;
+    parallel_frame.objects={sprite_a,sprite_b};
+    parallel.frames.push_back(parallel_frame);
+    SpritePlayback instance_controls;
+    instance_controls.seek(1,0);
+    instance_controls.seek(2,1);
+    instance_controls.stop(1);
+    instance_controls.advance();
+    assert(instance_controls.instances.at(1).frame==0);
+    assert(instance_controls.instances.at(2).frame==2);
+    instance_controls.seek(2,1);
+    TimelinePlayback parallel_clock;
+    Surface parallel_surface;
+    assert(make_surface(8,8,parallel_surface));
+    assert(render_timeline_playback(parallel,assets,parallel_surface,
+                                    parallel_clock,instance_controls));
+    assert(parallel_surface.rgba[3]>0);
+    assert(parallel_surface.rgba[(2*8+4)*4+3]>0);
+    instance_controls.play(1);
+    instance_controls.advance();
+    assert(instance_controls.instances.at(1).frame==1);
+    instance_controls.erase(2);
+    assert(!instance_controls.instances.contains(2));
     return 0;
 }
