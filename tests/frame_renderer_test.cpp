@@ -606,5 +606,43 @@ int main() {
             for(std::size_t ch=0;ch<4;++ch)
                 assert(edge_small.rgba[(yy*16+xx)*4+ch] ==
                        edge_large.rgba[((yy+16)*48+xx+16)*4+ch]);
+    // Render a shape through a sprite and compose its two translations.
+    SpriteTimeline sprite_asset;
+    sprite_asset.character_id=90;
+    FrameSnapshot sprite_frame;
+    DisplayEntry sprite_child;
+    sprite_child.depth=1;
+    sprite_child.character_id=7;
+    sprite_child.has_matrix=true;
+    sprite_child.matrix.translate_x=20;
+    sprite_frame.objects.push_back(sprite_child);
+    sprite_asset.frames.push_back(sprite_frame);
+    assets.sprites.emplace(90,sprite_asset);
+    FrameSnapshot root_sprite;
+    DisplayEntry sprite_instance;
+    sprite_instance.depth=1;
+    sprite_instance.character_id=90;
+    sprite_instance.has_matrix=true;
+    sprite_instance.matrix.translate_x=40;
+    sprite_instance.matrix.translate_y=20;
+    root_sprite.objects.push_back(sprite_instance);
+    Surface sprite_surface;
+    assert(make_surface(16,16,sprite_surface));
+    assert(render_frame(root_sprite,assets,sprite_surface));
+    assert(sprite_surface.rgba[(1*16+3)*4+3]>0);
+    // Self-referential sprite definitions fail at the nesting budget.
+    SpriteTimeline cycle;
+    cycle.character_id=91;
+    FrameSnapshot cycle_frame;
+    DisplayEntry cycle_entry;
+    cycle_entry.depth=1;
+    cycle_entry.character_id=91;
+    cycle_frame.objects.push_back(cycle_entry);
+    cycle.frames.push_back(cycle_frame);
+    assets.sprites.emplace(91,cycle);
+    root_sprite.objects[0].character_id=91;
+    const auto unchanged_sprite=sprite_surface.rgba;
+    assert(!render_frame(root_sprite,assets,sprite_surface));
+    assert(sprite_surface.rgba==unchanged_sprite);
     return 0;
 }
