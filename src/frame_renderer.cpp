@@ -486,11 +486,9 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         std::vector<double> next_x,sorted_x;
         std::unordered_set<EdgePtr> active_set;
         std::unordered_map<EdgePtr,double> x_values;
-        std::array<std::vector<EdgePtr>,4> active;
         std::array<std::vector<std::pair<double,int>>,4> crossings;
         std::array<std::vector<int>,4> suffix;
         for(auto y=top;y<bottom;++y) {
-            for(auto& row:active) row.clear();
             for(auto& row:crossings) row.clear();
             for(auto& row:suffix) row.clear();
             for(unsigned sy=0;sy<4;++sy) {
@@ -500,14 +498,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 }
                 if(const auto arriving=starts.find(row);arriving!=starts.end())
                     for(auto edge:arriving->second)insert_active(edge);
-                active[sy]=active_edges;
-            }
-            // Reuse row buffers while precomputing sorted intersections and suffix sums.
-            for(unsigned sy=0;sy<4;++sy) {
+                // Process the event-updated live set immediately, avoiding
+                // four copies of the active-edge vector per pixel row.
                 const double py=double(y)+(sy+0.5)/4.0;
                 // No active edges: invalidate the previous ordering and
                 // avoid rebuilding hash tables for this empty sample row.
-                if(active[sy].empty()) {
+                if(active_edges.empty()) {
                     ordered_edges.clear();
                     ordered_x.clear();
                     prior_index.clear();
@@ -518,12 +514,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 // Insert newly active edges, then restore X order if edges cross.
                 next_order.clear();
                 active_set.clear();
-                active_set.reserve(active[sy].size());
-                active_set.insert(active[sy].begin(),active[sy].end());
-                next_order.reserve(active[sy].size());
+                active_set.reserve(active_edges.size());
+                active_set.insert(active_edges.begin(),active_edges.end());
+                next_order.reserve(active_edges.size());
                 for(auto* edge:ordered_edges)
                     if(active_set.erase(edge)) next_order.push_back(edge);
-                for(auto* edge:active[sy])
+                for(auto* edge:active_edges)
                     if(active_set.erase(edge)) next_order.push_back(edge);
                 // Cache each active edge intersection and advance it by dy.
                 // Newly active edges are evaluated directly at this sample row.
