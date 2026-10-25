@@ -21,8 +21,13 @@ int main() {
     assert(!render_frame(frame,assets,target));
     assert(target.rgba==before);
     frame.objects[0].character_id=42;
+    // Scaling bitmap placements is supported by the affine renderer.
     frame.objects[0].matrix.scale_x=2.0;
-    assert(!render_frame(frame,assets,target));
+    Surface scaled;
+    assert(make_surface(8,8,scaled));
+    assert(render_frame(frame,assets,scaled));
+    assert(scaled.rgba[(1*8+4)*4+3]>0);
+    // The previous target remains unchanged when rendering into another surface.
     assert(target.rgba==before);
     // Duplicate shape/bitmap IDs must fail without mutating previously collected assets.
     Document duplicate;
