@@ -389,5 +389,15 @@ int main() {
     assert(render_frame(tall_frame,assets,tall_surface));
     // Interpolated center: x=2*(20+(200-20)*(45-20)/(450-20)) ~= 60.93.
     assert(tall_surface.rgba[(200*128+61)*4+3]>0);
+    // A contour completely outside the surface must not write any pixels.
+    ShapeGeometry offscreen=stroked;
+    offscreen.commands.clear();
+    offscreen.commands.push_back({ShapeCommandKind::move_to,{}, {10000,10000},0,0,0});
+    offscreen.commands.push_back({ShapeCommandKind::line_to,{}, {12000,14000},0,0,1});
+    assets.shapes[88]=offscreen;
+    clear(stroke_surface,{0,0,0,0});
+    assert(render_frame(stroke_frame,assets,stroke_surface));
+    for(std::size_t i=3;i<stroke_surface.rgba.size();i+=4)
+        assert(stroke_surface.rgba[i]==0);
     return 0;
 }
