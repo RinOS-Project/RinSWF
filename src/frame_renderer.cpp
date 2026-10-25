@@ -878,6 +878,22 @@ RenderResult render_timeline_playback(const TimelineResult& timeline,
     const auto local_frame=playback.frame%timeline.frames.size();
     return render_frame_at(timeline.frames[local_frame],assets,target,local_frame,limits);
 }
+void SpritePlayback::synchronize(const FrameSnapshot& frame,const FrameAssets& assets) {
+    std::map<std::uint16_t,std::pair<std::uint16_t,std::size_t>> visible;
+    for(const auto& entry:frame.objects) {
+        if(!assets.sprites.contains(entry.character_id))continue;
+        const auto identity=std::make_pair(entry.character_id,entry.placed_frame);
+        visible.emplace(entry.depth,identity);
+        const auto previous=identities.find(entry.depth);
+        if(previous!=identities.end() && previous->second!=identity)
+            instances.erase(entry.depth);
+    }
+    for(auto it=instances.begin();it!=instances.end();) {
+        if(!visible.contains(it->first))it=instances.erase(it);
+        else ++it;
+    }
+    identities=std::move(visible);
+}
 void SpritePlayback::advance(std::size_t count) noexcept {
     const auto maximum=std::numeric_limits<std::size_t>::max();
     for(auto& [depth,instance]:instances) {
