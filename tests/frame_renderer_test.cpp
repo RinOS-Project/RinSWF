@@ -399,6 +399,10 @@ int main() {
     assert(render_frame(stroke_frame,assets,stroke_surface));
     for(std::size_t i=3;i<stroke_surface.rgba.size();i+=4)
         assert(stroke_surface.rgba[i]==0);
+    // Fully clipped contours do not require any sparse-mask tiles.
+    assert(render_frame(stroke_frame,assets,stroke_surface,{0,0}));
+    for(std::size_t i=3;i<stroke_surface.rgba.size();i+=4)
+        assert(stroke_surface.rgba[i]==0);
     // Offscreen contours should neither change the visible stroke nor
     // consume the small sparse-mask budget.
     assets.shapes[88]=stroked;
