@@ -462,9 +462,12 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
             const auto it=active_index.find(edge);
             if(it==active_index.end())return;
             const auto index=it->second;
-            const auto tail=active_edges.back();
-            active_edges[index]=tail;
-            active_index[tail]=index;
+            const auto last=active_edges.size()-1;
+            if(index!=last) {
+                const auto tail=active_edges[last];
+                active_edges[index]=tail;
+                active_index[tail]=index;
+            }
             active_edges.pop_back();
             active_index.erase(it);
         };
