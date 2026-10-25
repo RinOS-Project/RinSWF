@@ -523,5 +523,20 @@ int main() {
             for(std::size_t c=0;c<4;++c)
                 assert(cursor_small.rgba[(y*16+x)*4+c] ==
                        cursor_large.rgba[(y*32+x)*4+c]);
+    // Reversed coincident paths must not cancel the union opacity.
+    ShapeGeometry coincident=stroked;
+    coincident.commands.clear();
+    coincident.commands.push_back({ShapeCommandKind::move_to,{}, {20,80},0,0,0});
+    coincident.commands.push_back({ShapeCommandKind::line_to,{}, {260,80},0,0,1});
+    assets.shapes[88]=coincident;
+    Surface one_path,two_paths;
+    assert(make_surface(32,16,one_path));
+    assert(make_surface(32,16,two_paths));
+    assert(render_frame(clipped_frame,assets,one_path));
+    coincident.commands.push_back({ShapeCommandKind::move_to,{}, {260,80},0,0,0});
+    coincident.commands.push_back({ShapeCommandKind::line_to,{}, {20,80},0,0,1});
+    assets.shapes[88]=coincident;
+    assert(render_frame(clipped_frame,assets,two_paths));
+    assert(one_path.rgba==two_paths.rgba);
     return 0;
 }
