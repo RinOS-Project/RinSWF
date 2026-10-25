@@ -156,4 +156,56 @@ TimelineResult build_timeline(const Document& document) {
         return fail("ShowFrame count differs from header");
     return {Error::none,{},std::move(frames)};
 }
+// DefineSprite contains a UI16 ID, UI16 frame count, then an independent
+// sequence of regular SWF tag records terminated by End (code 0).
+SpriteTimelineResult build_sprite_timeline(const Tag& tag,Limits limits) {
+    auto fail_sprite=[](Error error,const char* message)->SpriteTimelineResult {
+        return {error,message,{}};
+    };
+    if(tag.code!=39)return fail_sprite(Error::malformed_tag,"not a DefineSprite tag");
+    const auto& data=tag.data;
+    if(data.size()<6)return fail_sprite(Error::truncated,"DefineSprite header truncated");
+    if(data.size()>limits.max_tag_bytes || data.size()>limits.max_uncompressed_bytes)
+        return fail_sprite(Error::size_limit,"DefineSprite byte limit exceeded");
+    Document nested;
+    const auto id=u16(data,0);
+    nested.header.frame_count=u16(data,2);
+    std::size_t pos=4;
+    bool saw_end=false;
+    while(pos<data.size()) {
+        if(data.size()-pos<2)return fail_sprite(Error::truncated,"sprite tag header truncated");
+        const std::size_t offset=pos;
+        const auto header=u16(data,pos);
+        pos+=2;
+        const std::uint16_t code=header>>6;
+        std::size_t length=header&63u;
+        if(length==63u) {
+            if(data.size()-pos<4)return fail_sprite(Error::truncated,"sprite long tag header truncated");
+            length=std::size_t(data[pos]) | (std::size_t(data[pos+1])<<8) |
+                   (std::size_t(data[pos+2])<<16) | (std::size_t(data[pos+3])<<24);
+            pos+=4;
+        }
+        if(length>limits.max_tag_bytes)return fail_sprite(Error::size_limit,"sprite tag size limit exceeded");
+        if(length>data.size()-pos)return fail_sprite(Error::truncated,"sprite tag data truncated");
+        if(code==0) {
+            if(length!=0 || pos!=data.size())
+                return fail_sprite(Error::malformed_tag,"invalid sprite End tag");
+            saw_end=true;
+            break;
+        }
+        if(nested.tags.size()>=limits.max_tags)
+            return fail_sprite(Error::size_limit,"sprite tag count limit exceeded");
+        Tag child;
+        child.code=code;
+        child.offset=tag.offset+offset;
+        child.data.assign(data.begin()+pos,data.begin()+pos+length);
+        nested.tags.push_back(std::move(child));
+        pos+=length;
+    }
+    if(!saw_end)return fail_sprite(Error::malformed_tag,"DefineSprite missing End tag");
+    auto timeline=build_timeline(nested);
+    if(!timeline)return {timeline.error,timeline.message,{}};
+    return {Error::none,{},SpriteTimeline{id,std::move(timeline.frames)}};
+}
+
 }
