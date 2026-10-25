@@ -757,7 +757,7 @@ static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
 }
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
-                                     StrokeLimits limits,unsigned nesting) {
+                                     StrokeLimits limits,unsigned nesting,std::size_t playback_frame) {
     if(nesting>32)return {Error::size_limit,"sprite nesting limit exceeded"};
     for(const auto& entry:frame.objects) {
         const auto& m=entry.matrix;
@@ -814,15 +814,16 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             if(sprite->second.frames.empty())
                 return {Error::malformed_tag,"sprite has no frames"};
             FrameSnapshot nested_frame;
-            nested_frame.objects.reserve(sprite->second.frames.front().objects.size());
-            for(const auto& child:sprite->second.frames.front().objects) {
+            const auto& sprite_frame=sprite->second.frames[playback_frame % sprite->second.frames.size()];
+            nested_frame.objects.reserve(sprite_frame.objects.size());
+            for(const auto& child:sprite_frame.objects) {
                 DisplayEntry transformed=child;
                 auto result=combine_matrix(m,child.matrix,transformed.matrix);
                 if(!result)return result;
                 transformed.has_matrix=true;
                 nested_frame.objects.push_back(std::move(transformed));
             }
-            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1);
+            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1,playback_frame);
             if(!result)return result;
         } else if(const auto* bmp=assets.bitmaps.find(entry.character_id)) {
             auto a=affine || tx%20 || ty%20
@@ -832,12 +833,16 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
     }
     return {};
 }
-RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
-                          Surface& target,StrokeLimits limits) {
+RenderResult render_frame_at(const FrameSnapshot& frame,const FrameAssets& assets,
+                             Surface& target,std::size_t playback_frame,StrokeLimits limits) {
     Surface stage=target;
-    auto result=render_frame_impl(frame,assets,stage,limits,0);
+    auto result=render_frame_impl(frame,assets,stage,limits,0,playback_frame);
     if(result)target=std::move(stage);
     return result;
+}
+RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
+                          Surface& target,StrokeLimits limits) {
+    return render_frame_at(frame,assets,target,0,limits);
 }
 RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
                                   std::size_t max_pixels) {
