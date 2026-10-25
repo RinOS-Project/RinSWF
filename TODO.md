@@ -124,3 +124,4 @@
 - [x] AETの交点X座標をstd::fmaで計算し、増分更新・再アンカー時の中間丸めを削減
 - [x] 画面外AET交点のサブピクセル位相チェックを省略し、可視領域周辺のみ境界補正を行う
 - [x] TimelinePlaybackで親タイムラインの外部クロック・pause/resume/seek/advanceとrender_playback APIを追加
+- [x] TimelineResultの親フレーム切替・ループ選択・ループ起点のSprite再生をrender_timeline_playbackで追加（独立再生状態とActionScriptは未実装）
