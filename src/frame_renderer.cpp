@@ -483,6 +483,8 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         bool have_previous_row=false;
         std::size_t incremental_rows=0;
         std::vector<EdgePtr> next_order;
+        using Intersection=std::pair<EdgePtr,double>;
+        std::vector<Intersection> positioned;
         std::unordered_set<EdgePtr> active_set;
         std::array<std::vector<std::pair<double,int>>,4> crossings;
         std::array<std::vector<int>,4> suffix;
@@ -521,8 +523,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     if(active_set.erase(edge)) next_order.push_back(edge);
                 // Keep the edge and its intersection together while sorting.
                 // This removes the temporary X hash map and the extra sorted-X copy.
-                using Intersection=std::pair<EdgePtr,double>;
-                std::vector<Intersection> positioned;
+                positioned.clear();
                 positioned.reserve(next_order.size());
                 for(auto* e:next_order) {
                     const auto prior=prior_index.find(e);
