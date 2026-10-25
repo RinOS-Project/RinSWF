@@ -519,22 +519,23 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     // Intersections near a quarter-pixel sample boundary
                     // are re-evaluated from the original edge to avoid drift
                     // flipping antialiasing coverage after many rows.
+                    const double slope=e->dx/e->dy;
                     double x=have_previous_row && incremental_rows<64
-                        ?entry.second+(py-previous_py)*e->dx/e->dy
-                        :e->ax+(py-e->ay)*e->dx/e->dy;
+                        ?std::fma(py-previous_py,slope,entry.second)
+                        :std::fma(py-e->ay,slope,e->ax);
                     // Compare against actual sample X positions (1/8, 3/8,
                     // 5/8, 7/8), not the quarter-pixel boundaries.
                     const double sample_phase=4.0*x-0.5;
                     if(std::isfinite(sample_phase) &&
                        std::abs(sample_phase-std::round(sample_phase))<1e-6)
-                        x=e->ax+(py-e->ay)*e->dx/e->dy;
+                        x=std::fma(py-e->ay,slope,e->ax);
                     if(!std::isfinite(x))
                         return {Error::size_limit,"nonfinite affine stroke intersection"};
                     positioned.emplace_back(e,x);
                 }
                 for(auto* e:active_edges) {
                     if(!active_set.erase(e))continue;
-                    const double x=e->ax+(py-e->ay)*e->dx/e->dy;
+                    const double x=std::fma(py-e->ay,e->dx/e->dy,e->ax);
                     if(!std::isfinite(x))
                         return {Error::size_limit,"nonfinite affine stroke intersection"};
                     positioned.emplace_back(e,x);
