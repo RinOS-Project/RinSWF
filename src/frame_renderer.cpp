@@ -506,8 +506,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 }
                 x_values.clear();
                 x_values.reserve(next_order.size());
-                for(std::size_t k=0;k<next_order.size();++k)
+                for(std::size_t k=0;k<next_order.size();++k) {
+                    if(!std::isfinite(next_x[k]))
+                        return {Error::size_limit,"nonfinite affine stroke intersection"};
                     x_values.emplace(next_order[k],next_x[k]);
+                }
                 auto x_at=[&](const WindingEdge* e) {
                     return x_values.at(e);
                 };
@@ -560,6 +563,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 std::floor(row_min)-1.0,double(left),double(right)));
             const auto x_end=std::int64_t(std::clamp(
                 std::ceil(row_max)+1.0,double(left),double(right)));
+            if(x_end<=x_begin)continue;
             for(auto x=x_begin;x<x_end;++x) {
             std::uint16_t bits=0;
             for(unsigned sy=0;sy<4;++sy) for(unsigned sx=0;sx<4;++sx) {
