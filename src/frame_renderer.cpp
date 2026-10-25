@@ -762,6 +762,16 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      std::vector<std::uint16_t> depth_path={}) {
     if(nesting>32)return {Error::size_limit,"sprite nesting limit exceeded"};
     for(const auto& entry:frame.objects) {
+        // Transform the isolated source, never the already-composited backdrop.
+        Surface isolated;
+        Surface* output=&stage;
+        if(entry.has_color_transform) {
+            isolated.width=stage.width;
+            isolated.height=stage.height;
+            isolated.rgba.assign(stage.rgba.size(),0);
+            output=&isolated;
+        }
+        Surface& canvas=*output;
         const auto& m=entry.matrix;
         if(entry.has_matrix && (!std::isfinite(m.scale_x) ||
            !std::isfinite(m.scale_y) || !std::isfinite(m.rotate_skew_0) ||
@@ -798,17 +808,17 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 }
                 stroke_outline=stroke_outline && has_edge;
                 RenderResult a;
-                if(direct) a=vector_shape(stage,sh,assets.bitmaps,m,limits);
+                if(direct) a=vector_shape(canvas,sh,assets.bitmaps,m,limits);
                 else if(stroke_outline) {
                     ShapeGeometry flattened;
                     a=flatten_affine_stroke(sh,m,flattened);
-                    if(a) a=affine_straight_stroke(stage,flattened,m,limits);
-                } else a=affine_shape(stage,sh,assets.bitmaps,m,limits);
+                    if(a) a=affine_straight_stroke(canvas,flattened,m,limits);
+                } else a=affine_shape(canvas,sh,assets.bitmaps,m,limits);
                 if(!a)return a;
             } else {
-                auto a=draw_shape_fills(stage,it->second,tx,ty,&assets.bitmaps);
+                auto a=draw_shape_fills(canvas,it->second,tx,ty,&assets.bitmaps);
                 if(!a)return a;
-                auto b=draw_shape_strokes(stage,it->second,tx,ty,limits);
+                auto b=draw_shape_strokes(canvas,it->second,tx,ty,limits);
                 if(!b)return b;
             }
         } else if(const auto sprite=assets.sprites.find(entry.character_id);
@@ -845,14 +855,41 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 transformed.has_matrix=true;
                 nested_frame.objects.push_back(std::move(transformed));
             }
-            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1,
+            auto result=render_frame_impl(nested_frame,assets,canvas,limits,nesting+1,
                                             local_frame,sprite_controls,std::move(child_path));
             if(!result)return result;
         } else if(const auto* bmp=assets.bitmaps.find(entry.character_id)) {
             auto a=affine || tx%20 || ty%20
-                ? affine_bitmap(stage,*bmp,m) : blit_bitmap(stage,*bmp,tx/20,ty/20);
+                ? affine_bitmap(canvas,*bmp,m) : blit_bitmap(canvas,*bmp,tx/20,ty/20);
             if(!a)return a;
         } else return {Error::malformed_tag,"unknown placed character"};
+        if(entry.has_color_transform) {
+            const auto& transform=entry.color_transform;
+            for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
+                auto alpha=isolated.rgba[index+3];
+                if(!alpha)continue;
+                const auto out_channel=[&](unsigned channel)->unsigned {
+                    const double value=std::clamp(
+                        double(isolated.rgba[index+channel])*transform.multiply[channel]+
+                        double(transform.add[channel]),0.0,255.0);
+                    return unsigned(std::lround(value));
+                };
+                const unsigned source_alpha=out_channel(3);
+                if(!source_alpha)continue;
+                const unsigned dest_alpha=stage.rgba[index+3];
+                const unsigned out_alpha=source_alpha+
+                    (dest_alpha*(255-source_alpha)+127)/255;
+                for(unsigned channel=0;channel<3;++channel) {
+                    const unsigned source=out_channel(channel);
+                    const unsigned composed=source*source_alpha+
+                        (unsigned(stage.rgba[index+channel])*dest_alpha*
+                         (255-source_alpha)+127)/255;
+                    stage.rgba[index+channel]=std::uint8_t(
+                        (composed+out_alpha/2)/out_alpha);
+                }
+                stage.rgba[index+3]=std::uint8_t(out_alpha);
+            }
+        }
     }
     return {};
 }
