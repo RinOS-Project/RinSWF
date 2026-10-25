@@ -50,6 +50,7 @@ struct SpritePlayback {
     // Nested controls use a depth path from the root, e.g. {2, 7}.
     // This keeps same-depth descendants of separate parents independent.
     std::map<std::vector<std::uint16_t>,SpriteInstancePlayback> nested_instances;
+    std::map<std::vector<std::uint16_t>,std::pair<std::uint16_t,std::size_t>> nested_identities;
     void stop_path(const std::vector<std::uint16_t>& path) {
         if(path.size()==1)stop(path.front());
         else if(path.size()>1)nested_instances[path].playing=false;
@@ -65,6 +66,8 @@ struct SpritePlayback {
     // Tracks identity separately from explicit playback overrides.
     std::map<std::uint16_t,std::pair<std::uint16_t,std::size_t>> identities;
     void synchronize(const FrameSnapshot& frame,const FrameAssets& assets);
+    void synchronize_nested(const FrameSnapshot& frame,const FrameAssets& assets,
+                            std::size_t playback_frame);
     void stop(std::uint16_t depth) {instances[depth].playing=false;}
     void play(std::uint16_t depth) {instances[depth].playing=true;}
     void seek(std::uint16_t depth,std::size_t frame) {instances[depth].frame=frame;}
@@ -72,7 +75,7 @@ struct SpritePlayback {
     void erase(std::uint16_t depth) {instances.erase(depth); identities.erase(depth);}
     void erase_path(const std::vector<std::uint16_t>& path) {
         if(path.size()==1)erase(path.front());
-        else nested_instances.erase(path);
+        else { nested_instances.erase(path); nested_identities.erase(path); }
     }
 };
 [[nodiscard]] RenderResult render_timeline_playback(
