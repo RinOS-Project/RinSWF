@@ -829,5 +829,26 @@ int main() {
     nested_lifecycle.seek_path({6,3},4);
     nested_lifecycle.synchronize_nested(FrameSnapshot{},assets,1);
     assert(!nested_lifecycle.nested_instances.contains({6,3}));
+    // Replacing a parent at the same depth invalidates all its descendants,
+    // even when a new parent exposes the same child depth and character ID.
+    SpritePlayback parent_reset;
+    FrameSnapshot root_before;
+    DisplayEntry root_before_entry;
+    root_before_entry.depth=6;
+    root_before_entry.character_id=94;
+    root_before_entry.placed_frame=0;
+    root_before.objects.push_back(root_before_entry);
+    parent_reset.synchronize(root_before,assets);
+    parent_reset.synchronize_nested(root_before,assets,0);
+    parent_reset.seek_path({6,3},11);
+    FrameSnapshot root_after=root_before;
+    root_after.objects[0].placed_frame=5;
+    parent_reset.synchronize(root_after,assets);
+    parent_reset.synchronize_nested(root_after,assets,5);
+    assert(!parent_reset.nested_instances.contains({6,3}));
+    parent_reset.seek_path({6,3},3);
+    parent_reset.synchronize(FrameSnapshot{},assets);
+    parent_reset.synchronize_nested(FrameSnapshot{},assets,5);
+    assert(!parent_reset.nested_instances.contains({6,3}));
     return 0;
 }
