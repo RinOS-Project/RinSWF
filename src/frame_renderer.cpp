@@ -33,7 +33,10 @@ static RenderResult affine_bitmap(Surface& dst,const Bitmap& bmp,const Matrix& m
     for(auto y=y0;y<y1;++y) for(auto x=x0;x<x1;++x) {
         const double px=x+0.5-tx,py=y+0.5-ty;
         const double sx=(d*px-b*py)/det,sy=(-c*px+a*py)/det;
-        if(sx<0||sy<0||sx>=bmp.width||sy>=bmp.height)continue;
+        // Near-singular finite matrices can still overflow inverse coordinates.
+        // Never convert infinity or NaN to an integer pixel index.
+        if(!std::isfinite(sx)||!std::isfinite(sy)||
+           sx<0||sy<0||sx>=bmp.width||sy>=bmp.height)continue;
         // Bilinear filtering uses premultiplied alpha to prevent edge halos.
         const double fx=sx-0.5,fy=sy-0.5;
         const auto ix=std::int64_t(std::floor(fx)),iy=std::int64_t(std::floor(fy));
