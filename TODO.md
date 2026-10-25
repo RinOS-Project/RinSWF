@@ -125,3 +125,4 @@
 - [x] 画面外AET交点のサブピクセル位相チェックを省略し、可視領域周辺のみ境界補正を行う
 - [x] TimelinePlaybackで親タイムラインの外部クロック・pause/resume/seek/advanceとrender_playback APIを追加
 - [x] TimelineResultの親フレーム切替・ループ選択・ループ起点のSprite再生をrender_timeline_playbackで追加（独立再生状態とActionScriptは未実装）
+- [x] SpritePlaybackにroot depth別のstop/play/seek/advance/eraseと独立描画オーバーロードを追加（ネストSprite・配置置換との状態同期は未対応）
