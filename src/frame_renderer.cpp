@@ -849,6 +849,16 @@ RenderResult render_frame(const FrameSnapshot& frame,const FrameAssets& assets,
                           Surface& target,StrokeLimits limits) {
     return render_frame_at(frame,assets,target,0,limits);
 }
+void TimelinePlayback::advance(std::size_t count) noexcept {
+    if(!playing)return;
+    const auto maximum=std::numeric_limits<std::size_t>::max();
+    frame=count>maximum-frame?maximum:frame+count;
+}
+RenderResult render_playback(const FrameSnapshot& snapshot,
+                             const FrameAssets& assets,Surface& target,
+                             const TimelinePlayback& playback,StrokeLimits limits) {
+    return render_frame_at(snapshot,assets,target,playback.frame,limits);
+}
 RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
                                   std::size_t max_pixels) {
     FrameAssets stage;
