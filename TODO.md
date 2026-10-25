@@ -129,3 +129,4 @@
 - [x] SpritePlayback::synchronizeでroot depthのSprite配置ID・配置フレームを照合し、移動時は再生状態を保持、置換・削除時は古い状態を破棄（呼び出し側による同期が必要）
 - [x] TimelinePlayerでフレーム選択・Spriteライフサイクル同期・描画を一体化し、親タイムラインループ時に状態をリセット（ネスト個別状態・AVM連携は未実装）
 - [x] ネストしたSpriteのdepth経路（例: {2,7}）別にstop/play/seek/advanceを管理して描画へ伝播（子の置換・削除に伴う自動状態破棄は未実装）
+- [x] TimelinePlayer描画前にnested SpriteのDepth経路・character ID・配置フレームを照合し、子の置換・削除や親の消失時に古い再生状態を破棄
