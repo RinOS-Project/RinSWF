@@ -814,7 +814,12 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             if(sprite->second.frames.empty())
                 return {Error::malformed_tag,"sprite has no frames"};
             FrameSnapshot nested_frame;
-            const auto& sprite_frame=sprite->second.frames[playback_frame % sprite->second.frames.size()];
+            // Each placed sprite has its own local clock. A replacement with
+            // a new character starts from its new placement frame.
+            const std::size_t local_frame=playback_frame>=entry.placed_frame
+                ?playback_frame-entry.placed_frame:0;
+            const auto& sprite_frame=sprite->second.frames[
+                local_frame % sprite->second.frames.size()];
             nested_frame.objects.reserve(sprite_frame.objects.size());
             for(const auto& child:sprite_frame.objects) {
                 DisplayEntry transformed=child;
@@ -823,7 +828,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 transformed.has_matrix=true;
                 nested_frame.objects.push_back(std::move(transformed));
             }
-            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1,playback_frame);
+            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1,local_frame);
             if(!result)return result;
         } else if(const auto* bmp=assets.bitmaps.find(entry.character_id)) {
             auto a=affine || tx%20 || ty%20
