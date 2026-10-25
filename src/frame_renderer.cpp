@@ -758,7 +758,8 @@ static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
                                      StrokeLimits limits,unsigned nesting,std::size_t playback_frame,
-                                     const SpritePlayback* sprite_controls=nullptr) {
+                                     const SpritePlayback* sprite_controls=nullptr,
+                                     std::vector<std::uint16_t> depth_path={}) {
     if(nesting>32)return {Error::size_limit,"sprite nesting limit exceeded"};
     for(const auto& entry:frame.objects) {
         const auto& m=entry.matrix;
@@ -819,12 +820,20 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             // a new character starts from its new placement frame.
             std::size_t local_frame=playback_frame>=entry.placed_frame
                 ?playback_frame-entry.placed_frame:0;
-            // Overrides are keyed by root depth, not character ID. A sprite
-            // at another depth therefore has its own playback state.
-            if(nesting==0 && sprite_controls) {
-                const auto control=sprite_controls->instances.find(entry.depth);
-                if(control!=sprite_controls->instances.end())
-                    local_frame=control->second.frame;
+            // An instance path distinguishes descendants belonging to
+            // different parent clips, even when their depths are identical.
+            auto child_path=depth_path;
+            child_path.push_back(entry.depth);
+            if(sprite_controls) {
+                if(nesting==0) {
+                    const auto control=sprite_controls->instances.find(entry.depth);
+                    if(control!=sprite_controls->instances.end())
+                        local_frame=control->second.frame;
+                } else {
+                    const auto control=sprite_controls->nested_instances.find(child_path);
+                    if(control!=sprite_controls->nested_instances.end())
+                        local_frame=control->second.frame;
+                }
             }
             const auto& sprite_frame=sprite->second.frames[
                 local_frame % sprite->second.frames.size()];
@@ -836,7 +845,8 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 transformed.has_matrix=true;
                 nested_frame.objects.push_back(std::move(transformed));
             }
-            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1,local_frame);
+            auto result=render_frame_impl(nested_frame,assets,stage,limits,nesting+1,
+                                            local_frame,sprite_controls,std::move(child_path));
             if(!result)return result;
         } else if(const auto* bmp=assets.bitmaps.find(entry.character_id)) {
             auto a=affine || tx%20 || ty%20
@@ -901,6 +911,11 @@ void SpritePlayback::advance(std::size_t count) noexcept {
         if(instance.playing)
             instance.frame=count>maximum-instance.frame?maximum:instance.frame+count;
     }
+    for(auto& [path,instance]:nested_instances) {
+        (void)path;
+        if(instance.playing)
+            instance.frame=count>maximum-instance.frame?maximum:instance.frame+count;
+    }
 }
 RenderResult render_timeline_playback(const TimelineResult& timeline,
                                       const FrameAssets& assets,Surface& target,
@@ -929,6 +944,7 @@ RenderResult TimelinePlayer::render(const TimelineResult& timeline,
     if(initialized && cycle!=last_cycle) {
         updated.instances.clear();
         updated.identities.clear();
+        updated.nested_instances.clear();
     }
     updated.synchronize(timeline.frames[root_frame],assets);
     Surface stage=target;
