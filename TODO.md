@@ -94,7 +94,7 @@
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
 ## Phase 3 — 実行環境
-- [ ] Timeline、Sprite、DisplayObject
+- [ ] Timeline、Sprite、DisplayObject（DefineSprite内のタグ列解析と独立FrameSnapshot構築は実装済み。ネスト描画・再生制御は未実装）
 - [ ] イベント・入力・音声
 - [ ] AVM1 / ActionScript 1・2
 - [ ] AVM2 / ActionScript 3 とABC
