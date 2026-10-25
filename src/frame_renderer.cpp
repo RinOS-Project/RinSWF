@@ -395,7 +395,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
     // Apply caller-selected limits to the affine union path too.
     const std::size_t max_tiles=std::min(limits.max_tiles,
         limits.max_mask_bytes/(tile_side*tile_side*sizeof(std::uint16_t)));
-    if(!max_tiles)return {Error::size_limit,"stroke union mask budget too small"};
+    // Empty and fully clipped contours need no mask allocation.
     auto tile_key=[](std::uint32_t x,std::uint32_t y)->std::uint64_t {
         return (std::uint64_t(y)<<32)|x;
     };
