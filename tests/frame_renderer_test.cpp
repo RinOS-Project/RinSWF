@@ -63,6 +63,13 @@ int main() {
     frame.objects[0].matrix.rotate_skew_0=std::numeric_limits<double>::quiet_NaN();
     assert(!render_frame(frame,assets,rotated));
     assert(rotated.rgba==preserved);
+    // An invertible but strongly anisotropic bitmap matrix must be safe.
+    frame.objects[0].matrix.scale_x=1e10;
+    frame.objects[0].matrix.scale_y=1e-10;
+    frame.objects[0].matrix.rotate_skew_0=0;
+    frame.objects[0].matrix.rotate_skew_1=0;
+    assert(!render_frame(frame,assets,rotated)); // determinant guard
+    assert(rotated.rgba==preserved);
     // Affine Shape: scale a solid square through the frame renderer.
     ShapeGeometry square;
     square.character_id=7;
