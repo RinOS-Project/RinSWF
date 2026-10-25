@@ -450,6 +450,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
         std::vector<double> ordered_x;
         double previous_py=0;
         bool have_previous_row=false;
+        std::vector<EdgePtr> next_order;
+        std::vector<double> next_x,sorted_x;
+        std::unordered_set<EdgePtr> active_set;
+        std::unordered_map<EdgePtr,double> x_values;
         for(auto y=top;y<bottom;++y) {
             std::array<std::vector<EdgePtr>,4> active;
             for(unsigned sy=0;sy<4;++sy) {
@@ -468,8 +472,10 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                 const double py=double(y)+(sy+0.5)/4.0;
                 // Retain existing edge order from the preceding sample row.
                 // Insert newly active edges, then restore X order if edges cross.
-                std::vector<EdgePtr> next_order;
-                std::unordered_set<EdgePtr> active_set(active[sy].begin(),active[sy].end());
+                next_order.clear();
+                active_set.clear();
+                active_set.reserve(active[sy].size());
+                active_set.insert(active[sy].begin(),active[sy].end());
                 next_order.reserve(active[sy].size());
                 for(auto* edge:ordered_edges)
                     if(active_set.erase(edge)) next_order.push_back(edge);
@@ -477,7 +483,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                     if(active_set.erase(edge)) next_order.push_back(edge);
                 // Cache each active edge intersection and advance it by dy.
                 // Newly active edges are evaluated directly at this sample row.
-                std::vector<double> next_x;
+                next_x.clear();
                 next_x.reserve(next_order.size());
                 for(auto* e:next_order) {
                     const auto prior=prior_index.find(e);
@@ -485,7 +491,7 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         next_x.push_back(ordered_x[prior->second]+(py-previous_py)*e->dx/e->dy);
                     else next_x.push_back(e->ax+(py-e->ay)*e->dx/e->dy);
                 }
-                std::unordered_map<const WindingEdge*,double> x_values;
+                x_values.clear();
                 x_values.reserve(next_order.size());
                 for(std::size_t k=0;k<next_order.size();++k)
                     x_values.emplace(next_order[k],next_x[k]);
@@ -507,11 +513,11 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         next_order[j]=value;
                     }
                 }
-                std::vector<double> sorted_x;
+                sorted_x.clear();
                 sorted_x.reserve(next_order.size());
                 for(auto* e:next_order) sorted_x.push_back(x_at(e));
-                ordered_edges=std::move(next_order);
-                ordered_x=std::move(sorted_x);
+                ordered_edges.assign(next_order.begin(),next_order.end());
+                ordered_x.assign(sorted_x.begin(),sorted_x.end());
                 prior_index.clear();
                 prior_index.reserve(ordered_edges.size());
                 for(std::size_t k=0;k<ordered_edges.size();++k)
