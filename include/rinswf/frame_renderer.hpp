@@ -60,6 +60,25 @@ struct SpritePlayback {
     const TimelineResult& timeline,const FrameAssets& assets,Surface& target,
     const TimelinePlayback& playback,const SpritePlayback& sprites,
     StrokeLimits limits={});
+// Stateful root player. Synchronizes sprite lifecycle before drawing and
+// advances only explicitly requested frames. A failed draw leaves state intact.
+struct TimelinePlayer {
+    TimelinePlayback clock;
+    SpritePlayback sprites;
+    std::size_t last_cycle=0;
+    bool initialized=false;
+    void seek(std::size_t frame) noexcept {clock.seek(frame);}
+    void pause() noexcept {clock.pause();}
+    void resume() noexcept {clock.resume();}
+    void advance(std::size_t count=1) noexcept {
+        if(!clock.playing)return;
+        clock.advance(count);
+        sprites.advance(count);
+    }
+    [[nodiscard]] RenderResult render(const TimelineResult& timeline,
+                                      const FrameAssets& assets,Surface& target,
+                                      StrokeLimits limits={});
+};
 // Decodes supported shape/lossless/JPEG definitions. Unsupported placed
 // characters and unsupported transforms fail during frame rendering.
 [[nodiscard]] RenderResult collect_frame_assets(const Document& document,
