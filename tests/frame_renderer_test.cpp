@@ -787,5 +787,19 @@ int main() {
     player.seek(0);
     assert(player.render(lifecycle_timeline,assets,player_surface));
     assert(!player.sprites.instances.contains(5));
+    // Two nested instances at the same child depth can be controlled
+    // independently through their distinct parent-depth paths.
+    SpritePlayback nested_controls;
+    nested_controls.seek_path({1,3},4);
+    nested_controls.seek_path({2,3},7);
+    nested_controls.stop_path({1,3});
+    nested_controls.advance(2);
+    assert(nested_controls.nested_instances.at({1,3}).frame==4);
+    assert(nested_controls.nested_instances.at({2,3}).frame==9);
+    nested_controls.play_path({1,3});
+    nested_controls.advance();
+    assert(nested_controls.nested_instances.at({1,3}).frame==5);
+    nested_controls.erase_path({2,3});
+    assert(!nested_controls.nested_instances.contains({2,3}));
     return 0;
 }
