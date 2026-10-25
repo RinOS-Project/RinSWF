@@ -23,7 +23,7 @@
 ## Phase 2 — 表示エンジン
 - [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
 - [x] PlaceObject / PlaceObject2 のMATRIX（scale/skew/translation）値の保持
-- [ ] PlaceObject3の拡張フィールド、色変換・クリップの保持（PlaceObject3の基本配置・移動・置換・MATRIX・名前・ratio解析は実装済み。拡張描画機能は明示拒否）
+- [ ] PlaceObject3の拡張フィールド、クリップや拡張描画属性の保持（PlaceObject3の基本配置・移動・置換・MATRIX・名前・ratioおよびCXFORMWITHALPHAの解析・描画合成は実装済み。フィルター・BlendMode・マスクなどは未実装）
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] FrameSnapshotの深度順オブジェクトからShapeとLossless BitmapをRGBAサーフェスへ描画する基本API（平行移動限定）
 - [x] フレーム描画アセット収集へJPEG2/3/4を追加し、重複character IDを拒否
@@ -132,3 +132,4 @@
 - [x] TimelinePlayer描画前にnested SpriteのDepth経路・character ID・配置フレームを照合し、子の置換・削除や親の消失時に古い再生状態を破棄
 - [x] 親Spriteの配置ID・配置フレームが変化または削除された時点で、該当Depth配下のネストした再生状態を全破棄（親のidentity更新前に処理）
 - [x] 中間階層のSprite置換時に子孫の再生クロックを引き継がず、孫の状態も破棄する回帰ケースを追加
+- [x] PlaceObject2/3のCXFORMWITHALPHA（RGBA乗算・加算）を表示リストへ保持し、オブジェクト専用の透明レイヤーに適用して合成
