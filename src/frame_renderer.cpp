@@ -942,7 +942,20 @@ void SpritePlayback::synchronize_nested(const FrameSnapshot& frame,
                 if(it!=instances.end())local_frame=it->second.frame;
             } else {
                 const auto it=nested_instances.find(path);
-                if(it!=nested_instances.end() &&
+                // Do not reuse a child's playback clock when any ancestor
+                // at the same depth path was replaced since the last frame.
+                bool ancestors_unchanged=true;
+                for(std::size_t n=2;n<=path.size();++n) {
+                    Path ancestor(path.begin(),path.begin()+n);
+                    const auto old_id=nested_identities.find(ancestor);
+                    const auto new_id=visible.find(ancestor);
+                    if(old_id!=nested_identities.end() &&
+                       (new_id==visible.end() || old_id->second!=new_id->second)) {
+                        ancestors_unchanged=false;
+                        break;
+                    }
+                }
+                if(it!=nested_instances.end() && ancestors_unchanged &&
                    (!nested_identities.contains(path) || nested_identities.at(path)==identity))
                     local_frame=it->second.frame;
             }
