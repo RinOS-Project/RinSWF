@@ -85,7 +85,7 @@ TimelineResult build_timeline(const Document& document) {
                 return fail("PlaceObject CXFORM not supported");
             }
             DisplayEntry entry;
-            entry.depth=depth; entry.character_id=id; entry.has_matrix=true; entry.matrix=matrix;
+            entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size(); entry.has_matrix=true; entry.matrix=matrix;
             display[depth]=std::move(entry);
         } else if(tag.code==26) { // PlaceObject2
             if(d.size()<3) return fail("PlaceObject2 truncated");
@@ -121,7 +121,7 @@ TimelineResult build_timeline(const Document& document) {
             if(move) {
                 if(it==display.end()) return fail("PlaceObject2 move to unoccupied depth");
                 auto entry=it->second;
-                if(has_character) entry.character_id=id;
+                if(has_character) { entry.character_id=id; entry.placed_frame=frames.size(); }
                 if(has_matrix) { entry.has_matrix=true; entry.matrix=matrix; }
                 if(has_name) entry.name=std::move(name);
                 display[depth]=std::move(entry);
@@ -129,7 +129,7 @@ TimelineResult build_timeline(const Document& document) {
                 if(!has_character) return fail("PlaceObject2 insertion missing character");
                 if(it!=display.end()) return fail("PlaceObject2 insertion into occupied depth");
                 DisplayEntry entry;
-                entry.depth=depth; entry.character_id=id; entry.has_matrix=has_matrix;
+                entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size(); entry.has_matrix=has_matrix;
                 entry.matrix=matrix; entry.name=std::move(name);
                 display[depth]=std::move(entry);
             }
