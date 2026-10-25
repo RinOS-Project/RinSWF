@@ -673,5 +673,22 @@ int main() {
     assert(animated_a.rgba[3]>0);
     assert(animated_b.rgba[(0*8+4)*4+3]>0);
     assert(animated_a.rgba==animated_loop.rgba);
+    // External clock controls pause, seek and advance without a hidden timer.
+    TimelinePlayback controller;
+    assert(controller.frame==0 && controller.playing);
+    controller.advance(2);
+    assert(controller.frame==2);
+    controller.pause();
+    controller.advance(10);
+    assert(controller.frame==2);
+    controller.seek(1);
+    assert(controller.frame==1);
+    controller.resume();
+    controller.advance();
+    assert(controller.frame==2);
+    Surface controlled;
+    assert(make_surface(8,8,controlled));
+    assert(render_playback(animated_root,assets,controlled,controller));
+    assert(controlled.rgba==animated_loop.rgba);
     return 0;
 }
