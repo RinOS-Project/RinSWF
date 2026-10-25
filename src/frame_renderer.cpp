@@ -525,10 +525,14 @@ static RenderResult affine_straight_stroke(Surface& dst,const ShapeGeometry& sha
                         :std::fma(py-e->ay,slope,e->ax);
                     // Compare against actual sample X positions (1/8, 3/8,
                     // 5/8, 7/8), not the quarter-pixel boundaries.
-                    const double sample_phase=4.0*x-0.5;
-                    if(std::isfinite(sample_phase) &&
-                       std::abs(sample_phase-std::round(sample_phase))<1e-6)
-                        x=std::fma(py-e->ay,slope,e->ax);
+                    // Limit the phase check to visible intersections:
+                    // very large offscreen coordinates cannot affect samples.
+                    if(x>=double(left)-1.0 && x<=double(right)+1.0) {
+                        const double sample_phase=4.0*x-0.5;
+                        if(std::isfinite(sample_phase) &&
+                           std::abs(sample_phase-std::round(sample_phase))<1e-6)
+                            x=std::fma(py-e->ay,slope,e->ax);
+                    }
                     if(!std::isfinite(x))
                         return {Error::size_limit,"nonfinite affine stroke intersection"};
                     positioned.emplace_back(e,x);
