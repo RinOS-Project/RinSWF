@@ -917,6 +917,30 @@ RenderResult render_timeline_playback(const TimelineResult& timeline,
     if(result)target=std::move(stage);
     return result;
 }
+RenderResult TimelinePlayer::render(const TimelineResult& timeline,
+                                    const FrameAssets& assets,Surface& target,
+                                    StrokeLimits limits) {
+    if(!timeline)return {timeline.error,timeline.message};
+    if(timeline.frames.empty())
+        return {Error::malformed_tag,"root timeline has no frames"};
+    const auto cycle=clock.frame/timeline.frames.size();
+    const auto root_frame=clock.frame%timeline.frames.size();
+    SpritePlayback updated=sprites;
+    if(initialized && cycle!=last_cycle) {
+        updated.instances.clear();
+        updated.identities.clear();
+    }
+    updated.synchronize(timeline.frames[root_frame],assets);
+    Surface stage=target;
+    auto result=render_frame_impl(timeline.frames[root_frame],assets,stage,
+                                  limits,0,root_frame,&updated);
+    if(!result)return result;
+    target=std::move(stage);
+    sprites=std::move(updated);
+    last_cycle=cycle;
+    initialized=true;
+    return {};
+}
 RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
                                   std::size_t max_pixels) {
     FrameAssets stage;
