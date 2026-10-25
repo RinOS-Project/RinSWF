@@ -376,6 +376,7 @@ int main() {
     tall_entry.matrix.scale_y=1;
     tall_frame.objects.push_back(tall_entry);
     assert(render_frame(tall_frame,assets,tall_surface));
-    assert(tall_surface.rgba[(200*128+65)*4+3]>0);
+    // Interpolated center: x=2*(20+(200-20)*(45-20)/(450-20)) ~= 60.93.
+    assert(tall_surface.rgba[(200*128+61)*4+3]>0);
     return 0;
 }
