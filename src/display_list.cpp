@@ -136,12 +136,15 @@ TimelineResult build_timeline(const Document& document) {
             BlurFilter blur;
             GlowFilter glow;
             DropShadowFilter shadow;
+            std::vector<FilterEffect> filters;
             bool has_blur=false,has_glow=false,has_shadow=false;
             if(flags2&0x01) {
                 if(d.size()-reader.pos()<2)return fail("PlaceObject3 FILTERLIST truncated");
                 const auto count=d[reader.pos()];
                 reader.bit+=8;
-                if(count!=1)return fail("PlaceObject3 multiple filters unsupported");
+                if(count==0 || count>4)return fail("PlaceObject3 filter count unsupported");
+                for(unsigned filter_index=0;filter_index<count;++filter_index) {
+                if(reader.pos()>=d.size())return fail("PlaceObject3 filter type truncated");
                 const auto type=d[reader.pos()];
                 reader.bit+=8;
                 const auto p=reader.pos();
@@ -208,6 +211,13 @@ TimelineResult build_timeline(const Document& document) {
                     has_glow=true;
                     reader.bit+=120;
                 } else return fail("PlaceObject3 filter type unsupported");
+                FilterEffect effect;
+                effect.type=type;
+                effect.blur=blur;
+                effect.glow=glow;
+                effect.shadow=shadow;
+                filters.push_back(effect);
+                }
             }
             std::uint8_t blend_mode=1;
             if(flags2&0x02) {
@@ -240,6 +250,7 @@ TimelineResult build_timeline(const Document& document) {
                 if(has_blur) {entry.has_blur=true;entry.blur=blur;}
                 if(has_glow) {entry.has_glow=true;entry.glow=glow;}
                 if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
+                if(flags2&0x01)entry.filters=filters;
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -263,6 +274,7 @@ TimelineResult build_timeline(const Document& document) {
                 entry.glow=glow;
                 entry.has_shadow=has_shadow;
                 entry.shadow=shadow;
+                entry.filters=std::move(filters);
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==26) { // PlaceObject2
