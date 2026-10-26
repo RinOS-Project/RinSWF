@@ -48,6 +48,7 @@ struct ShapeResult {
 };
 // Supports solid and gradient fills in DefineShape 1/2/3/4.
 // Bitmap fills retain the character reference and transform; bitmap decoding/rendering remains separate.
-// LINESTYLE2 solid-color strokes are parsed; fill-strokes and NewStyles fail explicitly.
+// LINESTYLE2 solid-color strokes and appended NewStyles arrays are parsed;
+// LINESTYLE2 fill-strokes remain unsupported.
 [[nodiscard]] ShapeResult decode_shape(const Tag& tag, std::size_t max_commands=100000);
 }
