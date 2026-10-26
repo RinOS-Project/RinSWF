@@ -155,6 +155,11 @@ int main() {
     assert(chain_frames.frames[0].objects[0].filters.size()==2);
     assert(chain_frames.frames[0].objects[0].filters[0].blur.radius_x==1);
     assert(chain_frames.frames[0].objects[0].filters[1].blur.radius_x==2);
+    // Every filter must retain its own settings, even when another filter
+    // follows it. A malformed final item must reject the entire placement.
+    assert(chain_frames.frames[0].objects[0].filters[0].blur.radius_x==1);
+    chained.tags[0].data.pop_back();
+    assert(!build_timeline(chained));
     // ColorMatrixFilter: decode 20 little-endian FLOAT coefficients.
     Document matrix_doc;
     matrix_doc.header.frame_count=1;
