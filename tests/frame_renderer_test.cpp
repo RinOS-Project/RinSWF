@@ -933,5 +933,16 @@ int main() {
     blend_frame.objects[0].blend_mode=14;
     assert(render_frame(blend_frame,assets,blend_surface));
     assert(blend_surface.rgba[0]==188);
+    // Overlay uses the backdrop threshold; HardLight uses the source threshold.
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=13;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==157); // 2*200*100/255
+    assert(blend_surface.rgba[1]==145); // screen with backdrop 150
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=14;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==178); // screen with source 200
+    assert(blend_surface.rgba[1]==118); // multiply with source 100
     return 0;
 }
