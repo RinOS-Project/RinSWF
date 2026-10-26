@@ -889,6 +889,16 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                         case 8: blended=std::min(255u,sc+dc); break; // add
                         case 9: blended=dc>sc?dc-sc:0; break; // subtract
                         case 10: blended=255u-dc; break; // invert backdrop
+                        case 13: { // overlay: backdrop selects multiply or screen
+                            blended=dc<128 ? (2*sc*dc+127)/255
+                                :255-((2*(255-sc)*(255-dc)+127)/255);
+                            break;
+                        }
+                        case 14: { // hard light: source selects multiply or screen
+                            blended=sc<128 ? (2*sc*dc+127)/255
+                                :255-((2*(255-sc)*(255-dc)+127)/255);
+                            break;
+                        }
                         case 13: blended=dc<128u
                             ?(2u*sc*dc+127u)/255u
                             :255u-(2u*(255u-sc)*(255u-dc)+127u)/255u;
