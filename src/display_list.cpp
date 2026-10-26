@@ -137,6 +137,7 @@ TimelineResult build_timeline(const Document& document) {
             BlurFilter blur;
             GlowFilter glow;
             DropShadowFilter shadow;
+            ColorMatrixFilter color_matrix;
             std::vector<FilterEffect> filters;
             bool has_blur=false,has_glow=false,has_shadow=false;
             if(flags2&0x01) {
