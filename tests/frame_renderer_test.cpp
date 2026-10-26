@@ -1036,5 +1036,31 @@ int main() {
     assert(render_frame(alpha_bias_frame,assets,alpha_bias_surface));
     assert(alpha_bias_surface.rgba[3]==255);
     assert(alpha_bias_surface.rgba[(7*8+7)*4+3]==0);
+    // Ordered Blur -> ColorMatrix affects only the blurred silhouette,
+    // never the unrelated transparent corners of the destination.
+    FrameSnapshot chained_filters;
+    DisplayEntry chained_entry;
+    chained_entry.depth=1;
+    chained_entry.character_id=42;
+    chained_entry.has_matrix=true;
+    chained_entry.matrix.translate_x=60;
+    chained_entry.matrix.translate_y=60;
+    FilterEffect first_blur;
+    first_blur.type=1;
+    first_blur.blur={1,1,1};
+    FilterEffect then_blue;
+    then_blue.type=6;
+    then_blue.color_matrix.values[0]=0;
+    then_blue.color_matrix.values[2]=1;
+    then_blue.color_matrix.values[10]=1;
+    then_blue.color_matrix.values[12]=0;
+    chained_entry.filters={first_blur,then_blue};
+    chained_filters.objects.push_back(chained_entry);
+    Surface chained_surface;
+    assert(make_surface(8,8,chained_surface));
+    assert(render_frame(chained_filters,assets,chained_surface));
+    assert(chained_surface.rgba[(3*8+3)*4+2]>0);
+    assert(chained_surface.rgba[(3*8+4)*4+3]>0);
+    assert(chained_surface.rgba[(7*8+7)*4+3]==0);
     return 0;
 }
