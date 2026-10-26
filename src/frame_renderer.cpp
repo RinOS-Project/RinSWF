@@ -833,7 +833,8 @@ static void glow_surface(Surface& surface,const GlowFilter& filter) {
 static void shadow_surface(Surface& surface,const DropShadowFilter& filter) {
     Surface blurred=surface;
     blur_surface(blurred,filter.blur);
-    const auto original=surface.rgba;
+    // The blurred silhouette is independent: each unmodified source pixel is
+    // consumed exactly once, so a second full RGBA source copy is unnecessary.
     const unsigned colors[3]={filter.red,filter.green,filter.blue};
     for(std::size_t y=0;y<surface.height;++y)
         for(std::size_t x=0;x<surface.width;++x) {
@@ -845,11 +846,11 @@ static void shadow_surface(Surface& surface,const DropShadowFilter& filter) {
                 shadow_alpha=(unsigned(blurred.rgba[
                     (std::size_t(sy)*surface.width+std::size_t(sx))*4+3])*
                     filter.alpha+127)/255;
-            const unsigned sa=original[dest+3];
+            const unsigned sa=surface.rgba[dest+3];
             const unsigned out_alpha=sa+(shadow_alpha*(255-sa)+127)/255;
             if(!out_alpha)continue;
             for(unsigned channel=0;channel<3;++channel) {
-                const unsigned numerator=unsigned(original[dest+channel])*sa+
+                const unsigned numerator=unsigned(surface.rgba[dest+channel])*sa+
                     (colors[channel]*shadow_alpha*(255-sa)+127)/255;
                 surface.rgba[dest+channel]=std::uint8_t(
                     (numerator+out_alpha/2)/out_alpha);
