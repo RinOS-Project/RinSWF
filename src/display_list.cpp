@@ -134,7 +134,8 @@ TimelineResult build_timeline(const Document& document) {
                 return fail("PlaceObject3 name truncated");
             BlurFilter blur;
             GlowFilter glow;
-            bool has_blur=false,has_glow=false;
+            DropShadowFilter shadow;
+            bool has_blur=false,has_glow=false,has_shadow=false;
             if(flags2&0x01) {
                 if(d.size()-reader.pos()<2)return fail("PlaceObject3 FILTERLIST truncated");
                 const auto count=d[reader.pos()];
@@ -160,6 +161,33 @@ TimelineResult build_timeline(const Document& document) {
                           std::uint8_t(settings>>3)};
                     has_blur=true;
                     reader.bit+=72;
+                } else if(type==0) {
+                    if(d.size()-p<23)return fail("PlaceObject3 DropShadowFilter truncated");
+                    const auto bx=fixed(4),by=fixed(8);
+                    const auto angle=fixed(12),distance=fixed(16);
+                    const auto strength=std::uint16_t(d[p+20]) |
+                                        (std::uint16_t(d[p+21])<<8);
+                    const auto settings=d[p+22];
+                    // Limit this first renderer to integer-pixel cardinal
+                    // shadows with normal strength and composite source.
+                    if((bx&0xffff)||(by&0xffff)||(bx>>16)>16||(by>>16)>16 ||
+                       strength!=256 || (settings&0xe0)!=0x20 ||
+                       (settings&0x1f)==0 || (settings&0x1f)>3 ||
+                       (distance&0xffff) || (distance>>16)>32 ||
+                       (angle!=0 && angle!=0x00019220 && angle!=0x0003243f &&
+                        angle!=0x0004b65f))
+                        return fail("PlaceObject3 DropShadowFilter parameters unsupported");
+                    const int magnitude=int(distance>>16);
+                    shadow.offset_x=std::int16_t(angle==0?magnitude:
+                                                 angle==0x0003243f?-magnitude:0);
+                    shadow.offset_y=std::int16_t(angle==0x00019220?magnitude:
+                                                 angle==0x0004b65f?-magnitude:0);
+                    shadow.red=d[p];shadow.green=d[p+1];
+                    shadow.blue=d[p+2];shadow.alpha=d[p+3];
+                    shadow.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                                 std::uint8_t(settings&0x1f)};
+                    has_shadow=true;
+                    reader.bit+=184;
                 } else if(type==2) {
                     if(d.size()-p<15)return fail("PlaceObject3 GlowFilter truncated");
                     const auto bx=fixed(4),by=fixed(8);
@@ -210,6 +238,7 @@ TimelineResult build_timeline(const Document& document) {
                 if(flags2&0x02)entry.blend_mode=blend_mode;
                 if(has_blur) {entry.has_blur=true;entry.blur=blur;}
                 if(has_glow) {entry.has_glow=true;entry.glow=glow;}
+                if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -231,6 +260,8 @@ TimelineResult build_timeline(const Document& document) {
                 entry.blur=blur;
                 entry.has_glow=has_glow;
                 entry.glow=glow;
+                entry.has_shadow=has_shadow;
+                entry.shadow=shadow;
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==26) { // PlaceObject2
