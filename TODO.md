@@ -6,7 +6,7 @@
 - [x] FWS / CWS ヘッダーと zlib 展開
 - [x] RECT、フレーム情報、タグ列の解析
 - [x] 入力・展開・タグ数・タグ長の制限
-- [ ] ZWS（LZMA）対応
+- [x] ZWS（LZMA）圧縮の解析・展開（任意liblzma依存、圧縮長・展開長・辞書サイズ制限、不正入力拒否を実装。ビルド・実SWF検証は未実施）
 - [x] 基本タグの型付きデコード（SetBackgroundColor、FileAttributes、FrameLabel、SymbolClass、DefineBinaryData）
 - [x] DefineShape 1/2/3/4のRECT・基本edgeレコード解析（スタイルなし限定）
 - [x] DefineShape 1/2/3 のSolid FillとLINESTYLE、スタイル参照
