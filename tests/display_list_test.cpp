@@ -104,5 +104,18 @@ int main() {
     assert(blend_frames.frames[0].objects[0].blend_mode==3);
     blending.tags[0].data.back()=9; // unsupported blend mode
     assert(!build_timeline(blending));
+    // One SWF BlurFilter: radius 1px on both axes, one pass.
+    Document blur_doc;
+    blur_doc.header.frame_count=1;
+    blur_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        1,1, 0,0,1,0, 0,0,1,0, 0x08}});
+    blur_doc.tags.push_back({1,0,{}});
+    auto blur_timeline=build_timeline(blur_doc);
+    assert(blur_timeline);
+    assert(blur_timeline.frames[0].objects[0].has_blur);
+    assert(blur_timeline.frames[0].objects[0].blur.radius_x==1);
+    assert(blur_timeline.frames[0].objects[0].blur.passes==1);
+    blur_doc.tags[0].data[7]=2; // GlowFilter is not yet supported.
+    assert(!build_timeline(blur_doc));
     return 0;
 }
