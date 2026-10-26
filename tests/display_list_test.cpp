@@ -130,5 +130,18 @@ int main() {
     assert(glow_timeline.frames[0].objects[0].glow.blur.passes==1);
     glow_doc.tags[0].data.back()=0xa1; // inner glow remains unsupported
     assert(!build_timeline(glow_doc));
+    // Outer DropShadowFilter: black shadow, 1px blur, 2px to the right.
+    Document shadow_doc;
+    shadow_doc.header.frame_count=1;
+    shadow_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        1,0, 0,0,0,255, 0,0,1,0, 0,0,1,0,
+        0,0,0,0, 0,0,2,0, 0,1,0x21}});
+    shadow_doc.tags.push_back({1,0,{}});
+    auto shadow_timeline=build_timeline(shadow_doc);
+    assert(shadow_timeline);
+    assert(shadow_timeline.frames[0].objects[0].has_shadow);
+    assert(shadow_timeline.frames[0].objects[0].shadow.offset_x==2);
+    shadow_doc.tags[0].data.back()=0xa1; // Inner shadow is not yet supported.
+    assert(!build_timeline(shadow_doc));
     return 0;
 }
