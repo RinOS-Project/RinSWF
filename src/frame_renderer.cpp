@@ -1053,14 +1053,6 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                 :255-((2*(255-sc)*(255-dc)+127)/255);
                             break;
                         }
-                        case 13: blended=dc<128u
-                            ?(2u*sc*dc+127u)/255u
-                            :255u-(2u*(255u-sc)*(255u-dc)+127u)/255u;
-                            break; // overlay: backdrop determines branch
-                        case 14: blended=sc<128u
-                            ?(2u*sc*dc+127u)/255u
-                            :255u-(2u*(255u-sc)*(255u-dc)+127u)/255u;
-                            break; // hardlight: source determines branch
                         default: break;
                     }
                     // W3C source-over blend: source-only, backdrop-only,
