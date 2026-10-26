@@ -458,7 +458,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
     }
     for(std::size_t style=0;style<masks.size();++style) {
         const auto& mask=masks[style];
-        const auto color=shape.lines[style].color;
+        const auto& line_style=shape.lines[style];
+        const auto color=line_style.color;
         for(const auto& [key,tile]:mask.tiles) {
             for(std::uint32_t y=0;y<CoverageMask::tile_size;++y)
                 for(std::uint32_t x=0;x<CoverageMask::tile_size;++x) {
@@ -467,8 +468,11 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                     const auto gx=mask.origin_x+std::int64_t(std::uint32_t(key))*CoverageMask::tile_size+x;
                     const auto gy=mask.origin_y+std::int64_t(key>>32)*CoverageMask::tile_size+y;
                     if(gx>=target.width||gy>=target.height) continue;
-                    auto sample=color;
-                    sample.a=std::uint8_t((unsigned(color.a)*coverage+127)/255);
+                    auto sample=line_style.has_fill?
+                        sample_fill(line_style.fill,
+                            double(gx)+0.5-double(offset_x)/20.0,
+                            double(gy)+0.5-double(offset_y)/20.0,nullptr):color;
+                    sample.a=std::uint8_t((unsigned(sample.a)*coverage+127)/255);
                     pixel(target,gx,gy,sample);
                 }
         }
