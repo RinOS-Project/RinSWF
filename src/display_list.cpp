@@ -137,7 +137,9 @@ TimelineResult build_timeline(const Document& document) {
                 if(d.size()-reader.pos()<1)return fail("PlaceObject3 blend mode truncated");
                 blend_mode=d[reader.pos()];
                 reader.bit+=8;
-                if(blend_mode!=1 && blend_mode!=3 && blend_mode!=4 && blend_mode!=8)
+                if(blend_mode!=1 && blend_mode!=3 && blend_mode!=4 &&
+                   blend_mode!=7 && blend_mode!=8 && blend_mode!=9 &&
+                   blend_mode!=10 && blend_mode!=11 && blend_mode!=12)
                     return fail("PlaceObject3 blend mode unsupported");
             }
             if(reader.pos()!=d.size())
