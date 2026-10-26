@@ -275,6 +275,14 @@ RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,std::int32_t x,std
 RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                                 std::int32_t offset_x,std::int32_t offset_y,StrokeLimits limits,const BitmapLibrary* bitmaps) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
+    for(const auto& line:shape.lines) {
+        if(line.has_fill && (line.fill.kind==FillKind::repeating_bitmap ||
+            line.fill.kind==FillKind::clipped_bitmap ||
+            line.fill.kind==FillKind::nonsmoothed_repeating_bitmap ||
+            line.fill.kind==FillKind::nonsmoothed_clipped_bitmap) &&
+            (!bitmaps || !bitmaps->find(line.fill.bitmap_id)))
+            return fail(Error::malformed_tag,"bitmap stroke fill asset missing");
+    }
     if(!limits.max_tiles || limits.max_mask_bytes<CoverageMask::tile_size*CoverageMask::tile_size)
         return fail(Error::size_limit,"stroke mask budget too small");
     std::size_t allocated_tiles=0;
