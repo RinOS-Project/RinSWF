@@ -873,6 +873,25 @@ static void bevel_surface(Surface& surface,const BevelFilter& filter) {
             surface.rgba[dest+3]=std::uint8_t(out_alpha);
         }
 }
+// Interpolate RGBA stops with endpoint clamping. Avoid unsigned
+// underflow when the intensity falls before the first gradient ratio.
+static void sample_gradient(const std::vector<std::uint8_t>& ratios,
+                            const std::vector<std::uint8_t>& colors,
+                            unsigned position,unsigned output[4]) {
+    const std::size_t count=ratios.size();
+    std::size_t high=0;
+    while(high<count && ratios[high]<position)++high;
+    const std::size_t low=high==0?0:std::min(high-1,count-1);
+    high=std::min(high,count-1);
+    const unsigned start=ratios[low],end=ratios[high];
+    const unsigned denominator=end>start?end-start:1;
+    const unsigned fraction=high==low?0:
+        std::clamp(int(position)-int(start),0,int(denominator));
+    for(unsigned c=0;c<4;++c) {
+        const unsigned a=colors[low*4+c],b=colors[high*4+c];
+        output[c]=(a*(denominator-fraction)+b*fraction+denominator/2)/denominator;
+    }
+}
 static void gradient_glow_surface(Surface& surface,const GradientGlowFilter& filter) {
     Surface blurred=surface;
     blur_surface(blurred,filter.blur);
@@ -881,18 +900,8 @@ static void gradient_glow_surface(Surface& surface,const GradientGlowFilter& fil
     for(std::size_t p=0;p+3<surface.rgba.size();p+=4) {
         const unsigned intensity=blurred.rgba[p+3];
         if(!intensity)continue;
-        std::size_t right=0;
-        while(right<count && filter.ratios[right]<intensity)++right;
-        const std::size_t low=right==0?0:std::min(right-1,count-1);
-        const std::size_t high=std::min(right,count-1);
-        const unsigned start=filter.ratios[low],end=filter.ratios[high];
-        const unsigned numerator=high==low?0:std::min(unsigned(intensity-start),unsigned(end-start));
-        const unsigned denominator=end>start?end-start:1;
         unsigned rgba[4];
-        for(unsigned c=0;c<4;++c) {
-            const unsigned a=filter.rgba[low*4+c],b=filter.rgba[high*4+c];
-            rgba[c]=(a*(denominator-numerator)+b*numerator+denominator/2)/denominator;
-        }
+        sample_gradient(filter.ratios,filter.rgba,intensity,rgba);
         const unsigned sa=surface.rgba[p+3];
         const unsigned ga=(intensity*rgba[3]+127)/255;
         const unsigned oa=sa+(ga*(255-sa)+127)/255;
@@ -923,19 +932,8 @@ static void gradient_bevel_surface(Surface& surface,const GradientBevelFilter& f
             if(!edge)continue;
             const unsigned position=unsigned(std::clamp(128+edge/2,0,255));
             const unsigned magnitude=unsigned(std::abs(edge));
-            const auto& stops=filter.ratios;
-            std::size_t high=0;
-            while(high<stops.size()&&stops[high]<position)++high;
-            const std::size_t low=high==0?0:std::min(high-1,stops.size()-1);
-            high=std::min(high,stops.size()-1);
-            const unsigned start=stops[low],end=stops[high];
-            const unsigned den=end>start?end-start:1;
-            const unsigned t=high==low?0:std::min(position-start,den);
             unsigned color[4];
-            for(unsigned c=0;c<4;++c) {
-                const unsigned a=filter.rgba[low*4+c],b=filter.rgba[high*4+c];
-                color[c]=(a*(den-t)+b*t+den/2)/den;
-            }
+            sample_gradient(filter.ratios,filter.rgba,position,color);
             const unsigned effect_alpha=(magnitude*color[3]+127)/255;
             const unsigned sa=original[dest+3];
             const unsigned oa=sa+(effect_alpha*(255-sa)+127)/255;
