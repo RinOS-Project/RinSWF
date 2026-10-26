@@ -140,6 +140,7 @@ TimelineResult build_timeline(const Document& document) {
             ColorMatrixFilter color_matrix;
             BevelFilter bevel;
             GradientGlowFilter gradient_glow;
+            GradientBevelFilter gradient_bevel;
             std::vector<FilterEffect> filters;
             bool has_blur=false,has_glow=false,has_shadow=false;
             if(flags2&0x01) {
@@ -160,6 +161,7 @@ TimelineResult build_timeline(const Document& document) {
                 color_matrix={};
                 bevel={};
                 gradient_glow={};
+                gradient_bevel={};
                 auto fixed=[&](std::size_t offset)->std::uint32_t {
                     return std::uint32_t(d[p+offset]) |
                            (std::uint32_t(d[p+offset+1])<<8) |
@@ -287,6 +289,39 @@ TimelineResult build_timeline(const Document& document) {
                         if(gradient_glow.ratios[j]<=gradient_glow.ratios[j-1])
                             return fail("PlaceObject3 GradientGlow ratios not increasing");
                     reader.bit+=payload*8;
+                } else if(type==7) {
+                    if(d.size()-p<1)return fail("PlaceObject3 GradientBevel truncated");
+                    const unsigned stops=d[p];
+                    if(stops<2 || stops>16)return fail("PlaceObject3 GradientBevel stops unsupported");
+                    const std::size_t payload=1+stops*5+19;
+                    if(d.size()-p<payload)return fail("PlaceObject3 GradientBevel truncated");
+                    const auto params=p+1+stops*5;
+                    const auto bx=fixed(1+stops*5),by=fixed(5+stops*5);
+                    const auto angle=fixed(9+stops*5),distance=fixed(13+stops*5);
+                    const auto strength=std::uint16_t(d[params+16])|
+                                        (std::uint16_t(d[params+17])<<8);
+                    const auto flags=d[params+18];
+                    if((bx&0xffff)||(by&0xffff)||(bx>>16)>16||(by>>16)>16 ||
+                       strength!=256 || (flags&0xe0)!=0x20 ||
+                       (flags&0x1f)==0 || (flags&0x1f)>3 ||
+                       (distance&0xffff)||(distance>>16)>32 ||
+                       (angle!=0 && angle!=0x00019220 && angle!=0x0003243f &&
+                        angle!=0x0004b65f))
+                        return fail("PlaceObject3 GradientBevel parameters unsupported");
+                    const int amount=int(distance>>16);
+                    gradient_bevel.offset_x=std::int16_t(angle==0?amount:
+                        angle==0x0003243f?-amount:0);
+                    gradient_bevel.offset_y=std::int16_t(angle==0x00019220?amount:
+                        angle==0x0004b65f?-amount:0);
+                    gradient_bevel.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                                         std::uint8_t(flags&0x1f)};
+                    gradient_bevel.rgba.assign(d.begin()+p+1,d.begin()+p+1+stops*4);
+                    gradient_bevel.ratios.assign(d.begin()+p+1+stops*4,
+                                                 d.begin()+p+1+stops*5);
+                    for(unsigned j=1;j<stops;++j)
+                        if(gradient_bevel.ratios[j]<=gradient_bevel.ratios[j-1])
+                            return fail("PlaceObject3 GradientBevel ratios not increasing");
+                    reader.bit+=payload*8;
                 } else if(type==6) {
                     if(d.size()-p<80)return fail("PlaceObject3 ColorMatrix truncated");
                     for(unsigned index=0;index<20;++index) {
@@ -308,6 +343,7 @@ TimelineResult build_timeline(const Document& document) {
                 effect.color_matrix=color_matrix;
                 effect.bevel=bevel;
                 effect.gradient_glow=std::move(gradient_glow);
+                effect.gradient_bevel=std::move(gradient_bevel);
                 filters.push_back(effect);
                 }
             }
