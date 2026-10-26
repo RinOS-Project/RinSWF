@@ -149,3 +149,4 @@
 - [x] GradientGlowFilter（ID 4）の2〜16色停止点・RGBA/比率解析と色補間付き外側発光を限定実装（angle/distance=0、整数Blur、strength=1、inner/knockout未対応。ビルド未検証）
 - [x] GradientBevelFilter（ID 7）の2〜16色停止点・RGBA/比率・整数cardinal displacement解析と、ぼかしたアルファ差分による外側グラデーション縁取りを限定実装（inner/knockout/一般角度は未対応。ビルド未検証）
 - [x] GradientGlow／GradientBevelの色停止点補間を共通化し、先頭比率未満・末尾比率超過でのunsigned減算アンダーフローを回避して端点色へクランプ（ビルド・実行未検証）
+- [x] BlurFilterの分離型X/Yパスで毎回フルRGBA配列を複製していた処理を、再利用可能なscratchバッファ1個とswapへ変更（画素計算は維持。ビルド・回帰テスト未実行）
