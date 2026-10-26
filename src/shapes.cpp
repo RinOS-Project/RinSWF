@@ -172,9 +172,22 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                     return bad(Error::truncated,"LINESTYLE2 miter limit truncated");
                 line.miter_limit=double(lo|(hi<<8))/256.0;
             }
-            if(has_fill) return bad(Error::malformed_tag,"LINESTYLE2 fill strokes not implemented");
-        }
-        if(!color(b,alpha,line.color)) return bad(Error::truncated,"truncated line color");
+            if(has_fill) {
+                // FillType 0 is a solid RGBA fill. Its pixels are identical
+                // to a conventional LINESTYLE2 RGBA stroke, so the current
+                // stroke rasterizer can render it without a separate path.
+                // Other fill types require per-pixel stroke sampling.
+                std::uint32_t fill_type=0;
+                if(!b.byte(fill_type))
+                    return bad(Error::truncated,"LINESTYLE2 fill type truncated");
+                if(fill_type!=0)
+                    return bad(Error::malformed_tag,"unsupported LINESTYLE2 stroke fill type");
+                if(!color(b,true,line.color))
+                    return bad(Error::truncated,"LINESTYLE2 solid stroke fill truncated");
+            } else if(!color(b,true,line.color))
+                return bad(Error::truncated,"truncated LINESTYLE2 line color");
+        } else if(!color(b,alpha,line.color))
+            return bad(Error::truncated,"truncated line color");
         geometry.lines.push_back(line);
     }
         fills=new_fills;lines=new_lines;
