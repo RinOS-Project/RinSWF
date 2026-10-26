@@ -759,35 +759,52 @@ static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
 // contribute transparent black, so hard edges soften without color halos.
 static void blur_surface(Surface& surface,const BlurFilter& filter) {
     if((filter.radius_x==0 && filter.radius_y==0) || filter.passes==0)return;
-    // Reuse one destination allocation across every axis and blur pass.
+    // Each output window differs from the previous one by at most two pixels.
+    // Keep premultiplied RGB sums, preserving the old rounding and transparent
+    // black outside the image, without scanning every radius for every pixel.
     std::vector<std::uint8_t> scratch(surface.rgba.size());
+    const auto width=std::size_t(surface.width);
+    const auto height=std::size_t(surface.height);
     for(unsigned pass=0;pass<filter.passes;++pass) {
         for(unsigned axis=0;axis<2;++axis) {
             const unsigned radius=axis==0?filter.radius_x:filter.radius_y;
             if(!radius)continue;
             const auto& source=surface.rgba;
             const unsigned divisor=2*radius+1;
-            for(std::size_t y=0;y<surface.height;++y)
-                for(std::size_t x=0;x<surface.width;++x) {
-                    std::uint64_t alpha=0,rgb[3]={};
-                    for(int delta=-int(radius);delta<=int(radius);++delta) {
-                        const auto sx=std::int64_t(x)+(axis==0?delta:0);
-                        const auto sy=std::int64_t(y)+(axis==1?delta:0);
-                        if(sx<0 || sy<0 || sx>=surface.width || sy>=surface.height)
-                            continue;
-                        const auto index=(std::size_t(sy)*surface.width+std::size_t(sx))*4;
-                        const unsigned a=source[index+3];
+            const std::size_t lines=axis==0?height:width;
+            const std::size_t length=axis==0?width:height;
+            for(std::size_t line=0;line<lines;++line) {
+                std::uint64_t alpha=0,rgb[3]={};
+                const auto offset=[&](std::size_t pos) {
+                    return (axis==0?(line*width+pos):(pos*width+line))*4;
+                };
+                const auto accumulate=[&](std::size_t pos,bool add) {
+                    const auto i=offset(pos);
+                    const std::uint64_t a=source[i+3];
+                    if(add) {
                         alpha+=a;
-                        for(unsigned channel=0;channel<3;++channel)
-                            rgb[channel]+=std::uint64_t(source[index+channel])*a;
+                        for(unsigned c=0;c<3;++c)rgb[c]+=std::uint64_t(source[i+c])*a;
+                    } else {
+                        alpha-=a;
+                        for(unsigned c=0;c<3;++c)rgb[c]-=std::uint64_t(source[i+c])*a;
                     }
-                    const auto dest=(y*surface.width+x)*4;
+                };
+                // Initialize the truncated window at pixel zero.
+                for(std::size_t pos=0;pos<length && pos<=radius;++pos)
+                    accumulate(pos,true);
+                for(std::size_t pos=0;pos<length;++pos) {
+                    const auto dest=offset(pos);
                     const auto out_alpha=(alpha+divisor/2)/divisor;
-                    for(unsigned channel=0;channel<3;++channel)
-                        scratch[dest+channel]=alpha?
-                            std::uint8_t((rgb[channel]+alpha/2)/alpha):0;
+                    for(unsigned c=0;c<3;++c)
+                        scratch[dest+c]=alpha?
+                            std::uint8_t((rgb[c]+alpha/2)/alpha):0;
                     scratch[dest+3]=std::uint8_t(out_alpha);
+                    // Shift from [pos-radius,pos+radius] to the next window.
+                    if(pos>=radius)accumulate(pos-radius,false);
+                    if(radius<length && pos<length-1 &&
+                       pos<length-radius-1)accumulate(pos+radius+1,true);
                 }
+            }
             surface.rgba.swap(scratch);
         }
     }
