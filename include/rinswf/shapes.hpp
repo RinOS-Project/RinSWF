@@ -52,6 +52,6 @@ struct ShapeResult {
 // Bitmap fills retain the character reference and transform; bitmap decoding/rendering remains separate.
 // LINESTYLE2 solid-color strokes and appended NewStyles arrays are parsed;
 // Solid LINESTYLE2 fill-strokes are rendered as equivalent solid-color strokes;
-// gradient stroke fills are supported; bitmap stroke fills remain unsupported.
+// gradient and bitmap stroke fills are sampled during stroke compositing.
 [[nodiscard]] ShapeResult decode_shape(const Tag& tag, std::size_t max_commands=100000);
 }
