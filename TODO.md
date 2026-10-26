@@ -16,7 +16,7 @@
 - [x] DefineBitsJPEG2/3/4の画像データ分離、JPEG3/4の圧縮アルファ展開
 - [x] libjpegが利用可能な環境でのJPEG→RGBA変換、JPEG3/4アルファ合成、BitmapLibraryへの登録
 - [x] DefineShape4のLINESTYLE2単色線の線端・結合・スケール・miter情報解析
-- [ ] PNG/GIF画像デコーダー統合、JPEG実画像の回帰テスト、LINESTYLE2のグラデーション・Bitmap塗り線、PlaceObject3、Font
+- [ ] PNG/GIF画像デコーダー統合、JPEG実画像の回帰テスト、LINESTYLE2のBitmap塗り線、PlaceObject3、Font
 - [ ] ストリーム読み込みとエラー位置の詳細化
 - [x] C ABI（DLL/共有ライブラリ向け）：不透明Document所有権、FWS/CWS解析、リソース上限、ヘッダー・タグ参照、C向けステータスを実装（ビルド・動作検証未実施。Movie生成・フレームRGBA描画APIも追加済み。ビルド・動作検証未実施）
 
@@ -90,6 +90,7 @@
 - [x] 連続する二次ベジェ曲線・直線間のJoinを端点接線から計算（縮退接線は弦へフォールバック）
 - [x] 連続する二次曲線間のJoinに端点接線を使用
 - [x] スタイルなしの辺をまたぐ接線連続性を解除し、スタイル切替時の独立描画ケースを追加
+- [x] DefineShape4のLINESTYLE2グラデーション塗り線を解析し、被覆率マスクに線形・放射状・焦点グラデーションをサンプリング（Bitmap塗り線未対応、ビルド・描画未検証）
 - [x] DefineShape4のLINESTYLE2でHasFillFlag=1の単色RGBA塗り線を解析し、既存ストローク描画へ統合（グラデーション・Bitmap塗り線は未対応、ビルド未検証）
 - [x] DefineShape2/3/4のStateNewStylesを解析し、追加Fill/Line配列のローカルスタイル番号をグローバル参照へ変換（ビルド・実SWF検証は未実施）
 - [ ] SWFの輪郭連結・複雑な自己交差形状の検証、異なるスタイル間の連結、タイル上限の実測ベンチマーク・性能検証
