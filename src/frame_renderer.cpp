@@ -883,7 +883,12 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                     switch(entry.blend_mode) {
                         case 3: blended=(sc*dc+127)/255; break; // multiply
                         case 4: blended=255-((255-sc)*(255-dc)+127)/255; break; // screen
+                        case 7: blended=std::min(sc,dc); break; // darken
                         case 8: blended=std::min(255u,sc+dc); break; // add
+                        case 9: blended=dc>sc?dc-sc:0; break; // subtract
+                        case 10: blended=std::max(sc,dc); break; // lighten
+                        case 11: blended=sc>dc?sc-dc:dc-sc; break; // difference
+                        case 12: blended=255u-(sc>dc?sc-dc:dc-sc); break; // invert
                         default: break;
                     }
                     // W3C source-over blend: source-only, backdrop-only,
