@@ -155,5 +155,20 @@ int main() {
     assert(chain_frames.frames[0].objects[0].filters.size()==2);
     assert(chain_frames.frames[0].objects[0].filters[0].blur.radius_x==1);
     assert(chain_frames.frames[0].objects[0].filters[1].blur.radius_x==2);
+    // ColorMatrixFilter: decode 20 little-endian FLOAT coefficients.
+    Document matrix_doc;
+    matrix_doc.header.frame_count=1;
+    matrix_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,1,6,
+        0,0,0,0,0,0,0,0,0,0,128,63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,128,63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,128,63,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,128,63,0,0,0,0
+    }});
+    matrix_doc.tags.push_back({1,0,{}});
+    const auto decoded_matrix=build_timeline(matrix_doc);
+    assert(decoded_matrix);
+    const auto& matrix_filters=decoded_matrix.frames[0].objects[0].filters;
+    assert(matrix_filters.size()==1);
+    assert(matrix_filters[0].type==6);
+    assert(matrix_filters[0].color_matrix.values[2]==1.0f);
+    matrix_doc.tags[0].data.pop_back();
+    assert(!build_timeline(matrix_doc));
     return 0;
 }
