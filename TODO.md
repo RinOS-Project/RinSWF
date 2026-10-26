@@ -95,7 +95,7 @@
 - [x] DefineShape4のLINESTYLE2でHasFillFlag=1の単色RGBA塗り線を解析し、既存ストローク描画へ統合（グラデーション・Bitmap塗り線は未対応、ビルド未検証）
 - [x] DefineShape2/3/4のStateNewStylesを解析し、追加Fill/Line配列のローカルスタイル番号をグローバル参照へ変換（ビルド・実SWF検証は未実施）
 - [ ] SWFの輪郭連結・複雑な自己交差形状の検証、異なるスタイル間の連結、タイル上限の実測ベンチマーク・性能検証
-- [ ] テキスト、フォント、変換行列（DefineFontタグ10のglyph offset table/バイト列収集と重複ID検査は追加。SHAPE glyphの輪郭解釈・DefineText配置・文字ラスタライズは未対応）
+- [ ] テキスト、フォント、変換行列（DefineFontタグ10のglyph offset table/バイト列収集・SHAPE glyphのMove/Line/Quadratic輪郭解析・重複ID検査を追加。DefineText配置・文字ラスタライズは未対応。ビルド未検証）
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
 ## Phase 3 — 実行環境
