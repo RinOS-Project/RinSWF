@@ -905,6 +905,49 @@ static void gradient_glow_surface(Surface& surface,const GradientGlowFilter& fil
         surface.rgba[p+3]=std::uint8_t(oa);
     }
 }
+static void gradient_bevel_surface(Surface& surface,const GradientBevelFilter& filter) {
+    if(filter.ratios.size()<2 || filter.rgba.size()!=filter.ratios.size()*4)return;
+    Surface blurred=surface;
+    blur_surface(blurred,filter.blur);
+    const auto original=surface.rgba;
+    for(std::size_t y=0;y<surface.height;++y)
+        for(std::size_t x=0;x<surface.width;++x) {
+            const auto dest=(y*surface.width+x)*4;
+            auto sample=[&](int dx,int dy)->int {
+                const auto sx=std::int64_t(x)+dx,sy=std::int64_t(y)+dy;
+                if(sx<0||sy<0||sx>=surface.width||sy>=surface.height)return 0;
+                return blurred.rgba[(std::size_t(sy)*surface.width+std::size_t(sx))*4+3];
+            };
+            const int edge=sample(filter.offset_x,filter.offset_y)-
+                           sample(-filter.offset_x,-filter.offset_y);
+            if(!edge)continue;
+            const unsigned position=unsigned(std::clamp(128+edge/2,0,255));
+            const unsigned magnitude=unsigned(std::abs(edge));
+            const auto& stops=filter.ratios;
+            std::size_t high=0;
+            while(high<stops.size()&&stops[high]<position)++high;
+            const std::size_t low=high==0?0:std::min(high-1,stops.size()-1);
+            high=std::min(high,stops.size()-1);
+            const unsigned start=stops[low],end=stops[high];
+            const unsigned den=end>start?end-start:1;
+            const unsigned t=high==low?0:std::min(position-start,den);
+            unsigned color[4];
+            for(unsigned c=0;c<4;++c) {
+                const unsigned a=filter.rgba[low*4+c],b=filter.rgba[high*4+c];
+                color[c]=(a*(den-t)+b*t+den/2)/den;
+            }
+            const unsigned effect_alpha=(magnitude*color[3]+127)/255;
+            const unsigned sa=original[dest+3];
+            const unsigned oa=sa+(effect_alpha*(255-sa)+127)/255;
+            if(!oa)continue;
+            for(unsigned c=0;c<3;++c) {
+                const unsigned numerator=unsigned(original[dest+c])*sa+
+                    (color[c]*effect_alpha*(255-sa)+127)/255;
+                surface.rgba[dest+c]=std::uint8_t((numerator+oa/2)/oa);
+            }
+            surface.rgba[dest+3]=std::uint8_t(oa);
+        }
+}
 static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
     // The current filtered layer is transparent outside its alpha footprint.
     // Find the active rectangle once, rather than evaluating 20 coefficients
@@ -1050,6 +1093,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 else if(effect.type==2)glow_surface(isolated,effect.glow);
                 else if(effect.type==3)bevel_surface(isolated,effect.bevel);
                 else if(effect.type==4)gradient_glow_surface(isolated,effect.gradient_glow);
+                else if(effect.type==7)gradient_bevel_surface(isolated,effect.gradient_bevel);
                 else if(effect.type==6)color_matrix_surface(isolated,effect.color_matrix);
                 else return {Error::malformed_tag,"unsupported placement filter"};
             }
