@@ -156,5 +156,17 @@ int main() {
     assert(shadow_timeline.frames[0].objects[0].shadow.offset_x==2);
     shadow_doc.tags[0].data.back()=0xa1; // inner shadow unsupported
     assert(!build_timeline(shadow_doc));
+    // Two BlurFilters preserve their source order in the placed entry.
+    Document chained;
+    chained.header.frame_count=1;
+    chained.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        2, 1,0,0,1,0,0,0,1,0,0x08,
+           1,0,0,2,0,0,0,1,0,0x08}});
+    chained.tags.push_back({1,0,{}});
+    auto chain_frames=build_timeline(chained);
+    assert(chain_frames);
+    assert(chain_frames.frames[0].objects[0].filters.size()==2);
+    assert(chain_frames.frames[0].objects[0].filters[0].blur.radius_x==1);
+    assert(chain_frames.frames[0].objects[0].filters[1].blur.radius_x==2);
     return 0;
 }
