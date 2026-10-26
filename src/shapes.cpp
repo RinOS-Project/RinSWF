@@ -180,10 +180,17 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                 std::uint32_t fill_type=0;
                 if(!b.byte(fill_type))
                     return bad(Error::truncated,"LINESTYLE2 fill type truncated");
-                if(fill_type!=0)
+                line.has_fill=true;
+                if(fill_type==0) {
+                    if(!color(b,true,line.fill.color))
+                        return bad(Error::truncated,"LINESTYLE2 solid stroke fill truncated");
+                    line.color=line.fill.color;
+                } else if(fill_type==0x10 || fill_type==0x12 || fill_type==0x13) {
+                    const std::uint32_t type=fill_type;
+
+                } else {
                     return bad(Error::malformed_tag,"unsupported LINESTYLE2 stroke fill type");
-                if(!color(b,true,line.color))
-                    return bad(Error::truncated,"LINESTYLE2 solid stroke fill truncated");
+                }
             } else if(!color(b,true,line.color))
                 return bad(Error::truncated,"truncated LINESTYLE2 line color");
         } else if(!color(b,alpha,line.color))
