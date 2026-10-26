@@ -15,10 +15,15 @@ struct ColorTransform {
     double multiply[4]={1,1,1,1};
     std::int32_t add[4]={0,0,0,0};
 };
+struct BlurFilter {
+    std::uint8_t radius_x=0,radius_y=0,passes=0;
+};
 struct DisplayEntry {
     std::uint16_t depth=0;
     std::uint16_t character_id=0;
     std::size_t placed_frame=0; // zero-based parent frame when this instance was placed
+    bool has_blur=false;
+    BlurFilter blur{};
     std::uint8_t blend_mode=1; // SWF BlendMode: 1 normal, 3 multiply, 4 screen, 8 add
     bool has_color_transform=false;
     ColorTransform color_transform{};
