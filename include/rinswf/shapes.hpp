@@ -30,6 +30,8 @@ struct ShapeFill {
 struct ShapeLine {
     std::uint16_t width=0;
     ShapeColor color;
+    bool has_fill=false;
+    ShapeFill fill{};
     std::uint8_t start_cap=0, end_cap=0, join=0;
     bool no_hscale=false, no_vscale=false, pixel_hinting=false, no_close=false;
     double miter_limit=0.0;
@@ -50,6 +52,6 @@ struct ShapeResult {
 // Bitmap fills retain the character reference and transform; bitmap decoding/rendering remains separate.
 // LINESTYLE2 solid-color strokes and appended NewStyles arrays are parsed;
 // Solid LINESTYLE2 fill-strokes are rendered as equivalent solid-color strokes;
-// gradient and bitmap stroke fills remain unsupported.
+// gradient stroke fills are supported; bitmap stroke fills remain unsupported.
 [[nodiscard]] ShapeResult decode_shape(const Tag& tag, std::size_t max_commands=100000);
 }
