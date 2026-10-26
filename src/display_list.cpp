@@ -269,7 +269,6 @@ TimelineResult build_timeline(const Document& document) {
                 if(has_blur) {entry.has_blur=true;entry.blur=blur;}
                 if(has_glow) {entry.has_glow=true;entry.glow=glow;}
                 if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
-                if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
