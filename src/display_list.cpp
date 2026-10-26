@@ -138,8 +138,8 @@ TimelineResult build_timeline(const Document& document) {
                 blend_mode=d[reader.pos()];
                 reader.bit+=8;
                 if(blend_mode!=1 && blend_mode!=3 && blend_mode!=4 &&
-                   blend_mode!=7 && blend_mode!=8 && blend_mode!=9 &&
-                   blend_mode!=10 && blend_mode!=11 && blend_mode!=12)
+                   blend_mode!=5 && blend_mode!=6 && blend_mode!=7 &&
+                   blend_mode!=8 && blend_mode!=9 && blend_mode!=10)
                     return fail("PlaceObject3 blend mode unsupported");
             }
             if(reader.pos()!=d.size())
