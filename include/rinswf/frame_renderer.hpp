@@ -2,11 +2,13 @@
 #pragma once
 #include "rinswf/display_list.hpp"
 #include "rinswf/renderer.hpp"
+#include "rinswf/fonts.hpp"
 #include <map>
 namespace rinswf {
 struct FrameAssets {
     std::map<std::uint16_t,ShapeGeometry> shapes;
     BitmapLibrary bitmaps;
+    std::map<std::uint16_t,FontAsset> fonts;
     std::map<std::uint16_t,SpriteTimeline> sprites;
 };
 [[nodiscard]] RenderResult render_frame(const FrameSnapshot& frame,
