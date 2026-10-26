@@ -807,6 +807,35 @@ static void glow_surface(Surface& surface,const GlowFilter& filter) {
         surface.rgba[i+3]=std::uint8_t(oa);
     }
 }
+// Bounded cardinal outer shadow: blur the original alpha, offset it,
+// tint it, and composite the unmodified source above the shadow.
+static void shadow_surface(Surface& surface,const DropShadowFilter& filter) {
+    Surface blurred=surface;
+    blur_surface(blurred,filter.blur);
+    const auto original=surface.rgba;
+    const unsigned colors[3]={filter.red,filter.green,filter.blue};
+    for(std::size_t y=0;y<surface.height;++y)
+        for(std::size_t x=0;x<surface.width;++x) {
+            const auto dest=(y*surface.width+x)*4;
+            const auto sx=std::int64_t(x)-filter.offset_x;
+            const auto sy=std::int64_t(y)-filter.offset_y;
+            unsigned shadow_alpha=0;
+            if(sx>=0 && sy>=0 && sx<surface.width && sy<surface.height)
+                shadow_alpha=(unsigned(blurred.rgba[
+                    (std::size_t(sy)*surface.width+std::size_t(sx))*4+3])*
+                    filter.alpha+127)/255;
+            const unsigned sa=original[dest+3];
+            const unsigned out_alpha=sa+(shadow_alpha*(255-sa)+127)/255;
+            if(!out_alpha)continue;
+            for(unsigned channel=0;channel<3;++channel) {
+                const unsigned numerator=unsigned(original[dest+channel])*sa+
+                    (colors[channel]*shadow_alpha*(255-sa)+127)/255;
+                surface.rgba[dest+channel]=std::uint8_t(
+                    (numerator+out_alpha/2)/out_alpha);
+            }
+            surface.rgba[dest+3]=std::uint8_t(out_alpha);
+        }
+}
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
                                      StrokeLimits limits,unsigned nesting,std::size_t playback_frame,
@@ -817,7 +846,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
-        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow) {
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow) {
             isolated.width=stage.width;
             isolated.height=stage.height;
             isolated.rgba.assign(stage.rgba.size(),0);
@@ -917,6 +946,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         } else return {Error::malformed_tag,"unknown placed character"};
         if(entry.has_blur)blur_surface(isolated,entry.blur);
         if(entry.has_glow)glow_surface(isolated,entry.glow);
+        if(entry.has_shadow)shadow_surface(isolated,entry.shadow);
         if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur) {
             const auto& transform=entry.color_transform;
             for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
