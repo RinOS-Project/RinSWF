@@ -143,3 +143,4 @@
 - [x] PlaceObject3のFilterListを最大4件まで順序保持して解析し、Blur・Glow・DropShadowを指定順にレイヤーへ適用（ほかのFilter IDや高度なオプションは明示拒否）
 - [x] PlaceObject3 FilterListのColorMatrixFilter（ID 6、RGBA 4×5 float行列）を解析し、20係数を指定順に適用。非有限値・過大係数は拒否（実行検証未了）
 - [x] ColorMatrixFilterのアルファ加算でオブジェクト外の透明領域全体が不透明になる問題を抑制（完全透明の入力画素は透明保持。Flashの厳密なフィルター領域拡張は今後対応）
+- [x] ColorMatrixFilterの20係数演算を入力アルファが存在する外接矩形に限定し、Blur→ColorMatrix連続適用の描画テストを追加（コンパイル・実行未確認）
