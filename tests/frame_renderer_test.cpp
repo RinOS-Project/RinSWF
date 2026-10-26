@@ -1021,5 +1021,20 @@ int main() {
     assert(matrix_surface.rgba[0]==0);
     assert(matrix_surface.rgba[2]==255);
     assert(matrix_surface.rgba[3]==255);
+    // ColorMatrix alpha bias must not make off-object pixels opaque.
+    FrameSnapshot alpha_bias_frame;
+    DisplayEntry alpha_bias_entry;
+    alpha_bias_entry.depth=1;
+    alpha_bias_entry.character_id=42;
+    FilterEffect alpha_bias_filter;
+    alpha_bias_filter.type=6;
+    alpha_bias_filter.color_matrix.values[19]=64.0f;
+    alpha_bias_entry.filters.push_back(alpha_bias_filter);
+    alpha_bias_frame.objects.push_back(alpha_bias_entry);
+    Surface alpha_bias_surface;
+    assert(make_surface(8,8,alpha_bias_surface));
+    assert(render_frame(alpha_bias_frame,assets,alpha_bias_surface));
+    assert(alpha_bias_surface.rgba[3]==255);
+    assert(alpha_bias_surface.rgba[(7*8+7)*4+3]==0);
     return 0;
 }
