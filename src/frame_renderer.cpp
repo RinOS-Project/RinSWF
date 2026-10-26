@@ -865,6 +865,19 @@ static void drop_shadow_surface(Surface& surface,const DropShadowFilter& filter)
             surface.rgba[dest+3]=std::uint8_t(out_alpha);
         }
 }
+static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
+    for(std::size_t p=0;p+3<surface.rgba.size();p+=4) {
+        // Evaluate all channels from the original pixel, not modified outputs.
+        const double input[4]={double(surface.rgba[p]),double(surface.rgba[p+1]),
+                               double(surface.rgba[p+2]),double(surface.rgba[p+3])};
+        for(unsigned row=0;row<4;++row) {
+            double value=filter.values[row*5+4];
+            for(unsigned col=0;col<4;++col)
+                value+=double(filter.values[row*5+col])*input[col];
+            surface.rgba[p+row]=std::uint8_t(std::lround(std::clamp(value,0.0,255.0)));
+        }
+    }
+}
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
                                      StrokeLimits limits,unsigned nesting,std::size_t playback_frame,
@@ -978,6 +991,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 if(effect.type==0)shadow_surface(isolated,effect.shadow);
                 else if(effect.type==1)blur_surface(isolated,effect.blur);
                 else if(effect.type==2)glow_surface(isolated,effect.glow);
+                else if(effect.type==6)color_matrix_surface(isolated,effect.color_matrix);
                 else return {Error::malformed_tag,"unsupported placement filter"};
             }
         } else {
