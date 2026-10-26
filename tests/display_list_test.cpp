@@ -203,5 +203,19 @@ int main() {
     assert(gradient_frames.frames[0].objects[0].filters[0].gradient_glow.ratios.size()==2);
     gradient_doc.tags[0].data.pop_back();
     assert(!build_timeline(gradient_doc));
+    // Two-stop outer GradientBevel, right-facing two-pixel displacement.
+    Document gradient_bevel_doc;
+    gradient_bevel_doc.header.frame_count=1;
+    gradient_bevel_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        1,7, 2, 0,0,0,255, 255,255,255,255, 0,255,
+        0,0,1,0, 0,0,1,0, 0,0,0,0, 0,0,2,0, 0,1,0x21}});
+    gradient_bevel_doc.tags.push_back({1,0,{}});
+    const auto gb_frames=build_timeline(gradient_bevel_doc);
+    assert(gb_frames);
+    assert(gb_frames.frames[0].objects[0].filters.size()==1);
+    assert(gb_frames.frames[0].objects[0].filters[0].type==7);
+    assert(gb_frames.frames[0].objects[0].filters[0].gradient_bevel.offset_x==2);
+    gradient_bevel_doc.tags[0].data.pop_back();
+    assert(!build_timeline(gradient_bevel_doc));
     return 0;
 }
