@@ -139,6 +139,7 @@ TimelineResult build_timeline(const Document& document) {
             DropShadowFilter shadow;
             ColorMatrixFilter color_matrix;
             BevelFilter bevel;
+            GradientGlowFilter gradient_glow;
             std::vector<FilterEffect> filters;
             bool has_blur=false,has_glow=false,has_shadow=false;
             if(flags2&0x01) {
@@ -158,6 +159,7 @@ TimelineResult build_timeline(const Document& document) {
                 shadow={};
                 color_matrix={};
                 bevel={};
+                gradient_glow={};
                 auto fixed=[&](std::size_t offset)->std::uint32_t {
                     return std::uint32_t(d[p+offset]) |
                            (std::uint32_t(d[p+offset+1])<<8) |
@@ -250,6 +252,41 @@ TimelineResult build_timeline(const Document& document) {
                     bevel.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
                                 std::uint8_t(flags&0x1f)};
                     reader.bit+=216;
+                } else if(type==4) {
+                    // GradientGlow: count, RGBA colors, ratios, blur, angle,
+                    // distance, strength and flags. Only centered outer glow.
+                    if(d.size()-p<1)return fail("PlaceObject3 GradientGlow truncated");
+                    const unsigned stops=d[p];
+                    if(stops<2 || stops>16)return fail("PlaceObject3 gradient stop count unsupported");
+                    const std::size_t payload=1+stops*5+19;
+                    if(d.size()-p<payload)return fail("PlaceObject3 GradientGlow truncated");
+                    const auto params=p+1+stops*5;
+                    const auto value32=[&](std::size_t at)->std::uint32_t {
+                        return std::uint32_t(d[at])|
+                               (std::uint32_t(d[at+1])<<8)|
+                               (std::uint32_t(d[at+2])<<16)|
+                               (std::uint32_t(d[at+3])<<24);
+                    };
+                    const auto bx=value32(params),by=value32(params+4);
+                    const auto angle=value32(params+8),distance=value32(params+12);
+                    const auto strength=std::uint16_t(d[params+16])|
+                                        (std::uint16_t(d[params+17])<<8);
+                    const auto flags=d[params+18];
+                    if((bx&0xffff)||(by&0xffff)||(bx>>16)>16||(by>>16)>16 ||
+                       angle!=0 || distance!=0 || strength!=256 ||
+                       (flags&0xe0)!=0x20 || (flags&0x1f)==0 ||
+                       (flags&0x1f)>3)
+                        return fail("PlaceObject3 GradientGlow parameters unsupported");
+                    gradient_glow.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                                        std::uint8_t(flags&0x1f)};
+                    gradient_glow.rgba.assign(d.begin()+p+1,
+                                              d.begin()+p+1+stops*4);
+                    gradient_glow.ratios.assign(d.begin()+p+1+stops*4,
+                                                d.begin()+p+1+stops*5);
+                    for(unsigned j=1;j<stops;++j)
+                        if(gradient_glow.ratios[j]<=gradient_glow.ratios[j-1])
+                            return fail("PlaceObject3 GradientGlow ratios not increasing");
+                    reader.bit+=payload*8;
                 } else if(type==6) {
                     if(d.size()-p<80)return fail("PlaceObject3 ColorMatrix truncated");
                     for(unsigned index=0;index<20;++index) {
@@ -270,6 +307,7 @@ TimelineResult build_timeline(const Document& document) {
                 effect.shadow=shadow;
                 effect.color_matrix=color_matrix;
                 effect.bevel=bevel;
+                effect.gradient_glow=std::move(gradient_glow);
                 filters.push_back(effect);
                 }
             }
