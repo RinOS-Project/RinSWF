@@ -837,34 +837,6 @@ static void shadow_surface(Surface& surface,const DropShadowFilter& filter) {
         }
 }
 // Composite a blurred, tinted silhouette behind the original source.
-static void drop_shadow_surface(Surface& surface,const DropShadowFilter& filter) {
-    Surface blurred=surface;
-    blur_surface(blurred,filter.blur);
-    const auto original=surface.rgba;
-    const unsigned tint[3]={filter.red,filter.green,filter.blue};
-    for(std::size_t y=0;y<surface.height;++y)
-        for(std::size_t x=0;x<surface.width;++x) {
-            const auto dest=(y*surface.width+x)*4;
-            const auto sx=std::int64_t(x)-filter.offset_x;
-            const auto sy=std::int64_t(y)-filter.offset_y;
-            unsigned shadow_alpha=0;
-            if(sx>=0 && sy>=0 && sx<surface.width && sy<surface.height) {
-                const auto from=(std::size_t(sy)*surface.width+std::size_t(sx))*4;
-                shadow_alpha=(unsigned(blurred.rgba[from+3])*filter.alpha+127)/255;
-            }
-            const unsigned source_alpha=original[dest+3];
-            const unsigned out_alpha=source_alpha+
-                (shadow_alpha*(255-source_alpha)+127)/255;
-            if(!out_alpha)continue;
-            for(unsigned c=0;c<3;++c) {
-                const unsigned numerator=unsigned(original[dest+c])*source_alpha+
-                    (tint[c]*shadow_alpha*(255-source_alpha)+127)/255;
-                surface.rgba[dest+c]=std::uint8_t(
-                    (numerator+out_alpha/2)/out_alpha);
-            }
-            surface.rgba[dest+3]=std::uint8_t(out_alpha);
-        }
-}
 static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
     // The current filtered layer is transparent outside its alpha footprint.
     // Find the active rectangle once, rather than evaluating 20 coefficients
