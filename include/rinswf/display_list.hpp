@@ -27,11 +27,15 @@ struct DropShadowFilter {
     std::uint8_t red=0,green=0,blue=0,alpha=0;
     std::int16_t offset_x=0,offset_y=0; // whole output pixels
 };
+struct ColorMatrixFilter {
+    float values[20]={1,0,0,0,0, 0,1,0,0,0, 0,0,1,0,0, 0,0,0,1,0};
+};
 struct FilterEffect {
     std::uint8_t type=1; // 0 DropShadow, 1 Blur, 2 Glow
     BlurFilter blur{};
     GlowFilter glow{};
     DropShadowFilter shadow{};
+    ColorMatrixFilter color_matrix{};
 };
 struct DisplayEntry {
     std::uint16_t depth=0;
