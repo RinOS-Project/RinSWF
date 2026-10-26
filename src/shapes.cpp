@@ -212,6 +212,17 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                 const auto signed_value=static_cast<std::int16_t>(lo|(hi<<8));
                 line.fill.focal_point=double(signed_value)/256.0;
             }
+                } else if(fill_type>=0x40 && fill_type<=0x43) {
+                    std::uint32_t lo=0,hi=0;
+                    if(!b.byte(lo)||!b.byte(hi))
+                        return bad(Error::truncated,"LINESTYLE2 bitmap ID truncated");
+                    line.fill.bitmap_id=static_cast<std::uint16_t>(lo|(hi<<8));
+                    line.fill.kind=fill_type==0x40?FillKind::repeating_bitmap:
+                        fill_type==0x41?FillKind::clipped_bitmap:
+                        fill_type==0x42?FillKind::nonsmoothed_repeating_bitmap:
+                                         FillKind::nonsmoothed_clipped_bitmap;
+                    if(!matrix(b,line.fill.matrix))
+                        return bad(Error::truncated,"LINESTYLE2 bitmap matrix truncated");
                 } else {
                     return bad(Error::malformed_tag,"unsupported LINESTYLE2 stroke fill type");
                 }
