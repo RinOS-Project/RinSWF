@@ -109,7 +109,7 @@ static RenderResult vector_shape(Surface& dst,const ShapeGeometry& shape,
     }
     auto fill=draw_shape_fills(dst,transformed,0,0,&bitmaps);
     if(!fill)return fill;
-    return draw_shape_strokes(dst,transformed,0,0,limits);
+    return draw_shape_strokes(dst,transformed,0,0,limits,&bitmaps);
 }
 // Flatten quadratic centerlines before building affine stroke contours.
 // The tolerance is measured after the placement transform in screen pixels.
@@ -710,7 +710,7 @@ static RenderResult affine_shape(Surface& dst,const ShapeGeometry& shape,
     const auto ox=std::int32_t(-left*20),oy=std::int32_t(-top*20);
     auto a=draw_shape_fills(local,shape,ox,oy,&bitmaps);
     if(!a)return a;
-    auto b=draw_shape_strokes(local,shape,ox,oy,limits);
+    auto b=draw_shape_strokes(local,shape,ox,oy,limits,&bitmaps);
     if(!b)return b;
     Bitmap image;
     image.width=std::uint16_t(width);image.height=std::uint16_t(height);
@@ -1050,6 +1050,14 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                     else stroke_outline=false;
                 }
                 stroke_outline=stroke_outline && has_edge;
+                // A non-solid stroke fill has its own texture/gradient matrix.
+                // Rasterize in shape space before affine placement rather than
+                // treating it as a constant-color transformed outline.
+                for(const auto& style:sh.lines)
+                    if(style.has_fill && style.fill.kind!=FillKind::solid) {
+                        direct=false;
+                        stroke_outline=false;
+                    }
                 RenderResult a;
                 if(direct) a=vector_shape(canvas,sh,assets.bitmaps,m,limits);
                 else if(stroke_outline) {
@@ -1061,7 +1069,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             } else {
                 auto a=draw_shape_fills(canvas,it->second,tx,ty,&assets.bitmaps);
                 if(!a)return a;
-                auto b=draw_shape_strokes(canvas,it->second,tx,ty,limits);
+                auto b=draw_shape_strokes(canvas,it->second,tx,ty,limits,&assets.bitmaps);
                 if(!b)return b;
             }
         } else if(const auto sprite=assets.sprites.find(entry.character_id);
