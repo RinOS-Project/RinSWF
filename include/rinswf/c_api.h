@@ -18,6 +18,7 @@
 extern "C" {
 #endif
 typedef struct rinswf_document rinswf_document;
+typedef struct rinswf_movie rinswf_movie;
 typedef enum rinswf_status {
     RINSWF_OK=0, RINSWF_INVALID_ARGUMENT=1, RINSWF_TRUNCATED=2,
     RINSWF_INVALID_SIGNATURE=3, RINSWF_UNSUPPORTED_COMPRESSION=4,
@@ -53,6 +54,16 @@ RINSWF_API rinswf_status rinswf_document_header(const rinswf_document* document,
 RINSWF_API size_t rinswf_document_tag_count(const rinswf_document* document);
 RINSWF_API rinswf_status rinswf_document_tag(const rinswf_document* document,
     size_t index, rinswf_tag_view* out_tag);
+/* Movie owns its decoded timeline and assets; the original document can be freed.
+ * Rendering writes tightly packed RGBA with row stride supplied by the caller.
+ * The destination is not modified when rendering fails. */
+RINSWF_API rinswf_status rinswf_movie_create(const rinswf_document* document,
+    size_t max_asset_pixels, rinswf_movie** out_movie);
+RINSWF_API void rinswf_movie_destroy(rinswf_movie* movie);
+RINSWF_API size_t rinswf_movie_frame_count(const rinswf_movie* movie);
+RINSWF_API rinswf_status rinswf_movie_render_rgba(const rinswf_movie* movie,
+    size_t frame, uint32_t width, uint32_t height,
+    uint8_t* pixels, size_t stride, size_t buffer_size);
 RINSWF_API const char* rinswf_status_string(rinswf_status status);
 #ifdef __cplusplus
 }
