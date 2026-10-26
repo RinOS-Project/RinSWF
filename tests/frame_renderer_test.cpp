@@ -1001,5 +1001,25 @@ int main() {
     assert(shadow_surface_test.rgba[(2*8+2)*4]==255);
     assert(shadow_surface_test.rgba[(2*8+4)*4+3]>0);
     assert(shadow_surface_test.rgba[(2*8+4)*4+3]<255);
+    // ColorMatrixFilter swaps red and blue without using modified inputs.
+    FrameSnapshot matrix_frame;
+    DisplayEntry matrix_entry;
+    matrix_entry.depth=1;
+    matrix_entry.character_id=42;
+    FilterEffect matrix_effect;
+    matrix_effect.type=6;
+    // Input bitmap 42 is opaque red; swap R and B.
+    matrix_effect.color_matrix.values[0]=0;
+    matrix_effect.color_matrix.values[2]=1;
+    matrix_effect.color_matrix.values[10]=1;
+    matrix_effect.color_matrix.values[12]=0;
+    matrix_entry.filters.push_back(matrix_effect);
+    matrix_frame.objects.push_back(matrix_entry);
+    Surface matrix_surface;
+    assert(make_surface(8,8,matrix_surface));
+    assert(render_frame(matrix_frame,assets,matrix_surface));
+    assert(matrix_surface.rgba[0]==0);
+    assert(matrix_surface.rgba[2]==255);
+    assert(matrix_surface.rgba[3]==255);
     return 0;
 }
