@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/display_list.hpp"
 #include <utility>
+#include <cmath>
 namespace rinswf {
 namespace {
 std::uint16_t u16(const std::vector<std::uint8_t>& d,std::size_t p) {
@@ -206,6 +207,35 @@ TimelineResult build_timeline(const Document& document) {
                                std::uint8_t(flags&0x1f)};
                     has_glow=true;
                     reader.bit+=120;
+                } else if(type==0) {
+                    if(d.size()-p<23)return fail("PlaceObject3 DropShadowFilter truncated");
+                    const auto bx=fixed(4),by=fixed(8);
+                    const auto angle=static_cast<std::int32_t>(fixed(12));
+                    const auto distance=static_cast<std::int32_t>(fixed(16));
+                    const auto strength=std::uint16_t(d[p+20])|
+                                        (std::uint16_t(d[p+21])<<8);
+                    const auto settings=d[p+22];
+                    if((bx&0xffff)||(by&0xffff)||(bx>>16)>16||(by>>16)>16 ||
+                       strength!=256 || (settings&0xe0)!=0x20 ||
+                       (settings&0x1f)==0 || (settings&0x1f)>3)
+                        return fail("PlaceObject3 DropShadowFilter parameters unsupported");
+                    const double radians=double(angle)/65536.0;
+                    const double pixels=double(distance)/65536.0;
+                    const double dx=pixels*std::cos(radians);
+                    const double dy=pixels*std::sin(radians);
+                    if(!std::isfinite(dx)||!std::isfinite(dy) ||
+                       std::abs(dx)>32 || std::abs(dy)>32 ||
+                       std::abs(dx-std::round(dx))>1e-4 ||
+                       std::abs(dy-std::round(dy))>1e-4)
+                        return fail("PlaceObject3 DropShadowFilter offset unsupported");
+                    shadow.red=d[p];shadow.green=d[p+1];
+                    shadow.blue=d[p+2];shadow.alpha=d[p+3];
+                    shadow.offset_x=std::int16_t(std::lround(dx));
+                    shadow.offset_y=std::int16_t(std::lround(dy));
+                    shadow.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                                 std::uint8_t(settings&0x1f)};
+                    has_shadow=true;
+                    reader.bit+=184;
                 } else return fail("PlaceObject3 filter type unsupported");
             }
             std::uint8_t blend_mode=1;
@@ -238,6 +268,7 @@ TimelineResult build_timeline(const Document& document) {
                 if(flags2&0x02)entry.blend_mode=blend_mode;
                 if(has_blur) {entry.has_blur=true;entry.blur=blur;}
                 if(has_glow) {entry.has_glow=true;entry.glow=glow;}
+                if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
                 if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
