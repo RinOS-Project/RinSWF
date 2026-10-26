@@ -175,5 +175,19 @@ int main() {
     assert(matrix_filters[0].color_matrix.values[2]==1.0f);
     matrix_doc.tags[0].data.pop_back();
     assert(!build_timeline(matrix_doc));
+    // Bounded BevelFilter: opposing black/white colors, 2px right offset.
+    Document bevel_doc;
+    bevel_doc.header.frame_count=1;
+    bevel_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        1,3, 0,0,0,255, 255,255,255,255,
+        0,0,1,0, 0,0,1,0, 0,0,0,0, 0,0,2,0, 0,1,0x21}});
+    bevel_doc.tags.push_back({1,0,{}});
+    auto bevel_result=build_timeline(bevel_doc);
+    assert(bevel_result);
+    assert(bevel_result.frames[0].objects[0].filters.size()==1);
+    assert(bevel_result.frames[0].objects[0].filters[0].type==3);
+    assert(bevel_result.frames[0].objects[0].filters[0].bevel.offset_x==2);
+    bevel_doc.tags[0].data.back()=0xa1;
+    assert(!build_timeline(bevel_doc));
     return 0;
 }
