@@ -18,7 +18,7 @@
 - [x] DefineShape4のLINESTYLE2単色線の線端・結合・スケール・miter情報解析
 - [ ] PNG/GIF画像デコーダー統合、JPEG実画像の回帰テスト、LINESTYLE2の塗り線、NewStyles、PlaceObject3、Font
 - [ ] ストリーム読み込みとエラー位置の詳細化
-- [ ] C ABI（DLL/共有ライブラリ向け）
+- [x] C ABI（DLL/共有ライブラリ向け）：不透明Document所有権、FWS/CWS解析、リソース上限、ヘッダー・タグ参照、C向けステータスを実装（ビルド・動作検証未実施。描画APIのC公開は今後対応）
 
 ## Phase 2 — 表示エンジン
 - [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
