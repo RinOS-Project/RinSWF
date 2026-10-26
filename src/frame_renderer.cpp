@@ -755,6 +755,39 @@ static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
     result.translate_y=std::int32_t(std::llround(ty));
     return {};
 }
+// Separable bounded box blur in premultiplied-alpha space; outside pixels
+// contribute transparent black, so hard edges soften without color halos.
+static void blur_surface(Surface& surface,const BlurFilter& filter) {
+    for(unsigned pass=0;pass<filter.passes;++pass) {
+        for(unsigned axis=0;axis<2;++axis) {
+            const unsigned radius=axis==0?filter.radius_x:filter.radius_y;
+            if(!radius)continue;
+            auto source=surface.rgba;
+            const unsigned divisor=2*radius+1;
+            for(std::size_t y=0;y<surface.height;++y)
+                for(std::size_t x=0;x<surface.width;++x) {
+                    std::uint64_t alpha=0,rgb[3]={};
+                    for(int delta=-int(radius);delta<=int(radius);++delta) {
+                        const auto sx=std::int64_t(x)+(axis==0?delta:0);
+                        const auto sy=std::int64_t(y)+(axis==1?delta:0);
+                        if(sx<0 || sy<0 || sx>=surface.width || sy>=surface.height)
+                            continue;
+                        const auto index=(std::size_t(sy)*surface.width+std::size_t(sx))*4;
+                        const unsigned a=source[index+3];
+                        alpha+=a;
+                        for(unsigned channel=0;channel<3;++channel)
+                            rgb[channel]+=std::uint64_t(source[index+channel])*a;
+                    }
+                    const auto dest=(y*surface.width+x)*4;
+                    const auto out_alpha=(alpha+divisor/2)/divisor;
+                    for(unsigned channel=0;channel<3;++channel)
+                        surface.rgba[dest+channel]=alpha?
+                            std::uint8_t((rgb[channel]+alpha/2)/alpha):0;
+                    surface.rgba[dest+3]=std::uint8_t(out_alpha);
+                }
+        }
+    }
+}
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
                                      StrokeLimits limits,unsigned nesting,std::size_t playback_frame,
@@ -765,7 +798,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
-        if(entry.has_color_transform || entry.blend_mode!=1) {
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur) {
             isolated.width=stage.width;
             isolated.height=stage.height;
             isolated.rgba.assign(stage.rgba.size(),0);
@@ -863,7 +896,8 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 ? affine_bitmap(canvas,*bmp,m) : blit_bitmap(canvas,*bmp,tx/20,ty/20);
             if(!a)return a;
         } else return {Error::malformed_tag,"unknown placed character"};
-        if(entry.has_color_transform || entry.blend_mode!=1) {
+        if(entry.has_blur)blur_surface(isolated,entry.blur);
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur) {
             const auto& transform=entry.color_transform;
             for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
                 if(!isolated.rgba[index+3])continue;
