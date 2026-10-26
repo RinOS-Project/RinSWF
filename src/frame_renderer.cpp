@@ -867,6 +867,12 @@ static void drop_shadow_surface(Surface& surface,const DropShadowFilter& filter)
 }
 static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
     for(std::size_t p=0;p+3<surface.rgba.size();p+=4) {
+        // Keep fully transparent texels outside the original/filter footprint
+        // transparent. Otherwise an alpha bias fills the entire render surface.
+        if(surface.rgba[p+3]==0) {
+            surface.rgba[p]=surface.rgba[p+1]=surface.rgba[p+2]=0;
+            continue;
+        }
         // Evaluate all channels from the original pixel, not modified outputs.
         const double input[4]={double(surface.rgba[p]),double(surface.rgba[p+1]),
                                double(surface.rgba[p+2]),double(surface.rgba[p+3])};
@@ -888,7 +894,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
-        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow || !entry.filters.empty() || entry.has_shadow) {
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow || !entry.filters.empty()) {
             isolated.width=stage.width;
             isolated.height=stage.height;
             isolated.rgba.assign(stage.rgba.size(),0);
