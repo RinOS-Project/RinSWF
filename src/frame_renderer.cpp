@@ -837,6 +837,42 @@ static void shadow_surface(Surface& surface,const DropShadowFilter& filter) {
         }
 }
 // Composite a blurred, tinted silhouette behind the original source.
+// Limited outer bevel: opposing displaced silhouette edges become highlight
+// and shadow, composited underneath the original object.
+static void bevel_surface(Surface& surface,const BevelFilter& filter) {
+    Surface blurred=surface;
+    blur_surface(blurred,filter.blur);
+    const auto original=surface.rgba;
+    for(std::size_t y=0;y<surface.height;++y)
+        for(std::size_t x=0;x<surface.width;++x) {
+            const auto dest=(y*surface.width+x)*4;
+            auto sample=[&](int dx,int dy)->unsigned {
+                const auto sx=std::int64_t(x)+dx,sy=std::int64_t(y)+dy;
+                if(sx<0 || sy<0 || sx>=surface.width || sy>=surface.height)return 0;
+                return blurred.rgba[(std::size_t(sy)*surface.width+std::size_t(sx))*4+3];
+            };
+            const unsigned dark=sample(-filter.offset_x,-filter.offset_y);
+            const unsigned light=sample(filter.offset_x,filter.offset_y);
+            const unsigned dark_edge=dark>light?dark-light:0;
+            const unsigned light_edge=light>dark?light-dark:0;
+            const unsigned dark_alpha=(dark_edge*filter.shadow[3]+127)/255;
+            const unsigned light_alpha=(light_edge*filter.highlight[3]+127)/255;
+            const unsigned source_alpha=original[dest+3];
+            const unsigned effect_alpha=light_alpha+
+                (dark_alpha*(255-light_alpha)+127)/255;
+            const unsigned out_alpha=source_alpha+
+                (effect_alpha*(255-source_alpha)+127)/255;
+            if(!out_alpha)continue;
+            for(unsigned c=0;c<3;++c) {
+                const unsigned effect_premul=unsigned(filter.highlight[c])*light_alpha+
+                    (unsigned(filter.shadow[c])*dark_alpha*(255-light_alpha)+127)/255;
+                const unsigned numerator=unsigned(original[dest+c])*source_alpha+
+                    (effect_premul*(255-source_alpha)+127)/255;
+                surface.rgba[dest+c]=std::uint8_t((numerator+out_alpha/2)/out_alpha);
+            }
+            surface.rgba[dest+3]=std::uint8_t(out_alpha);
+        }
+}
 static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
     // The current filtered layer is transparent outside its alpha footprint.
     // Find the active rectangle once, rather than evaluating 20 coefficients
@@ -980,6 +1016,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 if(effect.type==0)shadow_surface(isolated,effect.shadow);
                 else if(effect.type==1)blur_surface(isolated,effect.blur);
                 else if(effect.type==2)glow_surface(isolated,effect.glow);
+                else if(effect.type==3)bevel_surface(isolated,effect.bevel);
                 else if(effect.type==6)color_matrix_surface(isolated,effect.color_matrix);
                 else return {Error::malformed_tag,"unsupported placement filter"};
             }
