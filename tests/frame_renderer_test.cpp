@@ -1062,5 +1062,29 @@ int main() {
     assert(chained_surface.rgba[(3*8+3)*4+2]>0);
     assert(chained_surface.rgba[(3*8+4)*4+3]>0);
     assert(chained_surface.rgba[(7*8+7)*4+3]==0);
+    // Opposing BevelFilter colors extend beyond the source silhouette.
+    FrameSnapshot bevel_frame;
+    DisplayEntry bevel_entry;
+    bevel_entry.depth=1;
+    bevel_entry.character_id=42;
+    bevel_entry.has_matrix=true;
+    bevel_entry.matrix.translate_x=80;
+    bevel_entry.matrix.translate_y=80;
+    FilterEffect bevel_effect;
+    bevel_effect.type=3;
+    bevel_effect.bevel.blur={1,1,1};
+    bevel_effect.bevel.offset_x=2;
+    bevel_effect.bevel.shadow[3]=255;
+    bevel_effect.bevel.highlight[0]=255;
+    bevel_effect.bevel.highlight[1]=255;
+    bevel_effect.bevel.highlight[2]=255;
+    bevel_effect.bevel.highlight[3]=255;
+    bevel_entry.filters.push_back(bevel_effect);
+    bevel_frame.objects.push_back(bevel_entry);
+    Surface bevel_surface_test;
+    assert(make_surface(12,12,bevel_surface_test));
+    assert(render_frame(bevel_frame,assets,bevel_surface_test));
+    assert(bevel_surface_test.rgba[(4*12+4)*4+3]==255);
+    assert(bevel_surface_test.rgba[(4*12+6)*4+3]>0);
     return 0;
 }
