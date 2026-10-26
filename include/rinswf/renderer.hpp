@@ -31,5 +31,5 @@ struct StrokeLimits {
 };
 [[nodiscard]] RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                                                std::int32_t offset_x=0,std::int32_t offset_y=0,
-                                               StrokeLimits limits={});
+                                               StrokeLimits limits={},const BitmapLibrary* bitmaps=nullptr);
 }
