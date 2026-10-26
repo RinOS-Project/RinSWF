@@ -117,5 +117,18 @@ int main() {
     assert(blur_timeline.frames[0].objects[0].blur.passes==1);
     blur_doc.tags[0].data[7]=2; // GlowFilter is not yet supported.
     assert(!build_timeline(blur_doc));
+    // Outer GlowFilter: green RGBA, radius 1px, strength 1.0, one pass.
+    Document glow_doc;
+    glow_doc.header.frame_count=1;
+    glow_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        1,2, 0,255,0,128, 0,0,1,0, 0,0,1,0, 0,1,0x21}});
+    glow_doc.tags.push_back({1,0,{}});
+    const auto glow_timeline=build_timeline(glow_doc);
+    assert(glow_timeline);
+    assert(glow_timeline.frames[0].objects[0].has_glow);
+    assert(glow_timeline.frames[0].objects[0].glow.green==255);
+    assert(glow_timeline.frames[0].objects[0].glow.blur.passes==1);
+    glow_doc.tags[0].data.back()=0xa1; // inner glow remains unsupported
+    assert(!build_timeline(glow_doc));
     return 0;
 }
