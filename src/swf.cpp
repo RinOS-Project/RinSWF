@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/swf.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <limits>
 #include <utility>
 #include <zlib.h>
@@ -80,15 +81,19 @@ Result parse(std::span<const std::uint8_t> input, Limits limits) {
         const std::size_t compressed_size=u32(input,8);
         if(compressed_size!=input.size()-17)
             return failure(Error::invalid_length,"ZWS compressed length mismatch");
-        lzma_options_lzma options{};
-        if(lzma_properties_decode(&options,nullptr,input.data()+12,5)!=LZMA_OK)
+        lzma_filter filters[]={{LZMA_FILTER_LZMA1,nullptr},{LZMA_VLI_UNKNOWN,nullptr}};
+        if(lzma_properties_decode(&filters[0],nullptr,input.data()+12,5)!=LZMA_OK)
             return failure(Error::decompression_failed,"invalid ZWS LZMA properties");
-        // Cap decoder memory independently of the output-size check.
-        if(options.dict_size>limits.max_uncompressed_bytes)
+        // liblzma allocates the decoded filter options; release on all paths.
+        const auto* options=static_cast<const lzma_options_lzma*>(filters[0].options);
+        if(options->dict_size>limits.max_uncompressed_bytes) {
+            std::free(filters[0].options);
             return failure(Error::size_limit,"ZWS dictionary exceeds resource limit");
-        lzma_filter filters[]={{LZMA_FILTER_LZMA1,&options},{LZMA_VLI_UNKNOWN,nullptr}};
+        }
         lzma_stream decoder=LZMA_STREAM_INIT;
-        if(lzma_raw_decoder(&decoder,filters)!=LZMA_OK)
+        const auto init=lzma_raw_decoder(&decoder,filters);
+        std::free(filters[0].options);
+        if(init!=LZMA_OK)
             return failure(Error::decompression_failed,"ZWS decoder initialization failed");
         storage.resize(declared);
         std::copy_n(input.begin(),8,storage.begin());
