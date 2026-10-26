@@ -134,3 +134,4 @@
 - [x] 中間階層のSprite置換時に子孫の再生クロックを引き継がず、孫の状態も破棄する回帰ケースを追加
 - [x] PlaceObject2/3のCXFORMWITHALPHA（RGBA乗算・加算）を表示リストへ保持し、オブジェクト専用の透明レイヤーに適用して合成
 - [x] PlaceObject3のBlendMode 1(Normal)・3(Multiply)・4(Screen)・8(Add)を解析し、独立レイヤーでRGB合成（残るモード・フィルターは未対応）
+- [x] PlaceObject3 BlendMode 5(Lighten)・6(Darken)・7(Difference)・9(Subtract)・10(Invert)のRGBAレイヤー合成を追加（Layer・Alpha・Erase・Overlay・HardLightは未対応）
