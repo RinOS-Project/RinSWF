@@ -147,3 +147,4 @@
 - [x] FilterList拡張の競合で残ったOverlay/HardLightの重複case、DropShadowテストの同名変数、未使用の重複影レンダラーを整理（ビルド実行は未確認）
 - [x] PlaceObject3の単一BevelFilter（ID 3）の限定解析と外側ハイライト・シャドウ描画を実装（整数cardinal offset、strength 1.0、Blur最大16px／3パス。inner/knockout/一般角度は未対応）
 - [x] GradientGlowFilter（ID 4）の2〜16色停止点・RGBA/比率解析と色補間付き外側発光を限定実装（angle/distance=0、整数Blur、strength=1、inner/knockout未対応。ビルド未検証）
+- [x] GradientBevelFilter（ID 7）の2〜16色停止点・RGBA/比率・整数cardinal displacement解析と、ぼかしたアルファ差分による外側グラデーション縁取りを限定実装（inner/knockout/一般角度は未対応。ビルド未検証）
