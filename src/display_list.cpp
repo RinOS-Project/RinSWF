@@ -133,32 +133,52 @@ TimelineResult build_timeline(const Document& document) {
             if(has_name && !reader.cstring(name))
                 return fail("PlaceObject3 name truncated");
             BlurFilter blur;
-            bool has_blur=false;
+            GlowFilter glow;
+            bool has_blur=false,has_glow=false;
             if(flags2&0x01) {
-                if(d.size()-reader.pos()<1)return fail("PlaceObject3 FILTERLIST truncated");
+                if(d.size()-reader.pos()<2)return fail("PlaceObject3 FILTERLIST truncated");
                 const auto count=d[reader.pos()];
                 reader.bit+=8;
-                if(count!=1 || d.size()-reader.pos()<10 || d[reader.pos()]!=1)
-                    return fail("PlaceObject3 filter type/count unsupported");
-                const auto p=reader.pos()+1;
+                if(count!=1)return fail("PlaceObject3 multiple filters unsupported");
+                const auto type=d[reader.pos()];
+                reader.bit+=8;
+                const auto p=reader.pos();
                 auto fixed=[&](std::size_t offset)->std::uint32_t {
                     return std::uint32_t(d[p+offset]) |
                            (std::uint32_t(d[p+offset+1])<<8) |
                            (std::uint32_t(d[p+offset+2])<<16) |
                            (std::uint32_t(d[p+offset+3])<<24);
                 };
-                const auto bx=fixed(0),by=fixed(4),settings=d[p+8];
-                // Only a bounded software blur is supported; do not ignore
-                // fractional/oversized radii or reserved bits silently.
-                if((settings&7)!=0 || (bx&0xffff)!=0 || (by&0xffff)!=0 ||
-                   (bx>>16)>16 || (by>>16)>16 || (settings>>3)>3 ||
-                   (settings>>3)==0)
-                    return fail("PlaceObject3 blur parameters unsupported");
-                blur.radius_x=std::uint8_t(bx>>16);
-                blur.radius_y=std::uint8_t(by>>16);
-                blur.passes=std::uint8_t(settings>>3);
-                reader.bit+=80;
-                has_blur=true;
+                if(type==1) {
+                    if(d.size()-p<9)return fail("PlaceObject3 BlurFilter truncated");
+                    const auto bx=fixed(0),by=fixed(4),settings=d[p+8];
+                    if((settings&7)!=0 || (bx&0xffff)!=0 || (by&0xffff)!=0 ||
+                       (bx>>16)>16 || (by>>16)>16 || (settings>>3)>3 ||
+                       (settings>>3)==0)
+                        return fail("PlaceObject3 blur parameters unsupported");
+                    blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                          std::uint8_t(settings>>3)};
+                    has_blur=true;
+                    reader.bit+=72;
+                } else if(type==2) {
+                    if(d.size()-p<15)return fail("PlaceObject3 GlowFilter truncated");
+                    const auto bx=fixed(4),by=fixed(8);
+                    const auto strength=std::uint16_t(d[p+12]) |
+                                        (std::uint16_t(d[p+13])<<8);
+                    const auto flags=d[p+14];
+                    // Basic outer Glow: integer radii, normal strength,
+                    // composite source enabled, no inner/knockout variants.
+                    if((bx&0xffff)||(by&0xffff)||(bx>>16)>16||(by>>16)>16 ||
+                       strength!=256 || (flags&0xe0)!=0x20 ||
+                       (flags&0x1f)==0 || (flags&0x1f)>3)
+                        return fail("PlaceObject3 GlowFilter parameters unsupported");
+                    glow.red=d[p];glow.green=d[p+1];
+                    glow.blue=d[p+2];glow.alpha=d[p+3];
+                    glow.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                               std::uint8_t(flags&0x1f)};
+                    has_glow=true;
+                    reader.bit+=120;
+                } else return fail("PlaceObject3 filter type unsupported");
             }
             std::uint8_t blend_mode=1;
             if(flags2&0x02) {
@@ -189,6 +209,7 @@ TimelineResult build_timeline(const Document& document) {
                 if(has_color) {entry.has_color_transform=true;entry.color_transform=color;}
                 if(flags2&0x02)entry.blend_mode=blend_mode;
                 if(has_blur) {entry.has_blur=true;entry.blur=blur;}
+                if(has_glow) {entry.has_glow=true;entry.glow=glow;}
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -208,6 +229,8 @@ TimelineResult build_timeline(const Document& document) {
                 entry.blend_mode=blend_mode;
                 entry.has_blur=has_blur;
                 entry.blur=blur;
+                entry.has_glow=has_glow;
+                entry.glow=glow;
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==26) { // PlaceObject2
