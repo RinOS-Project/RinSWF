@@ -788,6 +788,25 @@ static void blur_surface(Surface& surface,const BlurFilter& filter) {
         }
     }
 }
+// Basic outer glow: blur the source silhouette, tint it, then place the
+// unchanged source over it. The color channels remain straight-alpha.
+static void glow_surface(Surface& surface,const GlowFilter& filter) {
+    Surface halo=surface;
+    blur_surface(halo,filter.blur);
+    for(std::size_t i=0;i+3<surface.rgba.size();i+=4) {
+        const unsigned ha=(unsigned(halo.rgba[i+3])*filter.alpha+127)/255;
+        const unsigned sa=surface.rgba[i+3];
+        const unsigned oa=sa+(ha*(255-sa)+127)/255;
+        if(!oa)continue;
+        const unsigned colors[3]={filter.red,filter.green,filter.blue};
+        for(unsigned c=0;c<3;++c) {
+            const unsigned numerator=unsigned(surface.rgba[i+c])*sa+
+                (colors[c]*ha*(255-sa)+127)/255;
+            surface.rgba[i+c]=std::uint8_t((numerator+oa/2)/oa);
+        }
+        surface.rgba[i+3]=std::uint8_t(oa);
+    }
+}
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
                                      StrokeLimits limits,unsigned nesting,std::size_t playback_frame,
@@ -798,7 +817,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
-        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur) {
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow) {
             isolated.width=stage.width;
             isolated.height=stage.height;
             isolated.rgba.assign(stage.rgba.size(),0);
@@ -897,6 +916,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             if(!a)return a;
         } else return {Error::malformed_tag,"unknown placed character"};
         if(entry.has_blur)blur_surface(isolated,entry.blur);
+        if(entry.has_glow)glow_surface(isolated,entry.glow);
         if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur) {
             const auto& transform=entry.color_transform;
             for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
