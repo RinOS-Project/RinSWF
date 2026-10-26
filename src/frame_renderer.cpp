@@ -875,7 +875,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
-        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow || entry.has_shadow) {
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow || !entry.filters.empty() || entry.has_shadow) {
             isolated.width=stage.width;
             isolated.height=stage.height;
             isolated.rgba.assign(stage.rgba.size(),0);
@@ -973,10 +973,20 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 ? affine_bitmap(canvas,*bmp,m) : blit_bitmap(canvas,*bmp,tx/20,ty/20);
             if(!a)return a;
         } else return {Error::malformed_tag,"unknown placed character"};
-        if(entry.has_blur)blur_surface(isolated,entry.blur);
-        if(entry.has_glow)glow_surface(isolated,entry.glow);
-        if(entry.has_shadow)shadow_surface(isolated,entry.shadow);
-        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow) {
+        if(!entry.filters.empty()) {
+            for(const auto& effect:entry.filters) {
+                if(effect.type==0)shadow_surface(isolated,effect.shadow);
+                else if(effect.type==1)blur_surface(isolated,effect.blur);
+                else if(effect.type==2)glow_surface(isolated,effect.glow);
+                else return {Error::malformed_tag,"unsupported placement filter"};
+            }
+        } else {
+            // Existing callers may construct placement entries directly.
+            if(entry.has_blur)blur_surface(isolated,entry.blur);
+            if(entry.has_glow)glow_surface(isolated,entry.glow);
+            if(entry.has_shadow)shadow_surface(isolated,entry.shadow);
+        }
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow || !entry.filters.empty()) {
             const auto& transform=entry.color_transform;
             for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
                 if(!isolated.rgba[index+3])continue;
