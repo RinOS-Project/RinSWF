@@ -19,6 +19,7 @@ struct DisplayEntry {
     std::uint16_t depth=0;
     std::uint16_t character_id=0;
     std::size_t placed_frame=0; // zero-based parent frame when this instance was placed
+    std::uint8_t blend_mode=1; // SWF BlendMode: 1 normal, 3 multiply, 4 screen, 8 add
     bool has_color_transform=false;
     ColorTransform color_transform{};
     bool has_matrix=false;
