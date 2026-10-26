@@ -19,6 +19,7 @@ extern "C" {
 #endif
 typedef struct rinswf_document rinswf_document;
 typedef struct rinswf_movie rinswf_movie;
+typedef struct rinswf_player rinswf_player;
 typedef enum rinswf_status {
     RINSWF_OK=0, RINSWF_INVALID_ARGUMENT=1, RINSWF_TRUNCATED=2,
     RINSWF_INVALID_SIGNATURE=3, RINSWF_UNSUPPORTED_COMPRESSION=4,
@@ -64,6 +65,19 @@ RINSWF_API size_t rinswf_movie_frame_count(const rinswf_movie* movie);
 RINSWF_API rinswf_status rinswf_movie_render_rgba(const rinswf_movie* movie,
     size_t frame, uint32_t width, uint32_t height,
     uint8_t* pixels, size_t stride, size_t buffer_size);
+/* Independent playback state per instance. Advance is explicit; no timers,
+ * ActionScript execution, network access or audio output is started. */
+RINSWF_API rinswf_status rinswf_player_create(const rinswf_movie* movie,
+    rinswf_player** out_player);
+RINSWF_API void rinswf_player_destroy(rinswf_player* player);
+RINSWF_API rinswf_status rinswf_player_seek(rinswf_player* player, size_t frame);
+RINSWF_API rinswf_status rinswf_player_advance(rinswf_player* player, size_t count);
+RINSWF_API rinswf_status rinswf_player_set_playing(rinswf_player* player, int playing);
+RINSWF_API rinswf_status rinswf_player_state(const rinswf_player* player,
+    size_t* frame, int* playing);
+RINSWF_API rinswf_status rinswf_player_render_rgba(rinswf_player* player,
+    uint32_t width, uint32_t height, uint8_t* pixels,
+    size_t stride, size_t buffer_size);
 RINSWF_API const char* rinswf_status_string(rinswf_status status);
 #ifdef __cplusplus
 }
