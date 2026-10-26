@@ -138,6 +138,7 @@ TimelineResult build_timeline(const Document& document) {
             GlowFilter glow;
             DropShadowFilter shadow;
             ColorMatrixFilter color_matrix;
+            BevelFilter bevel;
             std::vector<FilterEffect> filters;
             bool has_blur=false,has_glow=false,has_shadow=false;
             if(flags2&0x01) {
@@ -156,6 +157,7 @@ TimelineResult build_timeline(const Document& document) {
                 glow={};
                 shadow={};
                 color_matrix={};
+                bevel={};
                 auto fixed=[&](std::size_t offset)->std::uint32_t {
                     return std::uint32_t(d[p+offset]) |
                            (std::uint32_t(d[p+offset+1])<<8) |
@@ -218,6 +220,36 @@ TimelineResult build_timeline(const Document& document) {
                                std::uint8_t(flags&0x1f)};
                     has_glow=true;
                     reader.bit+=120;
+                } else if(type==3) {
+                    // BevelFilter: shadow RGBA, highlight RGBA, blur X/Y,
+                    // angle, distance, strength and flags.
+                    if(d.size()-p<27)return fail("PlaceObject3 BevelFilter truncated");
+                    const auto bx=fixed(8),by=fixed(12);
+                    const auto angle=fixed(16),distance=fixed(20);
+                    const auto strength=std::uint16_t(d[p+24]) |
+                                        (std::uint16_t(d[p+25])<<8);
+                    const auto flags=d[p+26];
+                    // Initial support: outer, unknocked-out, normal strength
+                    // with integer cardinal displacement and limited radii.
+                    if((bx&0xffff)||(by&0xffff)||(bx>>16)>16||(by>>16)>16 ||
+                       strength!=256 || (flags&0xe0)!=0x20 ||
+                       (flags&0x1f)==0 || (flags&0x1f)>3 ||
+                       (distance&0xffff) || (distance>>16)>32 ||
+                       (angle!=0 && angle!=0x00019220 && angle!=0x0003243f &&
+                        angle!=0x0004b65f))
+                        return fail("PlaceObject3 BevelFilter parameters unsupported");
+                    const int amount=int(distance>>16);
+                    bevel.offset_x=std::int16_t(angle==0?amount:
+                                                angle==0x0003243f?-amount:0);
+                    bevel.offset_y=std::int16_t(angle==0x00019220?amount:
+                                                angle==0x0004b65f?-amount:0);
+                    for(unsigned c=0;c<4;++c) {
+                        bevel.shadow[c]=d[p+c];
+                        bevel.highlight[c]=d[p+4+c];
+                    }
+                    bevel.blur={std::uint8_t(bx>>16),std::uint8_t(by>>16),
+                                std::uint8_t(flags&0x1f)};
+                    reader.bit+=216;
                 } else if(type==6) {
                     if(d.size()-p<80)return fail("PlaceObject3 ColorMatrix truncated");
                     for(unsigned index=0;index<20;++index) {
@@ -237,6 +269,7 @@ TimelineResult build_timeline(const Document& document) {
                 effect.glow=glow;
                 effect.shadow=shadow;
                 effect.color_matrix=color_matrix;
+                effect.bevel=bevel;
                 filters.push_back(effect);
                 }
             }
