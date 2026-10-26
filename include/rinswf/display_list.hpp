@@ -41,6 +41,12 @@ struct GradientGlowFilter {
     std::vector<std::uint8_t> ratios;
     std::vector<std::uint8_t> rgba; // four bytes per stop
 };
+struct GradientBevelFilter {
+    BlurFilter blur{};
+    std::vector<std::uint8_t> ratios;
+    std::vector<std::uint8_t> rgba;
+    std::int16_t offset_x=0,offset_y=0;
+};
 struct FilterEffect {
     std::uint8_t type=1; // 0 DropShadow, 1 Blur, 2 Glow
     BlurFilter blur{};
@@ -49,6 +55,7 @@ struct FilterEffect {
     ColorMatrixFilter color_matrix{};
     BevelFilter bevel{};
     GradientGlowFilter gradient_glow{};
+    GradientBevelFilter gradient_bevel{};
 };
 struct DisplayEntry {
     std::uint16_t depth=0;
