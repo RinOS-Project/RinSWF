@@ -189,5 +189,19 @@ int main() {
     assert(bevel_result.frames[0].objects[0].filters[0].bevel.offset_x==2);
     bevel_doc.tags[0].data.back()=0xa1;
     assert(!build_timeline(bevel_doc));
+    // Centered two-stop GradientGlow: red -> blue.
+    Document gradient_doc;
+    gradient_doc.header.frame_count=1;
+    gradient_doc.tags.push_back({70,0,{0x02,0x01,1,0,42,0,
+        1,4, 2, 255,0,0,255, 0,0,255,255, 0,255,
+        0,0,1,0, 0,0,1,0, 0,0,0,0, 0,0,0,0, 0,1,0x21}});
+    gradient_doc.tags.push_back({1,0,{}});
+    const auto gradient_frames=build_timeline(gradient_doc);
+    assert(gradient_frames);
+    assert(gradient_frames.frames[0].objects[0].filters.size()==1);
+    assert(gradient_frames.frames[0].objects[0].filters[0].type==4);
+    assert(gradient_frames.frames[0].objects[0].filters[0].gradient_glow.ratios.size()==2);
+    gradient_doc.tags[0].data.pop_back();
+    assert(!build_timeline(gradient_doc));
     return 0;
 }
