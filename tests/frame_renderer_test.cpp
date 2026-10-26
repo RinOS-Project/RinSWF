@@ -944,5 +944,22 @@ int main() {
     assert(render_frame(blend_frame,assets,blend_surface));
     assert(blend_surface.rgba[0]==188); // screen with source 200
     assert(blend_surface.rgba[1]==118); // multiply with source 100
+    // BlurFilter expands the alpha footprint of a single bitmap pixel.
+    FrameSnapshot blurred_frame;
+    DisplayEntry blurred_entry;
+    blurred_entry.depth=1;
+    blurred_entry.character_id=42;
+    blurred_entry.has_blur=true;
+    blurred_entry.blur={1,1,1};
+    blurred_entry.has_matrix=true;
+    blurred_entry.matrix.translate_x=40;
+    blurred_entry.matrix.translate_y=40;
+    blurred_frame.objects.push_back(blurred_entry);
+    Surface blurred_surface;
+    assert(make_surface(8,8,blurred_surface));
+    assert(render_frame(blurred_frame,assets,blurred_surface));
+    assert(blurred_surface.rgba[(2*8+2)*4+3]>0);
+    assert(blurred_surface.rgba[(2*8+3)*4+3]>0);
+    assert(blurred_surface.rgba[(2*8+3)*4+3]<255);
     return 0;
 }
