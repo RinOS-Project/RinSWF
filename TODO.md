@@ -152,4 +152,5 @@
 - [x] BlurFilterの分離型X/Yパスで毎回フルRGBA配列を複製していた処理を、再利用可能なscratchバッファ1個とswapへ変更（画素計算は維持。ビルド・回帰テスト未実行）
 
 - [x] C ABIからTimeline/FrameAssetsを構築し、指定フレームを呼び出し側のRGBAバッファへ描画（stride・サイズ検証、失敗時バッファ不変、例外のC境界遮断。ビルド未検証）
-- [ ] C ABIの描画失敗時診断メッセージ、実行テスト、フレームの背景色適用、再生状態操作、オーディオ、イベント入力を整備
+- [x] C ABIの独立TimelinePlayerを追加し、seek/advance/pause/resume/state/render RGBAを公開（ActionScript・自動クロックなし、ビルド未検証）
+- [ ] C ABIの描画失敗時診断メッセージ、実行テスト、フレームの背景色適用、オーディオ、イベント入力を整備
