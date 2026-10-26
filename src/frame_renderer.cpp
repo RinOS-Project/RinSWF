@@ -975,9 +975,8 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         } else return {Error::malformed_tag,"unknown placed character"};
         if(entry.has_blur)blur_surface(isolated,entry.blur);
         if(entry.has_glow)glow_surface(isolated,entry.glow);
-        if(entry.has_shadow)drop_shadow_surface(isolated,entry.shadow);
         if(entry.has_shadow)shadow_surface(isolated,entry.shadow);
-        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur) {
+        if(entry.has_color_transform || entry.blend_mode!=1 || entry.has_blur || entry.has_glow || entry.has_shadow) {
             const auto& transform=entry.color_transform;
             for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
                 if(!isolated.rgba[index+3])continue;
