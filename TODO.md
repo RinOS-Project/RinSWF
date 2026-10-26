@@ -18,7 +18,7 @@
 - [x] DefineShape4のLINESTYLE2単色線の線端・結合・スケール・miter情報解析
 - [ ] PNG/GIF画像デコーダー統合、JPEG実画像の回帰テスト、LINESTYLE2の塗り線、NewStyles、PlaceObject3、Font
 - [ ] ストリーム読み込みとエラー位置の詳細化
-- [x] C ABI（DLL/共有ライブラリ向け）：不透明Document所有権、FWS/CWS解析、リソース上限、ヘッダー・タグ参照、C向けステータスを実装（ビルド・動作検証未実施。描画APIのC公開は今後対応）
+- [x] C ABI（DLL/共有ライブラリ向け）：不透明Document所有権、FWS/CWS解析、リソース上限、ヘッダー・タグ参照、C向けステータスを実装（ビルド・動作検証未実施。Movie生成・フレームRGBA描画APIも追加済み。ビルド・動作検証未実施）
 
 ## Phase 2 — 表示エンジン
 - [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
@@ -150,3 +150,6 @@
 - [x] GradientBevelFilter（ID 7）の2〜16色停止点・RGBA/比率・整数cardinal displacement解析と、ぼかしたアルファ差分による外側グラデーション縁取りを限定実装（inner/knockout/一般角度は未対応。ビルド未検証）
 - [x] GradientGlow／GradientBevelの色停止点補間を共通化し、先頭比率未満・末尾比率超過でのunsigned減算アンダーフローを回避して端点色へクランプ（ビルド・実行未検証）
 - [x] BlurFilterの分離型X/Yパスで毎回フルRGBA配列を複製していた処理を、再利用可能なscratchバッファ1個とswapへ変更（画素計算は維持。ビルド・回帰テスト未実行）
+
+- [x] C ABIからTimeline/FrameAssetsを構築し、指定フレームを呼び出し側のRGBAバッファへ描画（stride・サイズ検証、失敗時バッファ不変、例外のC境界遮断。ビルド未検証）
+- [ ] C ABIの描画失敗時診断メッセージ、実行テスト、フレームの背景色適用、再生状態操作、オーディオ、イベント入力を整備
