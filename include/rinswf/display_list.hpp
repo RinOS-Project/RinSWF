@@ -22,10 +22,17 @@ struct GlowFilter {
     BlurFilter blur{};
     std::uint8_t red=0,green=0,blue=0,alpha=0;
 };
+struct DropShadowFilter {
+    BlurFilter blur{};
+    std::uint8_t red=0,green=0,blue=0,alpha=0;
+    std::int16_t offset_x=0,offset_y=0; // whole output pixels
+};
 struct DisplayEntry {
     std::uint16_t depth=0;
     std::uint16_t character_id=0;
     std::size_t placed_frame=0; // zero-based parent frame when this instance was placed
+    bool has_shadow=false;
+    DropShadowFilter shadow{};
     bool has_glow=false;
     GlowFilter glow{};
     bool has_blur=false;
