@@ -53,6 +53,23 @@ struct Reader {
         if(!take(5,n)||!signed_value(n,out.translate_x)||!signed_value(n,out.translate_y)) return false;
         align(); return bit<=d.size()*8;
     }
+    bool cxform_rgb(ColorTransform& out) {
+        std::uint32_t has_add=0,has_mult=0,n=0;
+        if(!take(1,has_add)||!take(1,has_mult)||!take(4,n))return false;
+        if(has_mult) {
+            for(unsigned c=0;c<3;++c) {
+                std::int32_t raw=0;
+                if(!signed_value(n,raw))return false;
+                out.multiply[c]=double(raw)/256.0;
+            }
+        }
+        if(has_add) {
+            for(unsigned c=0;c<3;++c)
+                if(!signed_value(n,out.add[c]))return false;
+        }
+        align();
+        return bit<=d.size()*8;
+    }
     bool cxform_alpha(ColorTransform& out) {
         std::uint32_t has_add=0,has_mult=0,n=0;
         if(!take(1,has_add)||!take(1,has_mult)||!take(4,n))return false;
@@ -89,13 +106,16 @@ TimelineResult build_timeline(const Document& document) {
             Reader reader{d,32};
             Matrix matrix;
             if(!reader.matrix(matrix)) return fail("PlaceObject MATRIX truncated");
-            if(reader.pos()<d.size()) {
-                // PlaceObject contains CXFORM (RGB), not CXFORMWITHALPHA;
-                // defer color-transform support rather than misinterpret it.
-                return fail("PlaceObject CXFORM not supported");
-            }
+            ColorTransform transform;
+            const bool has_color=reader.pos()<d.size();
+            if(has_color && !reader.cxform_rgb(transform))
+                return fail("PlaceObject CXFORM truncated");
+            if(reader.pos()!=d.size())
+                return fail("PlaceObject trailing bytes");
             DisplayEntry entry;
-            entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size(); entry.has_matrix=true; entry.matrix=matrix;
+            entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size();
+            entry.has_matrix=true; entry.matrix=matrix;
+            entry.has_color_transform=has_color; entry.color_transform=transform;
             display[depth]=std::move(entry);
         } else if(tag.code==70) { // PlaceObject3
             if(d.size()<4)return fail("PlaceObject3 truncated");
