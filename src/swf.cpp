@@ -55,6 +55,8 @@ Result parse(std::span<const std::uint8_t> input, Limits limits) {
         return failure(Error::invalid_signature, "unknown SWF signature");
     const std::uint32_t declared = u32(input, 4);
     if (declared < 8) return failure(Error::invalid_length, "SWF length < 8");
+    if (marker == 'Z' && input[3] < 13)
+        return failure(Error::invalid_length,"ZWS requires SWF version 13 or later");
     if (declared > limits.max_uncompressed_bytes) return failure(Error::size_limit, "SWF exceeds size limit");
     std::vector<std::uint8_t> storage;
     std::span<const std::uint8_t> src = input;
@@ -93,9 +95,13 @@ Result parse(std::span<const std::uint8_t> input, Limits limits) {
         lzma_stream decoder=LZMA_STREAM_INIT;
         const auto init=lzma_raw_decoder(&decoder,filters);
         std::free(filters[0].options);
-        if(init!=LZMA_OK)
+        if(init!=LZMA_OK) {
+            lzma_end(&decoder);
             return failure(Error::decompression_failed,"ZWS decoder initialization failed");
-        storage.resize(declared);
+        }
+        // Decoder state must be released even if the output allocation throws.
+        try {storage.resize(declared);}
+        catch(...) {lzma_end(&decoder);throw;}
         std::copy_n(input.begin(),8,storage.begin());
         decoder.next_in=input.data()+17;
         decoder.avail_in=compressed_size;
