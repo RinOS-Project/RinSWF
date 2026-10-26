@@ -873,6 +873,38 @@ static void bevel_surface(Surface& surface,const BevelFilter& filter) {
             surface.rgba[dest+3]=std::uint8_t(out_alpha);
         }
 }
+static void gradient_glow_surface(Surface& surface,const GradientGlowFilter& filter) {
+    Surface blurred=surface;
+    blur_surface(blurred,filter.blur);
+    const std::size_t count=filter.ratios.size();
+    if(count<2 || filter.rgba.size()!=count*4)return;
+    for(std::size_t p=0;p+3<surface.rgba.size();p+=4) {
+        const unsigned intensity=blurred.rgba[p+3];
+        if(!intensity)continue;
+        std::size_t right=0;
+        while(right<count && filter.ratios[right]<intensity)++right;
+        const std::size_t low=right==0?0:std::min(right-1,count-1);
+        const std::size_t high=std::min(right,count-1);
+        const unsigned start=filter.ratios[low],end=filter.ratios[high];
+        const unsigned numerator=high==low?0:intensity-start;
+        const unsigned denominator=end>start?end-start:1;
+        unsigned rgba[4];
+        for(unsigned c=0;c<4;++c) {
+            const unsigned a=filter.rgba[low*4+c],b=filter.rgba[high*4+c];
+            rgba[c]=(a*(denominator-numerator)+b*numerator+denominator/2)/denominator;
+        }
+        const unsigned sa=surface.rgba[p+3];
+        const unsigned ga=(intensity*rgba[3]+127)/255;
+        const unsigned oa=sa+(ga*(255-sa)+127)/255;
+        if(!oa)continue;
+        for(unsigned c=0;c<3;++c) {
+            const unsigned premul=unsigned(surface.rgba[p+c])*sa+
+                (rgba[c]*ga*(255-sa)+127)/255;
+            surface.rgba[p+c]=std::uint8_t((premul+oa/2)/oa);
+        }
+        surface.rgba[p+3]=std::uint8_t(oa);
+    }
+}
 static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
     // The current filtered layer is transparent outside its alpha footprint.
     // Find the active rectangle once, rather than evaluating 20 coefficients
@@ -1017,6 +1049,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 else if(effect.type==1)blur_surface(isolated,effect.blur);
                 else if(effect.type==2)glow_surface(isolated,effect.glow);
                 else if(effect.type==3)bevel_surface(isolated,effect.bevel);
+                else if(effect.type==4)gradient_glow_surface(isolated,effect.gradient_glow);
                 else if(effect.type==6)color_matrix_surface(isolated,effect.color_matrix);
                 else return {Error::malformed_tag,"unsupported placement filter"};
             }
