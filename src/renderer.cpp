@@ -273,7 +273,7 @@ RenderResult blit_bitmap(Surface& target,const Bitmap& bitmap,std::int32_t x,std
     return {};
 }
 RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
-                                std::int32_t offset_x,std::int32_t offset_y,StrokeLimits limits) {
+                                std::int32_t offset_x,std::int32_t offset_y,StrokeLimits limits,const BitmapLibrary* bitmaps) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     if(!limits.max_tiles || limits.max_mask_bytes<CoverageMask::tile_size*CoverageMask::tile_size)
         return fail(Error::size_limit,"stroke mask budget too small");
@@ -471,7 +471,7 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
                     auto sample=line_style.has_fill?
                         sample_fill(line_style.fill,
                             double(gx)+0.5-double(offset_x)/20.0,
-                            double(gy)+0.5-double(offset_y)/20.0,nullptr):color;
+                            double(gy)+0.5-double(offset_y)/20.0,bitmaps):color;
                     sample.a=std::uint8_t((unsigned(sample.a)*coverage+127)/255);
                     pixel(target,gx,gy,sample);
                 }
