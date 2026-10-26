@@ -961,5 +961,24 @@ int main() {
     assert(blurred_surface.rgba[(2*8+2)*4+3]>0);
     assert(blurred_surface.rgba[(2*8+3)*4+3]>0);
     assert(blurred_surface.rgba[(2*8+3)*4+3]<255);
+    // Outer GlowFilter expands the silhouette with green translucent pixels.
+    FrameSnapshot glow_frame;
+    DisplayEntry glow_entry;
+    glow_entry.depth=1;glow_entry.character_id=42;
+    glow_entry.has_glow=true;
+    glow_entry.glow.red=0;glow_entry.glow.green=255;
+    glow_entry.glow.blue=0;glow_entry.glow.alpha=255;
+    glow_entry.glow.blur={1,1,1};
+    glow_entry.has_matrix=true;
+    glow_entry.matrix.translate_x=40;
+    glow_entry.matrix.translate_y=40;
+    glow_frame.objects.push_back(glow_entry);
+    Surface glow_surface_test;
+    assert(make_surface(8,8,glow_surface_test));
+    assert(render_frame(glow_frame,assets,glow_surface_test));
+    assert(glow_surface_test.rgba[(2*8+2)*4]==255);
+    assert(glow_surface_test.rgba[(2*8+3)*4+1]==255);
+    assert(glow_surface_test.rgba[(2*8+3)*4+3]>0);
+    assert(glow_surface_test.rgba[(2*8+3)*4+3]<255);
     return 0;
 }
