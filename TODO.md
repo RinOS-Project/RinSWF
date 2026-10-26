@@ -139,3 +139,4 @@
 - [x] PlaceObject3 BlendMode 13(Overlay)・14(HardLight)のソース/背景別しきい値のRGBA合成を実装（実行テスト未確認）
 - [x] PlaceObject3の単一BlurFilter（整数半径0〜16px・1〜3パス）を解析し、RGBAレイヤーへの分離型ボックスBlurを実装（Glow/DropShadow・複合フィルター・小数半径は未対応）
 - [x] PlaceObject3の単一GlowFilter（外側・通常合成、整数Blur半径、strength=1.0、1〜3パス）を解析し、ぼかしたアルファ輪郭に色を付けて原画へ合成（DropShadow・内側・knockout・複数フィルターは未対応）
+- [x] PlaceObject3の単一DropShadowFilterを制限付きで解析し、整数ピクセルの上下左右影・Blur・色付きアルファ合成を実装（小数距離・任意角度・inner/knockout・複数フィルターは未対応）
