@@ -87,9 +87,17 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
     geometry.character_id=static_cast<std::uint16_t>(id);
     const bool extended=tag.code!=2, alpha=tag.code>=32;
     std::uint32_t fills=0,lines=0;
-    if(!style_count(b,extended,fills)) return bad(Error::truncated,"truncated fill count");
-    if(fills>65535) return bad(Error::size_limit,"too many fills");
-    for(std::uint32_t i=0;i<fills;++i) {
+    // Style arrays added by StateNewStyles use their own local indices.
+    // Flatten them into the geometry's global arrays while retaining a
+    // separate base for the current style array.
+    std::uint32_t fill_base=0,line_base=0;
+    const auto read_styles=[&]() -> ShapeResult {
+        std::uint32_t new_fills=0,new_lines=0;
+        if(!style_count(b,extended,new_fills))
+            return bad(Error::truncated,"truncated fill count");
+        if(new_fills>65535-geometry.fills.size())
+            return bad(Error::size_limit,"too many fills");
+    for(std::uint32_t i=0;i<new_fills;++i) {
         std::uint32_t type=0;
         if(!b.byte(type)) return bad(Error::truncated,"truncated fill type");
         ShapeFill fill;
@@ -136,10 +144,11 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
         }
         geometry.fills.push_back(std::move(fill));
     }
-    if(!style_count(b,extended,lines)) return bad(Error::truncated,"truncated line count");
-    if(lines>65535) return bad(Error::size_limit,"too many lines");
-
-    for(std::uint32_t i=0;i<lines;++i) {
+        if(!style_count(b,extended,new_lines))
+            return bad(Error::truncated,"truncated line count");
+        if(new_lines>65535-geometry.lines.size())
+            return bad(Error::size_limit,"too many lines");
+    for(std::uint32_t i=0;i<new_lines;++i) {
         std::uint32_t low=0,high=0;
         if(!b.byte(low)||!b.byte(high)) return bad(Error::truncated,"truncated line width");
         ShapeLine line;
@@ -168,6 +177,13 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
         if(!color(b,alpha,line.color)) return bad(Error::truncated,"truncated line color");
         geometry.lines.push_back(line);
     }
+        fills=new_fills;lines=new_lines;
+        return {};
+    };
+    {
+        auto result=read_styles();
+        if(!result)return result;
+    }
     std::uint32_t fill_bits=0,line_bits=0;
     if(!b.read(4,fill_bits)||!b.read(4,line_bits)) return bad(Error::truncated,"missing style indices");
     std::uint32_t fill0=0,fill1=0,line=0;
@@ -179,7 +195,7 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
         if(!b.read(1,type)||!b.read(5,flags5)) return bad(Error::truncated,"truncated shape record");
         if(!type) {
             if(!flags5) break;
-            if(flags5 & 0x10) return bad(Error::malformed_tag,"new style arrays not supported");
+
             if(flags5 & 0x01) {
                 std::uint32_t n=0;
                 if(!b.read(5,n)||!b.signed_read(n,x)||!b.signed_read(n,y))
@@ -190,15 +206,28 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
             std::uint32_t idx=0;
             if(flags5 & 0x02) {
                 if(!b.read(fill_bits,idx)||idx>fills) return bad(Error::malformed_tag,"invalid fill0 index");
-                fill0=idx;
+                fill0=idx?fill_base+idx:0;
             }
             if(flags5 & 0x04) {
                 if(!b.read(fill_bits,idx)||idx>fills) return bad(Error::malformed_tag,"invalid fill1 index");
-                fill1=idx;
+                fill1=idx?fill_base+idx:0;
             }
             if(flags5 & 0x08) {
                 if(!b.read(line_bits,idx)||idx>lines) return bad(Error::malformed_tag,"invalid line index");
-                line=idx;
+                line=idx?line_base+idx:0;
+            }
+            if(flags5 & 0x10) {
+                if(tag.code==2)
+                    return bad(Error::malformed_tag,"NewStyles not valid for DefineShape1");
+                b.align();
+                fill_base=static_cast<std::uint32_t>(geometry.fills.size());
+                line_base=static_cast<std::uint32_t>(geometry.lines.size());
+                auto result=read_styles();
+                if(!result)return result;
+                if(!b.read(4,fill_bits)||!b.read(4,line_bits))
+                    return bad(Error::truncated,"truncated NewStyles index bits");
+                if((fills&&!fill_bits)||(lines&&!line_bits))
+                    return bad(Error::malformed_tag,"missing NewStyles index bits");
             }
         } else {
             const bool straight=(flags5 & 0x10)!=0;
