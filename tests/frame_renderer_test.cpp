@@ -924,5 +924,14 @@ int main() {
         assert(render_frame(blend_frame,assets,blend_surface));
         assert(blend_surface.rgba[0]==expected_red[i]);
     }
+    // Overlay branches on the backdrop; HardLight branches on the source.
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=13;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==157);
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=14;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==188);
     return 0;
 }
