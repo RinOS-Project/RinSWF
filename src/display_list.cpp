@@ -108,7 +108,7 @@ TimelineResult build_timeline(const Document& document) {
             // PlaceObject3 extends PlaceObject2 with filter/blend/cache,
             // class-name, image and visibility/opaque-background options.
             // Reject unsupported visual features instead of losing them.
-            if((flags&0xc0)!=0 || (flags2&~std::uint8_t(0x02))!=0)
+            if((flags&0xc0)!=0 || (flags2&~std::uint8_t(0x03))!=0)
                 return fail("PlaceObject3 clip/color/extended features unsupported");
             Reader reader{d,32};
             std::uint16_t id=0;
@@ -132,6 +132,34 @@ TimelineResult build_timeline(const Document& document) {
             std::string name;
             if(has_name && !reader.cstring(name))
                 return fail("PlaceObject3 name truncated");
+            BlurFilter blur;
+            bool has_blur=false;
+            if(flags2&0x01) {
+                if(d.size()-reader.pos()<1)return fail("PlaceObject3 FILTERLIST truncated");
+                const auto count=d[reader.pos()];
+                reader.bit+=8;
+                if(count!=1 || d.size()-reader.pos()<10 || d[reader.pos()]!=1)
+                    return fail("PlaceObject3 filter type/count unsupported");
+                const auto p=reader.pos()+1;
+                auto fixed=[&](std::size_t offset)->std::uint32_t {
+                    return std::uint32_t(d[p+offset]) |
+                           (std::uint32_t(d[p+offset+1])<<8) |
+                           (std::uint32_t(d[p+offset+2])<<16) |
+                           (std::uint32_t(d[p+offset+3])<<24);
+                };
+                const auto bx=fixed(0),by=fixed(4),settings=d[p+8];
+                // Only a bounded software blur is supported; do not ignore
+                // fractional/oversized radii or reserved bits silently.
+                if((settings&7)!=0 || (bx&0xffff)!=0 || (by&0xffff)!=0 ||
+                   (bx>>16)>16 || (by>>16)>16 || (settings>>3)>3 ||
+                   (settings>>3)==0)
+                    return fail("PlaceObject3 blur parameters unsupported");
+                blur.radius_x=std::uint8_t(bx>>16);
+                blur.radius_y=std::uint8_t(by>>16);
+                blur.passes=std::uint8_t(settings>>3);
+                reader.bit+=80;
+                has_blur=true;
+            }
             std::uint8_t blend_mode=1;
             if(flags2&0x02) {
                 if(d.size()-reader.pos()<1)return fail("PlaceObject3 blend mode truncated");
@@ -160,6 +188,7 @@ TimelineResult build_timeline(const Document& document) {
                 }
                 if(has_color) {entry.has_color_transform=true;entry.color_transform=color;}
                 if(flags2&0x02)entry.blend_mode=blend_mode;
+                if(has_blur) {entry.has_blur=true;entry.blur=blur;}
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -177,6 +206,8 @@ TimelineResult build_timeline(const Document& document) {
                 entry.has_color_transform=has_color;
                 entry.color_transform=color;
                 entry.blend_mode=blend_mode;
+                entry.has_blur=has_blur;
+                entry.blur=blur;
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==26) { // PlaceObject2
