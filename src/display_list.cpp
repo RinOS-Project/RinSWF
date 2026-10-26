@@ -108,7 +108,7 @@ TimelineResult build_timeline(const Document& document) {
             // PlaceObject3 extends PlaceObject2 with filter/blend/cache,
             // class-name, image and visibility/opaque-background options.
             // Reject unsupported visual features instead of losing them.
-            if((flags&0xc0)!=0 || (flags2&0xff)!=0)
+            if((flags&0xc0)!=0 || (flags2&~std::uint8_t(0x02))!=0)
                 return fail("PlaceObject3 clip/color/extended features unsupported");
             Reader reader{d,32};
             std::uint16_t id=0;
@@ -132,6 +132,14 @@ TimelineResult build_timeline(const Document& document) {
             std::string name;
             if(has_name && !reader.cstring(name))
                 return fail("PlaceObject3 name truncated");
+            std::uint8_t blend_mode=1;
+            if(flags2&0x02) {
+                if(d.size()-reader.pos()<1)return fail("PlaceObject3 blend mode truncated");
+                blend_mode=d[reader.pos()];
+                reader.bit+=8;
+                if(blend_mode!=1 && blend_mode!=3 && blend_mode!=4 && blend_mode!=8)
+                    return fail("PlaceObject3 blend mode unsupported");
+            }
             if(reader.pos()!=d.size())
                 return fail("PlaceObject3 trailing bytes");
             const auto it=display.find(depth);
@@ -148,6 +156,7 @@ TimelineResult build_timeline(const Document& document) {
                     entry.matrix=matrix;
                 }
                 if(has_color) {entry.has_color_transform=true;entry.color_transform=color;}
+                if(flags2&0x02)entry.blend_mode=blend_mode;
                 if(has_name)entry.name=std::move(name);
                 display[depth]=std::move(entry);
             } else {
@@ -164,6 +173,7 @@ TimelineResult build_timeline(const Document& document) {
                 entry.name=std::move(name);
                 entry.has_color_transform=has_color;
                 entry.color_transform=color;
+                entry.blend_mode=blend_mode;
                 display[depth]=std::move(entry);
             }
         } else if(tag.code==26) { // PlaceObject2
