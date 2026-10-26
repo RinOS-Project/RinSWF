@@ -23,6 +23,7 @@
 ## Phase 2 — 表示エンジン
 - [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
 - [x] PlaceObject / PlaceObject2 のMATRIX（scale/skew/translation）値の保持
+- [x] PlaceObject（タグ4）のRGB CXFORM（乗算・加算）を解析し、既存の独立レイヤー色変換描画へ統合（Alphaチャンネルは維持。ビルド・回帰未検証）
 - [ ] PlaceObject3の拡張フィールド、クリップや拡張描画属性の保持（PlaceObject3の基本配置・移動・置換・MATRIX・名前・ratioおよびCXFORMWITHALPHAの解析・描画合成は実装済み。フィルター・BlendMode・マスクなどは未実装）
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] FrameSnapshotの深度順オブジェクトからShapeとLossless BitmapをRGBAサーフェスへ描画する基本API（平行移動限定）
