@@ -889,5 +889,31 @@ int main() {
     assert(render_frame(color_frame,assets,tinted_surface));
     assert(tinted_surface.rgba[0]==0);
     assert(tinted_surface.rgba[2]==100);
+    // PlaceObject3 blending is applied to a separate source layer.
+    Bitmap blend_bitmap;
+    blend_bitmap.character_id=99;
+    blend_bitmap.width=1; blend_bitmap.height=1;
+    blend_bitmap.rgba={200,100,50,255};
+    assets.bitmaps.images.emplace(99,blend_bitmap);
+    FrameSnapshot blend_frame;
+    DisplayEntry blend_entry;
+    blend_entry.depth=1;blend_entry.character_id=99;
+    blend_frame.objects.push_back(blend_entry);
+    Surface blend_surface;
+    assert(make_surface(2,2,blend_surface));
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=3;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==78);
+    assert(blend_surface.rgba[1]==59);
+    assert(blend_surface.rgba[2]==39);
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=4;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==222);
+    clear(blend_surface,{100,150,200,255});
+    blend_frame.objects[0].blend_mode=8;
+    assert(render_frame(blend_frame,assets,blend_surface));
+    assert(blend_surface.rgba[0]==255);
     return 0;
 }
