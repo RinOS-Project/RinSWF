@@ -94,5 +94,15 @@ int main() {
     assert(color_frames);
     assert(color_frames.frames[0].objects[0].has_color_transform);
     assert(color_frames.frames[0].objects[0].color_transform.multiply[3]==0.5);
+    // PlaceObject3 blend mode follows optional placement data.
+    Document blending;
+    blending.header.frame_count=1;
+    blending.tags.push_back({70,0,{0x02,0x02,1,0,7,0,3}});
+    blending.tags.push_back({1,0,{}});
+    auto blend_frames=build_timeline(blending);
+    assert(blend_frames);
+    assert(blend_frames.frames[0].objects[0].blend_mode==3);
+    blending.tags[0].data.back()=9; // unsupported blend mode
+    assert(!build_timeline(blending));
     return 0;
 }
