@@ -187,8 +187,31 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                     line.color=line.fill.color;
                 } else if(fill_type==0x10 || fill_type==0x12 || fill_type==0x13) {
                     const std::uint32_t type=fill_type;
-
-                } else {
+            line.fill.kind=type==0x10?FillKind::linear_gradient:
+                      type==0x12?FillKind::radial_gradient:FillKind::focal_gradient;
+            if(!matrix(b,line.fill.matrix)) return bad(Error::truncated,"truncated gradient matrix");
+            std::uint32_t spread=0,interp=0,count=0;
+            if(!b.read(2,spread)||!b.read(2,interp)||!b.read(4,count))
+                return bad(Error::truncated,"truncated gradient header");
+            if(count==0 || count>15) return bad(Error::malformed_tag,"invalid gradient count");
+            if(tag.code==2 && type==0x13)
+                return bad(Error::malformed_tag,"focal gradient not valid for DefineShape1");
+            line.fill.spread=static_cast<std::uint8_t>(spread);
+            line.fill.interpolation=static_cast<std::uint8_t>(interp);
+            for(std::uint32_t k=0;k<count;++k) {
+                std::uint32_t ratio=0;
+                GradientStop stop;
+                if(!b.byte(ratio)||!color(b,alpha,stop.color))
+                    return bad(Error::truncated,"truncated gradient stop");
+                stop.ratio=static_cast<std::uint8_t>(ratio);
+                line.fill.stops.push_back(stop);
+            }
+            if(type==0x13) {
+                std::uint32_t lo=0,hi=0;
+                if(!b.byte(lo)||!b.byte(hi)) return bad(Error::truncated,"truncated focal point");
+                const auto signed_value=static_cast<std::int16_t>(lo|(hi<<8));
+                line.fill.focal_point=double(signed_value)/256.0;
+                    } else {
                     return bad(Error::malformed_tag,"unsupported LINESTYLE2 stroke fill type");
                 }
             } else if(!color(b,true,line.color))
