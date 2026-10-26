@@ -916,8 +916,8 @@ int main() {
     assert(render_frame(blend_frame,assets,blend_surface));
     assert(blend_surface.rgba[0]==255);
     // Additional blend modes against opaque source/background.
-    const unsigned modes[]={7,9,10,11,12};
-    const unsigned expected_red[]={100,0,200,100,155};
+    const unsigned modes[]={5,6,7,9,10};
+    const unsigned expected_red[]={200,100,100,0,155};
     for(unsigned i=0;i<5;++i) {
         clear(blend_surface,{100,150,200,255});
         blend_frame.objects[0].blend_mode=std::uint8_t(modes[i]);
