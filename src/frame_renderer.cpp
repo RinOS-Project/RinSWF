@@ -866,23 +866,34 @@ static void drop_shadow_surface(Surface& surface,const DropShadowFilter& filter)
         }
 }
 static void color_matrix_surface(Surface& surface,const ColorMatrixFilter& filter) {
-    for(std::size_t p=0;p+3<surface.rgba.size();p+=4) {
-        // Keep fully transparent texels outside the original/filter footprint
-        // transparent. Otherwise an alpha bias fills the entire render surface.
-        if(surface.rgba[p+3]==0) {
-            surface.rgba[p]=surface.rgba[p+1]=surface.rgba[p+2]=0;
-            continue;
+    // The current filtered layer is transparent outside its alpha footprint.
+    // Find the active rectangle once, rather than evaluating 20 coefficients
+    // across the entire (potentially large) destination surface.
+    std::size_t left=surface.width,top=surface.height,right=0,bottom=0;
+    for(std::size_t y=0;y<surface.height;++y)
+        for(std::size_t x=0;x<surface.width;++x) {
+            const auto p=(y*surface.width+x)*4;
+            if(!surface.rgba[p+3]) {
+                surface.rgba[p]=surface.rgba[p+1]=surface.rgba[p+2]=0;
+                continue;
+            }
+            left=std::min(left,x);right=std::max(right,x+1);
+            top=std::min(top,y);bottom=std::max(bottom,y+1);
         }
-        // Evaluate all channels from the original pixel, not modified outputs.
-        const double input[4]={double(surface.rgba[p]),double(surface.rgba[p+1]),
-                               double(surface.rgba[p+2]),double(surface.rgba[p+3])};
-        for(unsigned row=0;row<4;++row) {
-            double value=filter.values[row*5+4];
-            for(unsigned col=0;col<4;++col)
-                value+=double(filter.values[row*5+col])*input[col];
-            surface.rgba[p+row]=std::uint8_t(std::lround(std::clamp(value,0.0,255.0)));
+    if(left>=right || top>=bottom)return;
+    for(std::size_t y=top;y<bottom;++y)
+        for(std::size_t x=left;x<right;++x) {
+            const auto p=(y*surface.width+x)*4;
+            if(!surface.rgba[p+3])continue;
+            const double input[4]={double(surface.rgba[p]),double(surface.rgba[p+1]),
+                                   double(surface.rgba[p+2]),double(surface.rgba[p+3])};
+            for(unsigned row=0;row<4;++row) {
+                double value=filter.values[row*5+4];
+                for(unsigned col=0;col<4;++col)
+                    value+=double(filter.values[row*5+col])*input[col];
+                surface.rgba[p+row]=std::uint8_t(std::lround(std::clamp(value,0.0,255.0)));
+            }
         }
-    }
 }
 static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const FrameAssets& assets,Surface& stage,
