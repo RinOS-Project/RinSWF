@@ -980,5 +980,26 @@ int main() {
     assert(glow_surface_test.rgba[(2*8+3)*4+1]==255);
     assert(glow_surface_test.rgba[(2*8+3)*4+3]>0);
     assert(glow_surface_test.rgba[(2*8+3)*4+3]<255);
+    // A bounded right-offset shadow adds alpha outside the source bounds.
+    FrameSnapshot shadow_frame;
+    DisplayEntry shadow_entry;
+    shadow_entry.depth=1;shadow_entry.character_id=42;
+    shadow_entry.has_shadow=true;
+    shadow_entry.shadow.red=0;
+    shadow_entry.shadow.green=0;
+    shadow_entry.shadow.blue=0;
+    shadow_entry.shadow.alpha=255;
+    shadow_entry.shadow.offset_x=2;
+    shadow_entry.shadow.blur={1,1,1};
+    shadow_entry.has_matrix=true;
+    shadow_entry.matrix.translate_x=40;
+    shadow_entry.matrix.translate_y=40;
+    shadow_frame.objects.push_back(shadow_entry);
+    Surface shadow_surface_test;
+    assert(make_surface(8,8,shadow_surface_test));
+    assert(render_frame(shadow_frame,assets,shadow_surface_test));
+    assert(shadow_surface_test.rgba[(2*8+2)*4]==255);
+    assert(shadow_surface_test.rgba[(2*8+4)*4+3]>0);
+    assert(shadow_surface_test.rgba[(2*8+4)*4+3]<255);
     return 0;
 }
