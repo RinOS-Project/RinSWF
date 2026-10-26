@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/c_api.h"
 #include "rinswf/swf.hpp"
+#include "rinswf/frame_renderer.hpp"
+#include <cstring>
+#include <limits>
+#include <memory>
 #include <new>
 #include <utility>
 struct rinswf_document { rinswf::Document value; };
+struct rinswf_movie {
+    rinswf::TimelineResult timeline;
+    rinswf::FrameAssets assets;
+};
 namespace {
 rinswf_status convert(rinswf::Error code) noexcept {
     switch(code) {
@@ -60,6 +68,54 @@ rinswf_status rinswf_document_tag(const rinswf_document* document,
     const auto& item=document->value.tags[index];
     *tag={item.code,item.offset,item.data.empty()?nullptr:item.data.data(),item.data.size()};
     return RINSWF_OK;
+}
+rinswf_status rinswf_movie_create(const rinswf_document* document,
+    size_t max_asset_pixels,rinswf_movie** output) {
+    if(!output)return RINSWF_INVALID_ARGUMENT;
+    *output=nullptr;
+    if(!document)return RINSWF_INVALID_ARGUMENT;
+    try {
+        auto movie=new rinswf_movie{};
+        // Keep the allocation guarded until both timeline and assets succeed.
+        std::unique_ptr<rinswf_movie> guard(movie);
+        movie->timeline=rinswf::build_timeline(document->value);
+        if(!movie->timeline)return convert(movie->timeline.error);
+        const auto result=rinswf::collect_frame_assets(document->value,
+            movie->assets,max_asset_pixels?max_asset_pixels:16*1024*1024);
+        if(!result)return convert(result.error);
+        *output=guard.release();
+        return RINSWF_OK;
+    } catch(const std::bad_alloc&) {return RINSWF_OUT_OF_MEMORY;}
+      catch(...) {return RINSWF_INTERNAL_ERROR;}
+}
+void rinswf_movie_destroy(rinswf_movie* movie) {delete movie;}
+size_t rinswf_movie_frame_count(const rinswf_movie* movie) {
+    return movie?movie->timeline.frames.size():0;
+}
+rinswf_status rinswf_movie_render_rgba(const rinswf_movie* movie,
+    size_t frame,uint32_t width,uint32_t height,
+    uint8_t* pixels,size_t stride,size_t buffer_size) {
+    if(!movie||!pixels||!width||!height)return RINSWF_INVALID_ARGUMENT;
+    if(frame>=movie->timeline.frames.size())return RINSWF_INVALID_ARGUMENT;
+    if(width>std::numeric_limits<size_t>::max()/4)return RINSWF_SIZE_LIMIT;
+    const size_t row_bytes=size_t(width)*4;
+    if(stride<row_bytes || size_t(height)-1>(std::numeric_limits<size_t>::max()-row_bytes)/stride)
+        return RINSWF_SIZE_LIMIT;
+    const size_t required=(size_t(height)-1)*stride+row_bytes;
+    if(buffer_size<required)return RINSWF_INVALID_ARGUMENT;
+    try {
+        rinswf::Surface surface;
+        auto result=rinswf::make_surface(width,height,surface);
+        if(!result)return convert(result.error);
+        // Explicit zeroed transparent canvas, with no hidden frame clock.
+        result=rinswf::render_frame_at(movie->timeline.frames[frame],
+            movie->assets,surface,frame);
+        if(!result)return convert(result.error);
+        for(size_t y=0;y<height;++y)
+            std::memcpy(pixels+y*stride,surface.rgba.data()+y*row_bytes,row_bytes);
+        return RINSWF_OK;
+    } catch(const std::bad_alloc&) {return RINSWF_OUT_OF_MEMORY;}
+      catch(...) {return RINSWF_INTERNAL_ERROR;}
 }
 const char* rinswf_status_string(rinswf_status status) {
     switch(status) {
