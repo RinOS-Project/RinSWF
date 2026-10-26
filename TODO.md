@@ -133,3 +133,4 @@
 - [x] 親Spriteの配置ID・配置フレームが変化または削除された時点で、該当Depth配下のネストした再生状態を全破棄（親のidentity更新前に処理）
 - [x] 中間階層のSprite置換時に子孫の再生クロックを引き継がず、孫の状態も破棄する回帰ケースを追加
 - [x] PlaceObject2/3のCXFORMWITHALPHA（RGBA乗算・加算）を表示リストへ保持し、オブジェクト専用の透明レイヤーに適用して合成
+- [x] PlaceObject3のBlendMode 1(Normal)・3(Multiply)・4(Screen)・8(Add)を解析し、独立レイヤーでRGB合成（残るモード・フィルターは未対応）
