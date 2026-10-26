@@ -1086,5 +1086,24 @@ int main() {
     assert(render_frame(bevel_frame,assets,bevel_surface_test));
     assert(bevel_surface_test.rgba[(4*12+4)*4+3]==255);
     assert(bevel_surface_test.rgba[(4*12+6)*4+3]>0);
+    // Ratios need not begin at zero. Sampling below the first stop
+    // must clamp to that color instead of unsigned-underflowing.
+    FrameSnapshot gradient_edge_frame;
+    DisplayEntry gradient_edge_entry;
+    gradient_edge_entry.depth=1;
+    gradient_edge_entry.character_id=42;
+    FilterEffect gradient_edge;
+    gradient_edge.type=4;
+    gradient_edge.gradient_glow.blur={1,1,1};
+    gradient_edge.gradient_glow.ratios={128,255};
+    gradient_edge.gradient_glow.rgba={0,255,0,255, 255,0,0,255};
+    gradient_edge_entry.filters.push_back(gradient_edge);
+    gradient_edge_frame.objects.push_back(gradient_edge_entry);
+    Surface gradient_edge_surface;
+    assert(make_surface(8,8,gradient_edge_surface));
+    assert(render_frame(gradient_edge_frame,assets,gradient_edge_surface));
+    // The halo uses the first green stop for low alpha intensities.
+    assert(gradient_edge_surface.rgba[(0*8+1)*4+1]>=
+           gradient_edge_surface.rgba[(0*8+1)*4]);
     return 0;
 }
