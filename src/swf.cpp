@@ -4,6 +4,9 @@
 #include <limits>
 #include <utility>
 #include <zlib.h>
+#ifdef RINSWF_HAVE_LZMA
+#include <lzma.h>
+#endif
 
 namespace rinswf {
 namespace {
@@ -49,7 +52,6 @@ Result parse(std::span<const std::uint8_t> input, Limits limits) {
     const auto marker = input[0];
     if (marker != 'F' && marker != 'C' && marker != 'Z')
         return failure(Error::invalid_signature, "unknown SWF signature");
-    if (marker == 'Z') return failure(Error::unsupported_compression, "LZMA ZWS not yet supported");
     const std::uint32_t declared = u32(input, 4);
     if (declared < 8) return failure(Error::invalid_length, "SWF length < 8");
     if (declared > limits.max_uncompressed_bytes) return failure(Error::size_limit, "SWF exceeds size limit");
@@ -57,7 +59,7 @@ Result parse(std::span<const std::uint8_t> input, Limits limits) {
     std::span<const std::uint8_t> src = input;
     if (marker == 'F') {
         if (input.size() != declared) return failure(Error::invalid_length, "FWS size mismatch");
-    } else {
+    } else if (marker == 'C') {
         storage.resize(declared);
         std::copy_n(input.begin(), 8, storage.begin());
         uLongf output_size = declared - 8;
@@ -67,6 +69,41 @@ Result parse(std::span<const std::uint8_t> input, Limits limits) {
                        static_cast<uLong>(input.size()-8)) != Z_OK || output_size != declared-8)
             return failure(Error::decompression_failed, "CWS zlib decode failed or length mismatch");
         src = storage;
+    } else {
+#ifndef RINSWF_HAVE_LZMA
+        return failure(Error::unsupported_compression,"ZWS requires liblzma");
+#else
+        // ZWS: 8-byte SWF header, compressed length, 5-byte LZMA1
+        // properties, then the raw LZMA stream. The advertised length is
+        // the compressed payload size excluding its five properties bytes.
+        if(input.size()<17)return failure(Error::truncated,"truncated ZWS header");
+        const std::size_t compressed_size=u32(input,8);
+        if(compressed_size!=input.size()-17)
+            return failure(Error::invalid_length,"ZWS compressed length mismatch");
+        lzma_options_lzma options{};
+        if(lzma_properties_decode(&options,nullptr,input.data()+12,5)!=LZMA_OK)
+            return failure(Error::decompression_failed,"invalid ZWS LZMA properties");
+        // Cap decoder memory independently of the output-size check.
+        if(options.dict_size>limits.max_uncompressed_bytes)
+            return failure(Error::size_limit,"ZWS dictionary exceeds resource limit");
+        lzma_filter filters[]={{LZMA_FILTER_LZMA1,&options},{LZMA_VLI_UNKNOWN,nullptr}};
+        lzma_stream decoder=LZMA_STREAM_INIT;
+        if(lzma_raw_decoder(&decoder,filters)!=LZMA_OK)
+            return failure(Error::decompression_failed,"ZWS decoder initialization failed");
+        storage.resize(declared);
+        std::copy_n(input.begin(),8,storage.begin());
+        decoder.next_in=input.data()+17;
+        decoder.avail_in=compressed_size;
+        decoder.next_out=storage.data()+8;
+        decoder.avail_out=declared-8;
+        const lzma_ret decoded=lzma_code(&decoder,LZMA_FINISH);
+        const bool complete=decoded==LZMA_STREAM_END &&
+            decoder.total_out==declared-8 && decoder.avail_in==0;
+        lzma_end(&decoder);
+        if(!complete)
+            return failure(Error::decompression_failed,"ZWS LZMA decode or length mismatch");
+        src=storage;
+#endif
     }
     // RECT: five high bits declare number of signed bits in each coordinate.
     if (src.size() < 9) return failure(Error::truncated, "missing RECT");
