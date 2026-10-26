@@ -150,6 +150,12 @@ TimelineResult build_timeline(const Document& document) {
                 const auto type=d[reader.pos()];
                 reader.bit+=8;
                 const auto p=reader.pos();
+                // Filter entries are independent. Never inherit parameters
+                // from a preceding filter of a different type.
+                blur={};
+                glow={};
+                shadow={};
+                color_matrix={};
                 auto fixed=[&](std::size_t offset)->std::uint32_t {
                     return std::uint32_t(d[p+offset]) |
                            (std::uint32_t(d[p+offset+1])<<8) |
