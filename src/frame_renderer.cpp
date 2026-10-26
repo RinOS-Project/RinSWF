@@ -758,11 +758,14 @@ static RenderResult combine_matrix(const Matrix& parent,const Matrix& child,
 // Separable bounded box blur in premultiplied-alpha space; outside pixels
 // contribute transparent black, so hard edges soften without color halos.
 static void blur_surface(Surface& surface,const BlurFilter& filter) {
+    if((filter.radius_x==0 && filter.radius_y==0) || filter.passes==0)return;
+    // Reuse one destination allocation across every axis and blur pass.
+    std::vector<std::uint8_t> scratch(surface.rgba.size());
     for(unsigned pass=0;pass<filter.passes;++pass) {
         for(unsigned axis=0;axis<2;++axis) {
             const unsigned radius=axis==0?filter.radius_x:filter.radius_y;
             if(!radius)continue;
-            auto source=surface.rgba;
+            const auto& source=surface.rgba;
             const unsigned divisor=2*radius+1;
             for(std::size_t y=0;y<surface.height;++y)
                 for(std::size_t x=0;x<surface.width;++x) {
@@ -781,10 +784,11 @@ static void blur_surface(Surface& surface,const BlurFilter& filter) {
                     const auto dest=(y*surface.width+x)*4;
                     const auto out_alpha=(alpha+divisor/2)/divisor;
                     for(unsigned channel=0;channel<3;++channel)
-                        surface.rgba[dest+channel]=alpha?
+                        scratch[dest+channel]=alpha?
                             std::uint8_t((rgb[channel]+alpha/2)/alpha):0;
-                    surface.rgba[dest+3]=std::uint8_t(out_alpha);
+                    scratch[dest+3]=std::uint8_t(out_alpha);
                 }
+            surface.rgba.swap(scratch);
         }
     }
 }
