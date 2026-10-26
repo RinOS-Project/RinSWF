@@ -201,7 +201,7 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
             for(std::uint32_t k=0;k<count;++k) {
                 std::uint32_t ratio=0;
                 GradientStop stop;
-                if(!b.byte(ratio)||!color(b,alpha,stop.color))
+                if(!b.byte(ratio)||!color(b,true,stop.color))
                     return bad(Error::truncated,"truncated gradient stop");
                 stop.ratio=static_cast<std::uint8_t>(ratio);
                 line.fill.stops.push_back(stop);
@@ -211,7 +211,8 @@ ShapeResult decode_shape(const Tag& tag,std::size_t max_commands) {
                 if(!b.byte(lo)||!b.byte(hi)) return bad(Error::truncated,"truncated focal point");
                 const auto signed_value=static_cast<std::int16_t>(lo|(hi<<8));
                 line.fill.focal_point=double(signed_value)/256.0;
-                    } else {
+            }
+                } else {
                     return bad(Error::malformed_tag,"unsupported LINESTYLE2 stroke fill type");
                 }
             } else if(!color(b,true,line.color))
