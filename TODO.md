@@ -145,3 +145,4 @@
 - [x] ColorMatrixFilterのアルファ加算でオブジェクト外の透明領域全体が不透明になる問題を抑制（完全透明の入力画素は透明保持。Flashの厳密なフィルター領域拡張は今後対応）
 - [x] ColorMatrixFilterの20係数演算を入力アルファが存在する外接矩形に限定し、Blur→ColorMatrix連続適用の描画テストを追加（コンパイル・実行未確認）
 - [x] FilterList拡張の競合で残ったOverlay/HardLightの重複case、DropShadowテストの同名変数、未使用の重複影レンダラーを整理（ビルド実行は未確認）
+- [x] PlaceObject3の単一BevelFilter（ID 3）の限定解析と外側ハイライト・シャドウ描画を実装（整数cardinal offset、strength 1.0、Blur最大16px／3パス。inner/knockout/一般角度は未対応）
