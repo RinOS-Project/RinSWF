@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/display_list.hpp"
 #include <utility>
+#include <cstring>
 #include <cmath>
 namespace rinswf {
 namespace {
@@ -210,12 +211,25 @@ TimelineResult build_timeline(const Document& document) {
                                std::uint8_t(flags&0x1f)};
                     has_glow=true;
                     reader.bit+=120;
+                } else if(type==6) {
+                    if(d.size()-p<80)return fail("PlaceObject3 ColorMatrix truncated");
+                    for(unsigned index=0;index<20;++index) {
+                        const auto raw=fixed(index*4);
+                        float coefficient;
+                        static_assert(sizeof(coefficient)==sizeof(raw));
+                        std::memcpy(&coefficient,&raw,sizeof(raw));
+                        if(!std::isfinite(coefficient) || std::abs(coefficient)>4096.0f)
+                            return fail("PlaceObject3 ColorMatrix coefficient unsupported");
+                        color_matrix.values[index]=coefficient;
+                    }
+                    reader.bit+=640;
                 } else return fail("PlaceObject3 filter type unsupported");
                 FilterEffect effect;
                 effect.type=type;
                 effect.blur=blur;
                 effect.glow=glow;
                 effect.shadow=shadow;
+                effect.color_matrix=color_matrix;
                 filters.push_back(effect);
                 }
             }
