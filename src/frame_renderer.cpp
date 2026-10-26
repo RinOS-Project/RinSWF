@@ -765,7 +765,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
-        if(entry.has_color_transform) {
+        if(entry.has_color_transform || entry.blend_mode!=1) {
             isolated.width=stage.width;
             isolated.height=stage.height;
             isolated.rgba.assign(stage.rgba.size(),0);
@@ -863,31 +863,37 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 ? affine_bitmap(canvas,*bmp,m) : blit_bitmap(canvas,*bmp,tx/20,ty/20);
             if(!a)return a;
         } else return {Error::malformed_tag,"unknown placed character"};
-        if(entry.has_color_transform) {
+        if(entry.has_color_transform || entry.blend_mode!=1) {
             const auto& transform=entry.color_transform;
             for(std::size_t index=0;index+3<isolated.rgba.size();index+=4) {
-                auto alpha=isolated.rgba[index+3];
-                if(!alpha)continue;
+                if(!isolated.rgba[index+3])continue;
                 const auto out_channel=[&](unsigned channel)->unsigned {
+                    if(!entry.has_color_transform)return isolated.rgba[index+channel];
                     const double value=std::clamp(
                         double(isolated.rgba[index+channel])*transform.multiply[channel]+
                         double(transform.add[channel]),0.0,255.0);
                     return unsigned(std::lround(value));
                 };
-                const unsigned source_alpha=out_channel(3);
-                if(!source_alpha)continue;
-                const unsigned dest_alpha=stage.rgba[index+3];
-                const unsigned out_alpha=source_alpha+
-                    (dest_alpha*(255-source_alpha)+127)/255;
+                const unsigned sa=out_channel(3),da=stage.rgba[index+3];
+                if(!sa)continue;
+                const unsigned oa=sa+(da*(255-sa)+127)/255;
                 for(unsigned channel=0;channel<3;++channel) {
-                    const unsigned source=out_channel(channel);
-                    const unsigned composed=source*source_alpha+
-                        (unsigned(stage.rgba[index+channel])*dest_alpha*
-                         (255-source_alpha)+127)/255;
+                    const unsigned sc=out_channel(channel),dc=stage.rgba[index+channel];
+                    unsigned blended=sc;
+                    switch(entry.blend_mode) {
+                        case 3: blended=(sc*dc+127)/255; break; // multiply
+                        case 4: blended=255-((255-sc)*(255-dc)+127)/255; break; // screen
+                        case 8: blended=std::min(255u,sc+dc); break; // add
+                        default: break;
+                    }
+                    // W3C source-over blend: source-only, backdrop-only,
+                    // and overlap contributions in premultiplied form.
+                    const unsigned numerator=sc*sa*(255-da)+
+                        dc*da*(255-sa)+blended*sa*da;
                     stage.rgba[index+channel]=std::uint8_t(
-                        (composed+out_alpha/2)/out_alpha);
+                        (numerator+oa*127)/(oa*255));
                 }
-                stage.rgba[index+3]=std::uint8_t(out_alpha);
+                stage.rgba[index+3]=std::uint8_t(oa);
             }
         }
     }
