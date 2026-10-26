@@ -136,3 +136,4 @@
 - [x] PlaceObject3のBlendMode 1(Normal)・3(Multiply)・4(Screen)・8(Add)を解析し、独立レイヤーでRGB合成（残るモード・フィルターは未対応）
 - [x] PlaceObject3 BlendMode 5(Lighten)・6(Darken)・7(Difference)・9(Subtract)・10(Invert)のRGBAレイヤー合成を追加（Layer・Alpha・Erase・Overlay・HardLightは未対応）
 - [x] PlaceObject3 BlendMode 13（Overlay）・14（HardLight）のピクセル合成を追加。背景／前景それぞれの分岐条件に対応（テスト実行は未確認）
+- [x] PlaceObject3 BlendMode 13(Overlay)・14(HardLight)のソース/背景別しきい値のRGBA合成を実装（実行テスト未確認）
