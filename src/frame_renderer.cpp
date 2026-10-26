@@ -886,7 +886,7 @@ static void gradient_glow_surface(Surface& surface,const GradientGlowFilter& fil
         const std::size_t low=right==0?0:std::min(right-1,count-1);
         const std::size_t high=std::min(right,count-1);
         const unsigned start=filter.ratios[low],end=filter.ratios[high];
-        const unsigned numerator=high==low?0:intensity-start;
+        const unsigned numerator=high==low?0:std::min(unsigned(intensity-start),unsigned(end-start));
         const unsigned denominator=end>start?end-start:1;
         unsigned rgba[4];
         for(unsigned c=0;c<4;++c) {
