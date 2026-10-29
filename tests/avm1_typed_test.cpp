@@ -139,5 +139,29 @@ int main() {
     if(!infinity || infinity.stack.size()!=1 ||
        !std::isinf(std::get<double>(infinity.stack[0])) ||
        std::signbit(std::get<double>(infinity.stack[0])))return 22;
+    // Undefined -> NaN -> "NaN" and NaN -> integer zero.
+    constexpr std::array<std::uint8_t,7> nan_string={
+        0x96,1,0,3,0x4a,0x4b,0
+    };
+    const auto nan_text=rinswf::execute_avm1_typed(nan_string,stack_context);
+    if(!nan_text || nan_text.stack.size()!=1 ||
+       !std::holds_alternative<std::string>(nan_text.stack[0]) ||
+       std::get<std::string>(nan_text.stack[0])!="NaN")return 23;
+    constexpr std::array<std::uint8_t,7> nan_integer={
+        0x96,1,0,3,0x4a,0x18,0
+    };
+    const auto nan_int=rinswf::execute_avm1_typed(nan_integer,stack_context);
+    if(!nan_int || nan_int.stack.size()!=1 ||
+       !std::holds_alternative<double>(nan_int.stack[0]) ||
+       std::get<double>(nan_int.stack[0])!=0)return 24;
+    // 1 / 0 -> Infinity -> "Infinity".
+    auto inf_text_program=std::vector<std::uint8_t>(
+        infinity_program.begin(),infinity_program.end()-1);
+    inf_text_program.push_back(0x4b);
+    inf_text_program.push_back(0);
+    const auto inf_text=rinswf::execute_avm1_typed(inf_text_program,stack_context);
+    if(!inf_text || inf_text.stack.size()!=1 ||
+       !std::holds_alternative<std::string>(inf_text.stack[0]) ||
+       std::get<std::string>(inf_text.stack[0])!="Infinity")return 25;
     return 0;
 }
