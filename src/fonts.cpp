@@ -122,37 +122,106 @@ FontResult decode_glyph(FontGlyph& glyph,std::size_t max_commands) {
 }
 FontResult decode_define_font(const Tag& tag,std::size_t max_glyphs,
                              std::size_t max_glyph_bytes) {
-    if(tag.code!=10)return fail(Error::malformed_tag,"not DefineFont");
+    if(tag.code!=10 && tag.code!=48 && tag.code!=75)
+        return fail(Error::malformed_tag,"not DefineFont/2/3");
     const auto& d=tag.data;
-    if(d.size()<4)return fail(Error::truncated,"DefineFont header truncated");
+    if(d.size()<4)return fail(Error::truncated,"font header truncated");
     FontAsset font;
     font.character_id=read_u16(d,0);
-    // The first offset is twice the number of glyphs and points at the
-    // beginning of the SHAPE table relative to the offset table itself.
-    const std::size_t table_bytes=read_u16(d,2);
-    if((table_bytes&1)!=0)return fail(Error::malformed_tag,"odd DefineFont offset table");
-    const std::size_t count=table_bytes/2;
+    const bool modern=tag.code!=10;
+    if(tag.code==75)font.units_per_em=20480;
+    std::size_t base=2,count=0,offset_width=2,code_width=1;
+    bool layout=false;
+    if(modern) {
+        if(d.size()<7)return fail(Error::truncated,"DefineFont2/3 header truncated");
+        const auto flags=d[2];
+        layout=(flags&0x80)!=0;
+        offset_width=(flags&0x08)?4:2;
+        code_width=(flags&0x04)?2:1;
+        const std::size_t name_length=d[4];
+        if(name_length>d.size()-5 || d.size()-5-name_length<2)
+            return fail(Error::truncated,"font name or glyph count truncated");
+        font.name.assign(reinterpret_cast<const char*>(d.data()+5),name_length);
+        base=5+name_length;
+        count=read_u16(d,base);
+        base+=2;
+    } else {
+        const std::size_t bytes=read_u16(d,2);
+        if(bytes&1)return fail(Error::malformed_tag,"odd font offset table");
+        count=bytes/2;
+    }
     if(count>max_glyphs)return fail(Error::size_limit,"too many font glyphs");
-    if(table_bytes>d.size()-2)return fail(Error::truncated,"font offset table truncated");
-    const std::size_t shape_begin=2+table_bytes;
-    if(d.size()-shape_begin>max_glyph_bytes)
+    const auto read_offset=[&](std::size_t pos)->std::size_t {
+        if(offset_width==2)return read_u16(d,pos);
+        return std::size_t(d[pos])|(std::size_t(d[pos+1])<<8)|
+               (std::size_t(d[pos+2])<<16)|(std::size_t(d[pos+3])<<24);
+    };
+    // Offsets are relative to the first byte of the offset table.
+    const std::size_t offset_bytes=count*offset_width;
+    const std::size_t table_bytes=offset_bytes+(modern?offset_width:0);
+    if(base>d.size() || table_bytes>d.size()-base)
+        return fail(Error::truncated,"font offset table truncated");
+    const std::size_t code_offset=modern?read_offset(base+offset_bytes):d.size()-base;
+    if(code_offset<table_bytes || code_offset>d.size()-base)
+        return fail(Error::malformed_tag,"invalid font code table offset");
+    if(code_offset-table_bytes>max_glyph_bytes)
         return fail(Error::size_limit,"font glyph data budget exceeded");
+    const std::size_t shape_start=base+table_bytes;
     std::size_t previous=table_bytes;
     font.glyphs.reserve(count);
     for(std::size_t i=0;i<count;++i) {
-        const std::size_t off=read_u16(d,2+i*2);
-        const std::size_t end=i+1<count?read_u16(d,2+(i+1)*2):d.size()-2;
-        if(off<table_bytes||off<previous||end<off||end>d.size()-2)
+        const auto off=read_offset(base+i*offset_width);
+        const auto end=i+1<count?read_offset(base+(i+1)*offset_width):code_offset;
+        if(off<table_bytes || off<previous || end<off || end>code_offset)
             return fail(Error::malformed_tag,"invalid font glyph offset");
         FontGlyph glyph;
-        glyph.shape_bytes.assign(d.begin()+2+off,d.begin()+2+end);
-        auto result=decode_glyph(glyph,100000);
-        if(!result)return result;
+        glyph.shape_bytes.assign(d.begin()+base+off,d.begin()+base+end);
+        auto parsed=decode_glyph(glyph,100000);
+        if(!parsed)return parsed;
         font.glyphs.push_back(std::move(glyph));
         previous=off;
     }
-    if(!count&&d.size()!=4)
-        return fail(Error::malformed_tag,"empty font with trailing data");
+    if(!modern) {
+        if(count==0 && d.size()!=4)
+            return fail(Error::malformed_tag,"empty font with trailing data");
+        return {Error::none,{},std::move(font)};
+    }
+    std::size_t cursor=base+code_offset;
+    if(count>(d.size()-cursor)/code_width)
+        return fail(Error::truncated,"font code table truncated");
+    font.code_points.reserve(count);
+    for(std::size_t i=0;i<count;++i) {
+        const auto code=code_width==2?read_u16(d,cursor):std::uint16_t(d[cursor]);
+        font.code_points.push_back(code);
+        cursor+=code_width;
+    }
+    if(layout) {
+        // FontAscent/Descent/Leading, advances, bounds and kerning data.
+        if(d.size()-cursor<6 || count>(d.size()-cursor-6)/2)
+            return fail(Error::truncated,"font layout truncated");
+        cursor+=6+count*2;
+        GlyphBits bounds{d,cursor*8};
+        for(std::size_t i=0;i<count;++i) {
+            std::uint32_t bits=0,unused=0;
+            if(!bounds.read(5,bits))
+                return fail(Error::truncated,"font bounds truncated");
+            for(unsigned j=0;j<4;++j)
+                if(!bounds.read(bits,unused))
+                    return fail(Error::truncated,"font bounds truncated");
+            bounds.bit=(bounds.bit+7)&~std::size_t(7);
+        }
+        cursor=bounds.bit/8;
+        if(cursor>d.size() || d.size()-cursor<2)
+            return fail(Error::truncated,"font kerning count truncated");
+        const auto kernings=read_u16(d,cursor);
+        cursor+=2;
+        const std::size_t entry=code_width*2+2;
+        if(kernings>(d.size()-cursor)/entry)
+            return fail(Error::truncated,"font kerning table truncated");
+        cursor+=kernings*entry;
+    }
+    if(cursor!=d.size())
+        return fail(Error::malformed_tag,"trailing font bytes");
     return {Error::none,{},std::move(font)};
 }
 }
