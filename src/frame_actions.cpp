@@ -73,18 +73,17 @@ Avm1TypedResult execute_frame_entry_actions(
     Avm1Context& context,FrameActionState& state,Avm1Limits limits) {
     if(!timeline || timeline.frames.empty())
         return {Error::malformed_tag,"invalid root timeline",{}};
-    const std::size_t current=player.clock.frame%timeline.frames.size();
-    if(state.initialized && state.entered_frame==player.clock.frame)
+    const std::size_t source_frame=player.clock.frame;
+    if(state.initialized && state.entered_frame==source_frame)
         return {};
     // The action executor is transactional. A failed entry leaves the
     // bookkeeping untouched so callers can report or retry the error.
     auto result=execute_frame_actions(timeline,player,context,limits);
     if(!result)return result;
-    state.entered_frame=current;
-    // If an action jumps to a different frame, it becomes the next entry
-    // only on a subsequent explicit invocation. Avoid recursive execution.
+    // Record the frame that actually executed. If script navigated away,
+    // the destination is eligible for execution on the next explicit call.
     state.initialized=true;
-    state.entered_frame=player.clock.frame==current?player.clock.frame:current;
+    state.entered_frame=source_frame;
     return result;
 }
 
