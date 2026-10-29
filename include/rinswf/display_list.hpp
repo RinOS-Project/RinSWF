@@ -78,6 +78,7 @@ struct DisplayEntry {
 };
 struct FrameSnapshot {
     std::vector<DisplayEntry> objects; // sorted by depth
+    std::vector<std::vector<std::uint8_t>> actions; // DoAction blocks in tag order
 };
 struct TimelineResult {
     Error error=Error::none;
