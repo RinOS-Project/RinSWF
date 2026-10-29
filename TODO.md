@@ -178,3 +178,6 @@
 
 - [x] root Timeline の明示的なフレーム入場API `execute_frame_entry_actions()` と `FrameActionState` を追加。同一フレームのDoAction重複実行を抑制し、Goto後の移動先は次の明示呼び出しで実行、失敗時は入場状態を更新しない（ビルド・実行未検証）
 - [ ] 一度離れて同じフレームへ再入場するケース、seek/reset/ループ時の実行契約、Spriteごとの独立AVM1コンテキストと実行予算の統合を検証・実装
+
+- [x] root depth単位のSprite AVM1インスタンス状態（character ID、配置フレーム、変数、最終入場フレーム）を追加。SpriteのDoAction、Stop/Play/GotoFrame/ラベルを明示的に実行し、変数と再生状態を一括コミット。置換・消失時の破棄、インスタンス数上限を実装（ビルド・実行未検証）
+- [ ] ネストしたSpriteの深度経路別AVM1状態、ループ・seek・配置移動と再入場の厳密な同期、タイムライン内の共通命令予算、実SWF互換性を検証
