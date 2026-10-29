@@ -75,5 +75,18 @@ int main() {
     if(!integer || integer.stack.size()!=1 ||
        !std::holds_alternative<double>(integer.stack[0]) ||
        std::get<double>(integer.stack[0])!=1)return 14;
+    // Push "12", ToNumber, Increment, ToString, End -> "13".
+    constexpr std::array<std::uint8_t,11> convert_program={
+        0x96,4,0,0,'1','2',0,0x4a,0x50,0x4b,0
+    };
+    const auto converted=rinswf::execute_avm1_typed(convert_program,stack_context);
+    if(!converted || converted.stack.size()!=1 ||
+       !std::holds_alternative<std::string>(converted.stack[0]) ||
+       std::get<std::string>(converted.stack[0])!="13")return 15;
+    // Invalid numeric text must reject without mutating variables.
+    constexpr std::array<std::uint8_t,9> invalid_number={
+        0x96,4,0,0,'x','y',0,0x4a,0
+    };
+    if(rinswf::execute_avm1_typed(invalid_number,stack_context))return 16;
     return 0;
 }
