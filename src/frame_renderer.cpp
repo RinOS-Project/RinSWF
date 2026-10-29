@@ -1072,12 +1072,78 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 auto b=draw_shape_strokes(canvas,it->second,tx,ty,limits,&assets.bitmaps);
                 if(!b)return b;
             }
-        } else if(const auto text=assets.texts.find(entry.character_id);
-                  text!=assets.texts.end()) {
+        } else if(assets.texts.contains(entry.character_id) ||
+                  assets.edit_texts.contains(entry.character_id)) {
+            TextAsset generated;
+            const TextAsset* text=nullptr;
+            if(const auto existing=assets.texts.find(entry.character_id);
+               existing!=assets.texts.end())text=&existing->second;
+            else {
+                const auto& edit=assets.edit_texts.at(entry.character_id);
+                // Static initial text only. Layout features requiring a text
+                // engine must not silently produce a misleading image.
+                if((edit.flags&(0x4000|0x2000|0x1000|0x0002)) != 0)
+                    return {Error::malformed_tag,"complex EditText layout unsupported"};
+                if(!edit.initial_text.empty()) {
+                    const auto font=assets.fonts.find(edit.font_id);
+                    if(font==assets.fonts.end() || !edit.font_height ||
+                       font->second.code_points.size()!=font->second.glyphs.size() ||
+                       font->second.advances.size()!=font->second.glyphs.size())
+                        return {Error::malformed_tag,"EditText font or layout metrics unavailable"};
+                    const auto& data=edit.initial_text;
+                    std::int64_t pen=std::int64_t(edit.xmin)+edit.left_margin+edit.indent;
+                    const auto baseline=std::int64_t(edit.ymin)+edit.font_height;
+                    if(baseline>std::numeric_limits<std::int32_t>::max() ||
+                       baseline<std::numeric_limits<std::int32_t>::min())
+                        return {Error::size_limit,"EditText baseline overflow"};
+                    for(std::size_t i=0;i<data.size();) {
+                        if(generated.glyphs.size()>=100000)
+                            return {Error::size_limit,"EditText glyph count limit"};
+                        const unsigned char first=static_cast<unsigned char>(data[i++]);
+                        std::uint32_t code=first;
+                        unsigned rest=0;
+                        if(first>=0xf0 && first<=0xf4){code=first&7;rest=3;}
+                        else if(first>=0xe0 && first<=0xef){code=first&15;rest=2;}
+                        else if(first>=0xc2 && first<=0xdf){code=first&31;rest=1;}
+                        else if(first>=0x80)return {Error::malformed_tag,"invalid EditText UTF-8"};
+                        if(rest>data.size()-i)
+                            return {Error::malformed_tag,"truncated EditText UTF-8"};
+                        for(unsigned j=0;j<rest;++j) {
+                            const auto part=static_cast<unsigned char>(data[i++]);
+                            if((part&0xc0)!=0x80)
+                                return {Error::malformed_tag,"invalid EditText UTF-8 continuation"};
+                            code=(code<<6)|(part&0x3f);
+                        }
+                        if((rest==2 && code<0x800) || (rest==3 && code<0x10000) ||
+                           (rest==1 && code<0x80) || code>0xffff ||
+                           (code>=0xd800 && code<=0xdfff))
+                            return {Error::malformed_tag,"unsupported EditText Unicode scalar"};
+                        const auto found=std::find(font->second.code_points.begin(),
+                            font->second.code_points.end(),std::uint16_t(code));
+                        if(found==font->second.code_points.end())
+                            return {Error::malformed_tag,"EditText glyph missing from font"};
+                        const auto index=std::size_t(found-font->second.code_points.begin());
+                        if(pen>std::numeric_limits<std::int32_t>::max() ||
+                           pen<std::numeric_limits<std::int32_t>::min())
+                            return {Error::size_limit,"EditText pen overflow"};
+                        generated.glyphs.push_back({edit.font_id,
+                            static_cast<std::uint32_t>(index),
+                            static_cast<std::int32_t>(pen),
+                            static_cast<std::int32_t>(baseline),
+                            edit.font_height,edit.color});
+                        const double delta=double(font->second.advances[index])*
+                            double(edit.font_height)/font->second.units_per_em;
+                        if(!std::isfinite(delta) || std::abs(delta)>double(std::numeric_limits<std::int32_t>::max()))
+                            return {Error::size_limit,"EditText advance overflow"};
+                        pen+=std::llround(delta);
+                    }
+                }
+                text=&generated;
+            }
             // DefineFont glyph coordinates are in a 1024-unit em square.
             // Transform glyph-local coordinates through the text MATRIX and
             // placement MATRIX, then draw with the existing shape rasterizer.
-            for(const auto& placed:text->second.glyphs) {
+            for(const auto& placed:text->glyphs) {
                 const auto font=assets.fonts.find(placed.font_id);
                 if(font==assets.fonts.end() ||
                    placed.glyph_index>=font->second.glyphs.size())
@@ -1086,7 +1152,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 ShapeGeometry transformed=glyph.outline;
                 transformed.fills[0].color=placed.color;
                 const double scale=double(placed.height)/double(font->second.units_per_em);
-                const auto& t=text->second.matrix;
+                const auto& t=text->matrix;
                 const auto transform_point=[&](ShapePoint& p)->bool {
                     const double gx=double(p.x)*scale+placed.x;
                     const double gy=double(p.y)*scale+placed.y;
