@@ -244,3 +244,6 @@
 
 - [x] typed AVM1にBitAnd(0x60)、BitOr(0x61)、BitXor(0x62)、BitLShift(0x63)、BitRShift(0x64)、BitURShift(0x65)を実装。ToInt32を適用しシフト量を下位5bitに丸める。符号付き／符号なしシフトの回帰テストを追加（ビルド・実行未検証）。
 - [ ] 全ビット演算の組合せテストと実SWF比較を実施し、SWFバージョン別の変換規則を確認。
+
+- [x] typed AVM1にLogicalAnd(0x10)、LogicalOr(0x11)、StrictEquals(0x66)、Greater(0x67)を追加し、Null/Undefinedの厳密比較と真偽値の演算を導入。テスト追加（実行未検証）。
+- [ ] 論理演算のSWFバージョン別結果型、StrictEqualsとGreaterのFlash互換型変換・文字列比較を精密化。
