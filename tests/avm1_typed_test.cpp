@@ -191,5 +191,27 @@ int main() {
     const auto ba=rinswf::execute_avm1_typed(bit_and,stack_context);
     if(!ba || ba.stack.size()!=1 ||
        std::get<double>(ba.stack[0])!=1.0)return 29;
+    // LogicalAnd, LogicalOr, StrictEquals and Greater.
+    constexpr std::array<std::uint8_t,8> logical={
+        0x96,3,0,5,1,5,0,0x10
+    };
+    auto logical_program=std::vector<std::uint8_t>(logical.begin(),logical.end());
+    logical_program.push_back(0);
+    const auto and_value=rinswf::execute_avm1_typed(logical_program,stack_context);
+    if(!and_value || and_value.stack.size()!=1 ||
+       !std::holds_alternative<bool>(and_value.stack[0]) ||
+       std::get<bool>(and_value.stack[0]))return 30;
+    logical_program[7]=0x11;
+    const auto or_value=rinswf::execute_avm1_typed(logical_program,stack_context);
+    if(!or_value || or_value.stack.size()!=1 ||
+       !std::get<bool>(or_value.stack[0]))return 31;
+    // Build exact action stream (Push Null, Undefined; StrictEquals; End).
+    const std::vector<std::uint8_t> strict_program={
+        0x96,2,0,2,3,0x66,0
+    };
+    const auto strict_value=rinswf::execute_avm1_typed(strict_program,stack_context);
+    if(!strict_value || strict_value.stack.size()!=1 ||
+       !std::holds_alternative<bool>(strict_value.stack[0]) ||
+       std::get<bool>(strict_value.stack[0]))return 32;
     return 0;
 }
