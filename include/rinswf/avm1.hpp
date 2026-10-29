@@ -22,6 +22,7 @@ struct Avm1Context {
 };
 struct Avm1TimelineCommand {
     bool playing=true;
+    bool sets_playing=false;
     bool has_frame=false;
     std::size_t frame=0; // zero based
     bool has_label=false;
