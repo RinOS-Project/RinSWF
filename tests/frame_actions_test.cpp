@@ -186,5 +186,16 @@ int main() {
         free_player,free_state))return 38;
     if(free_player.sprites.instances.at(9).playing ||
        free_player.sprites.instances.at(9).frame!=1)return 39;
+    // A stale child clock must not survive an ancestor replacement.
+    // The replacement instance starts at its own frame zero.
+    root.objects[0].placed_frame=0;
+    root.objects.resize(1);
+    nested_player.clock.seek(0);
+    nested_player.sprites.seek_path(child_path,4);
+    nested_state.ancestry[child_path][0].second=77;
+    if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
+        nested_player,nested_state))return 40;
+    if(nested_state.nested_instances.at(child_path).last_frame!=0 ||
+       nested_player.sprites.nested_instances.contains(child_path))return 41;
     return 0;
 }
