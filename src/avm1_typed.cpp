@@ -174,6 +174,23 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             } else return fail(Error::malformed_tag,"unsupported GotoFrame2 target type");
             pending.playing=(payload[0]&1)!=0;
             pending.sets_playing=true;
+        } else if(op==0x4c) { // PushDuplicate
+            if(stack.empty())return fail(Error::malformed_tag,"Duplicate underflow");
+            if(stack.size()>=limits.max_stack)return fail(Error::size_limit,"AVM1 stack limit");
+            stack.push_back(stack.back());
+        } else if(op==0x4d) { // StackSwap
+            if(stack.size()<2)return fail(Error::malformed_tag,"StackSwap underflow");
+            std::swap(stack[stack.size()-1],stack[stack.size()-2]);
+        } else if(op==0x12) { // Not
+            if(stack.empty())return fail(Error::malformed_tag,"Not underflow");
+            stack.back()=!truth(stack.back());
+        } else if(op==0x50 || op==0x51) { // Increment, Decrement
+            if(stack.empty())return fail(Error::malformed_tag,"Increment/Decrement underflow");
+            double n=0;
+            if(!number(stack.back(),n))return fail(Error::malformed_tag,"numeric conversion unsupported");
+            const auto next=n+(op==0x50?1.0:-1.0);
+            if(!std::isfinite(next))return fail(Error::malformed_tag,"nonfinite result");
+            stack.back()=next;
         } else if(op==0x17) {
             if(stack.empty())return fail(Error::malformed_tag,"Pop underflow");
             stack.pop_back();
