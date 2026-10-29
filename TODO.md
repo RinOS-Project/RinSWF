@@ -175,3 +175,6 @@
 - [ ] GotoFrame2の数値（1始まり）・ラベル指定とplay/stopフラグを限定実装（scene biasは拒否、ビルド未検証）。Sprite単位のラベル解決、DoActionのフレーム入場時実行・再実行制御、ラベル名の文字エンコーディング互換を検証
 
 - [x] AVM1 GotoFrame2 (0x9F) の数値フレーム・文字列ラベルと再生フラグをtyped VMで解析し、ルートTimelineへトランザクション反映（scene biasや不正フラグは明示拒否、実行未検証）
+
+- [x] root Timeline の明示的なフレーム入場API `execute_frame_entry_actions()` と `FrameActionState` を追加。同一フレームのDoAction重複実行を抑制し、Goto後の移動先は次の明示呼び出しで実行、失敗時は入場状態を更新しない（ビルド・実行未検証）
+- [ ] 一度離れて同じフレームへ再入場するケース、seek/reset/ループ時の実行契約、Spriteごとの独立AVM1コンテキストと実行予算の統合を検証・実装
