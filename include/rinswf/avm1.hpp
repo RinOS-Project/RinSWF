@@ -24,6 +24,8 @@ struct Avm1TimelineCommand {
     bool playing=true;
     bool has_frame=false;
     std::size_t frame=0; // zero based
+    bool has_label=false;
+    std::string label;
 };
 struct Avm1TypedResult {
     Error error=Error::none;
