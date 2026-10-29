@@ -161,9 +161,17 @@ Avm1TypedResult execute_sprite_entry_actions(
         instance.context=std::move(staged);
         instance.entered=true;
         instance.last_frame=selected;
-        if(command.has_frame)controls.seek(entry.depth,command.frame);
-        if(command.playing)controls.play(entry.depth);
-        else controls.stop(entry.depth);
+        if(command.has_frame || command.sets_playing) {
+            // Preserve implicit elapsed-frame playback until a script actually
+            // changes the clock. Explicit Stop must freeze the current frame.
+            if(controls.instances.find(entry.depth)==controls.instances.end())
+                controls.seek(entry.depth,selected);
+            if(command.has_frame)controls.seek(entry.depth,command.frame);
+            if(command.sets_playing) {
+                if(command.playing)controls.play(entry.depth);
+                else controls.stop(entry.depth);
+            }
+        }
     }
     state=std::move(updated);
     player.sprites=std::move(controls);
