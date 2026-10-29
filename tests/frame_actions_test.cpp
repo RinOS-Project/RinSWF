@@ -284,5 +284,19 @@ int main() {
         aggregate_sprites,0,1024,aggregate_limits))return 53;
     if(aggregate_root.initialized || aggregate_sprites.instances.size()!=1 ||
        !aggregate_context.variables.contains("root"))return 54;
+    // Preflight rejects retained values that cannot fit rollback copies.
+    rinswf::TimelineResult copy_timeline;
+    copy_timeline.frames.resize(1);
+    rinswf::TimelinePlayer copy_player;
+    rinswf::Avm1Context copy_context;
+    copy_context.variables["large"]=std::string(128,'x');
+    rinswf::FrameActionState copy_root;
+    rinswf::SpriteActionState copy_sprites;
+    rinswf::Avm1Limits copy_limits;
+    copy_limits.max_value_bytes=256;
+    if(rinswf::advance_timeline_actions(copy_timeline,shared_assets,
+        copy_player,copy_context,copy_root,copy_sprites,0,1024,copy_limits))
+        return 55;
+    if(copy_root.initialized || copy_context.variables.size()!=1)return 56;
     return 0;
 }
