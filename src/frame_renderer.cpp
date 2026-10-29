@@ -1085,6 +1085,8 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 if((edit.flags&(0x1000|0x0002)) != 0)
                     return {Error::malformed_tag,"complex EditText layout unsupported"};
                 if(!edit.initial_text.empty()) {
+                    if(edit.align==3)
+                        return {Error::malformed_tag,"justified EditText unsupported"};
                     const auto font=assets.fonts.find(edit.font_id);
                     if(font==assets.fonts.end() || !edit.font_height ||
                        font->second.code_points.size()!=font->second.glyphs.size() ||
@@ -1105,7 +1107,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                         return {Error::size_limit,"EditText baseline overflow"};
                     std::size_t line_begin=0;
                     const auto align_line=[&]() -> bool {
-                        if(edit.align==0 || edit.align==3)return true;
+                        if(edit.align==0)return true;
                         // The line's pen is its logical right edge after
                         // advances; use a single offset for every glyph.
                         const auto free_space=right_edge-pen;
@@ -1179,7 +1181,6 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                 return {Error::size_limit,"EditText alignment overflow"};
                             line_begin=generated.glyphs.size();
                             pen=first_pen;
-                            line_origin=pen;
                             if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
                                 return {Error::size_limit,"EditText wrap line overflow"};
                             baseline+=line_height;
