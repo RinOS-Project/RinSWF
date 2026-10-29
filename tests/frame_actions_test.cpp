@@ -196,6 +196,6 @@ int main() {
     if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
         nested_player,nested_state))return 40;
     if(nested_state.nested_instances.at(child_path).last_frame!=0 ||
-       nested_player.sprites.nested_instances.contains(child_path))return 41;
+       nested_player.sprites.nested_instances.at(child_path).frame!=0)return 41;
     return 0;
 }
