@@ -54,6 +54,11 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
     auto pop=[&]() {Avm1Value v=std::move(stack.back());stack.pop_back();return v;};
     while(pc<bytes.size()) {
         if(++steps>limits.max_actions)return fail(Error::size_limit,"AVM1 instruction limit");
+        if(limits.shared_budget) {
+            if(limits.shared_budget->remaining_actions==0)
+                return fail(Error::size_limit,"shared AVM1 instruction budget");
+            --limits.shared_budget->remaining_actions;
+        }
         const auto op=bytes[pc++];
         if(op==0) {
             context.variables=std::move(variables);
