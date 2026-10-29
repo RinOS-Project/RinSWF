@@ -17,6 +17,7 @@ struct Avm1Limits {
     std::size_t max_actions=10000;
     std::size_t max_stack=1024;
     std::size_t max_bytes=1024*1024;
+    std::size_t max_value_bytes=256*1024; // approximate stack + variables
     Avm1ExecutionBudget* shared_budget=nullptr; // optional, caller-owned
 };
 using Avm1Value=std::variant<std::monostate,double,bool,std::string>;
