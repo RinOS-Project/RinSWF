@@ -166,7 +166,6 @@ FontResult decode_define_font(const Tag& tag,std::size_t max_glyphs,
         return fail(Error::malformed_tag,"invalid font code table offset");
     if(code_offset-table_bytes>max_glyph_bytes)
         return fail(Error::size_limit,"font glyph data budget exceeded");
-    const std::size_t shape_start=base+table_bytes;
     std::size_t previous=table_bytes;
     font.glyphs.reserve(count);
     for(std::size_t i=0;i<count;++i) {
