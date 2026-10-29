@@ -193,3 +193,6 @@
 
 - [x] ネストSpriteの祖先置換後に古い再生クロックを参照してしまう不具合を修正。新しいインスタンスは配置時のローカルフレームから開始し、Gotoで移動した際は子孫スナップショットを新しいフレームから選択する（実行テスト未検証）。
 - [ ] 親子の停止・再開、Goto後のDoAction再入場、ループ時の子Spriteのライフサイクルを描画結果と同期し、Mesonで実行テストする。
+
+- [x] ルートTimeline向け `advance_root_actions()` を追加。複数tickを1フレームずつ進めてDoActionを処理し、Stopで中断、途中のAVM1エラー時にはPlayer・変数・FrameActionStateをまとめてロールバック。tick上限を設置（ビルド・実行未検証）
+- [ ] ルートtickとSprite/nested Spriteの実行を統合し、親子間の命令順序・共通予算・再入場、ループとgoto時の挙動を実SWFで検証
