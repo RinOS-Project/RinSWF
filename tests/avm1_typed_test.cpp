@@ -171,5 +171,25 @@ int main() {
     if(!wrapped || wrapped.stack.size()!=1 ||
        !std::holds_alternative<double>(wrapped.stack[0]) ||
        std::get<double>(wrapped.stack[0])!=-2147483648.0)return 26;
+    // -1 >>> 1 = 2147483647; -1 >> 1 = -1.
+    constexpr std::array<std::uint8_t,18> unsigned_shift={
+        0x96,5,0,7,255,255,255,255,
+        0x96,5,0,7,1,0,0,0,0x65,0
+    };
+    const auto us=rinswf::execute_avm1_typed(unsigned_shift,stack_context);
+    if(!us || us.stack.size()!=1 ||
+       !std::holds_alternative<double>(us.stack[0]) ||
+       std::get<double>(us.stack[0])!=2147483647.0)return 27;
+    auto signed_shift=unsigned_shift;
+    signed_shift[16]=0x64;
+    const auto ss=rinswf::execute_avm1_typed(signed_shift,stack_context);
+    if(!ss || ss.stack.size()!=1 ||
+       !std::holds_alternative<double>(ss.stack[0]) ||
+       std::get<double>(ss.stack[0])!=-1.0)return 28;
+    auto bit_and=unsigned_shift;
+    bit_and[16]=0x60;
+    const auto ba=rinswf::execute_avm1_typed(bit_and,stack_context);
+    if(!ba || ba.stack.size()!=1 ||
+       std::get<double>(ba.stack[0])!=1.0)return 29;
     return 0;
 }
