@@ -159,5 +159,32 @@ int main() {
         nested_player,nested_state))return 32;
     if(nested_state.nested_instances[child_path].context.variables.contains("only-first"))
         return 33;
+    // A Sprite without AVM1 playback commands must keep its implicit clock.
+    rinswf::FrameAssets free_assets;
+    rinswf::SpriteTimeline free_clip;
+    free_clip.character_id=201;
+    free_clip.frames.resize(3);
+    free_assets.sprites.emplace(201,free_clip);
+    rinswf::FrameSnapshot free_root;
+    rinswf::DisplayEntry free_entry;
+    free_entry.depth=9;free_entry.character_id=201;
+    free_root.objects.push_back(free_entry);
+    rinswf::TimelinePlayer free_player;
+    rinswf::SpriteActionState free_state;
+    if(!rinswf::execute_sprite_entry_actions(free_root,free_assets,
+        free_player,free_state))return 34;
+    if(free_player.sprites.instances.contains(9))return 35;
+    free_player.advance();
+    if(!rinswf::execute_sprite_entry_actions(free_root,free_assets,
+        free_player,free_state))return 36;
+    if(free_state.instances.at(9).last_frame!=1 ||
+       free_player.sprites.instances.contains(9))return 37;
+    // An explicit Stop must snapshot the current local frame (1).
+    free_assets.sprites.at(201).frames[1].actions.push_back({0x07,0});
+    free_state.instances.at(9).entered=false;
+    if(!rinswf::execute_sprite_entry_actions(free_root,free_assets,
+        free_player,free_state))return 38;
+    if(free_player.sprites.instances.at(9).playing ||
+       free_player.sprites.instances.at(9).frame!=1)return 39;
     return 0;
 }
