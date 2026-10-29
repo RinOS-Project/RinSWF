@@ -45,7 +45,7 @@ std::string to_string_value(const Avm1Value& v) {
         out<<std::setprecision(15)<<*n;
         return out.str();
     }
-    return "undefined";
+    return std::holds_alternative<Avm1Null>(v)?"null":"undefined";
 }
 bool to_finite_number(const Avm1Value& value,double& out) {
     if(const auto* str=std::get_if<std::string>(&value)) {
@@ -64,7 +64,8 @@ bool to_finite_number(const Avm1Value& value,double& out) {
     if(const auto* b=std::get_if<bool>(&value)) {
         out=*b?1:0;return true;
     }
-    return false; // undefined/null are not yet distinct in Avm1Value
+    if(std::holds_alternative<Avm1Null>(value)) {out=0;return true;}
+    return false; // Undefined is not convertible in the finite-only subset
 }
 bool truth(const Avm1Value& v) {
     if(auto n=std::get_if<double>(&v))return *n!=0&&!std::isnan(*n);
@@ -75,7 +76,7 @@ bool truth(const Avm1Value& v) {
 bool number(const Avm1Value& v,double& out) {
     if(auto n=std::get_if<double>(&v)){out=*n;return true;}
     if(auto b=std::get_if<bool>(&v)){out=*b?1:0;return true;}
-    if(std::holds_alternative<std::monostate>(v)){out=0;return true;}
+    if(std::holds_alternative<Avm1Null>(v)){out=0;return true;}
     return false;
 }
 }
@@ -159,7 +160,7 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                     if(i==payload.size())return fail(Error::truncated,"Push Boolean truncated");
                     value=bool(payload[i++]);
                 } else if(type==2||type==3) {
-                    value=std::monostate{}; // null/undefined retained as sentinel
+                    value=type==2?Avm1Value(Avm1Null{}):Avm1Value(std::monostate{});
                 } else return fail(Error::malformed_tag,"unsupported Push type");
                 if(stack.size()>=limits.max_stack)return fail(Error::size_limit,"AVM1 stack limit");
                 stack.push_back(std::move(value));
