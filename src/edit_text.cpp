@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/edit_text.hpp"
+#include <utility>
 namespace rinswf {
 namespace {
 struct Reader {
@@ -50,14 +51,11 @@ EditTextResult decode_edit_text(const Tag& tag,std::size_t max_string_bytes) {
     if(text.xmin>text.xmax || text.ymin>text.ymax)
         return fail(Error::malformed_tag,"invalid edit text bounds");
     const bool has_text=(text.flags&0x8000)!=0;
-    const bool word_wrap=(text.flags&0x4000)!=0;
-    const bool multiline=(text.flags&0x2000)!=0;
     const bool has_color=(text.flags&0x0400)!=0;
     const bool has_max=(text.flags&0x0200)!=0;
     const bool has_font=(text.flags&0x0100)!=0;
     const bool has_font_class=(text.flags&0x0080)!=0;
     const bool has_layout=(text.flags&0x0020)!=0;
-    (void)word_wrap;(void)multiline;
     if(has_font && !r.u16(text.font_id))
         return fail(Error::truncated,"edit text font ID truncated");
     if(has_font_class && !r.str(text.font_class,max_string_bytes))
