@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "rinswf/display_list.hpp"
 #include <utility>
+#include <algorithm>
 #include <cstring>
 #include <cmath>
 namespace rinswf {
