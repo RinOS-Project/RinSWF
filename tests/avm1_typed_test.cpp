@@ -5,11 +5,11 @@
 int main() {
     rinswf::Avm1Context ctx;
     // Push "score", 42, SetVariable, Push "score", GetVariable, End.
-    constexpr std::array<std::uint8_t,31> program={
+    constexpr std::array<std::uint8_t,30> program={
         0x96,7,0,0,'s','c','o','r','e',0,
         0x96,5,0,7,42,0,0,0,
         0x1d,
-        0x96,8,0,0,'s','c','o','r','e',0,
+        0x96,7,0,0,'s','c','o','r','e',0,
         0x1c,0
     };
     const auto result=rinswf::execute_avm1_typed(program,ctx);
