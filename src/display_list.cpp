@@ -98,6 +98,7 @@ struct Reader {
 TimelineResult build_timeline(const Document& document) {
     std::map<std::uint16_t,DisplayEntry> display;
     std::vector<FrameSnapshot> frames;
+    std::vector<std::vector<std::uint8_t>> pending_actions;
     for(const auto& tag: document.tags) {
         const auto& d=tag.data;
         if(tag.code==4) { // PlaceObject: CharacterId, Depth, MATRIX, optional CXFORM
@@ -500,15 +501,22 @@ TimelineResult build_timeline(const Document& document) {
         } else if(tag.code==28) { // RemoveObject2: Depth
             if(d.size()!=2) return fail("RemoveObject2 invalid size");
             display.erase(u16(d,0));
+        } else if(tag.code==12) { // DoAction (root or sprite timeline)
+            if(tag.data.empty() || tag.data.back()!=0)
+                return fail("DoAction missing End opcode");
+            pending_actions.push_back(tag.data);
         } else if(tag.code==1) { // ShowFrame
             if(!d.empty()) return fail("ShowFrame must be empty");
             FrameSnapshot frame;
             for(const auto& [depth,entry]:display) frame.objects.push_back(entry);
+            frame.actions=std::move(pending_actions);
+            pending_actions.clear();
             frames.push_back(std::move(frame));
             if(frames.size()>document.header.frame_count)
                 return fail("ShowFrame exceeds declared frame count");
         }
     }
+    if(!pending_actions.empty())return fail("DoAction without ShowFrame");
     if(frames.size()!=document.header.frame_count)
         return fail("ShowFrame count differs from header");
     return {Error::none,{},std::move(frames)};
