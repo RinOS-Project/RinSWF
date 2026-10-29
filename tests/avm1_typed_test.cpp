@@ -88,5 +88,24 @@ int main() {
         0x96,4,0,0,'x','y',0,0x4a,0
     };
     if(rinswf::execute_avm1_typed(invalid_number,stack_context))return 16;
+    // SWF Push type 2 is Null; type 3 is Undefined.
+    constexpr std::array<std::uint8_t,6> null_push={
+        0x96,2,0,2,3,0
+    };
+    const auto nulls=rinswf::execute_avm1_typed(null_push,stack_context);
+    if(!nulls || nulls.stack.size()!=2 ||
+       !std::holds_alternative<rinswf::Avm1Null>(nulls.stack[0]) ||
+       !std::holds_alternative<std::monostate>(nulls.stack[1]))return 17;
+    constexpr std::array<std::uint8_t,6> null_number={
+        0x96,1,0,2,0x4a,0
+    };
+    const auto num_null=rinswf::execute_avm1_typed(null_number,stack_context);
+    if(!num_null || num_null.stack.size()!=1 ||
+       !std::holds_alternative<double>(num_null.stack[0]) ||
+       std::get<double>(num_null.stack[0])!=0)return 18;
+    constexpr std::array<std::uint8_t,6> undefined_number={
+        0x96,1,0,3,0x4a,0
+    };
+    if(rinswf::execute_avm1_typed(undefined_number,stack_context))return 19;
     return 0;
 }
