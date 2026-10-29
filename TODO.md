@@ -95,7 +95,7 @@
 - [x] DefineShape4のLINESTYLE2でHasFillFlag=1の単色RGBA塗り線を解析し、既存ストローク描画へ統合（グラデーション・Bitmap塗り線は未対応、ビルド未検証）
 - [x] DefineShape2/3/4のStateNewStylesを解析し、追加Fill/Line配列のローカルスタイル番号をグローバル参照へ変換（ビルド・実SWF検証は未実施）
 - [ ] SWFの輪郭連結・複雑な自己交差形状の検証、異なるスタイル間の連結、タイル上限の実測ベンチマーク・性能検証
-- [ ] DefineEditText（タグ37）のフィールド解析・アセット登録と、埋め込みDefineFont2/3の文字コード・advance表を用いた単一行プレーン初期文字列の描画経路を追加（UTF-8のBMP範囲に限定、明示改行CR/LF/CRLFとline-height適用を追加。自動折返し・矩形クリップ・段落配置・HTML・編集UI・AVM連携は未実装。ビルド未検証）
+- [ ] DefineEditText（タグ37）のフィールド解析・アセット登録と、埋め込みDefineFont2/3の文字コード・advance表を用いた単一行プレーン初期文字列の描画経路を追加（UTF-8のBMP範囲に限定、明示改行CR/LF/CRLFとline-height適用を追加。文字単位の簡易自動折返しを追加（空白単語単位の折返し・矩形クリップ・段落配置・HTML・編集UI・AVM連携は未実装）。ビルド未検証）
 - [ ] テキスト、フォント、変換行列（DefineFont（タグ10）およびDefineFont2/3（タグ48/75）のoffset/code/layout表・SHAPE輪郭解析と重複ID検査を追加。DefineFont3は20倍座標単位を補正。DefineText/DefineText2のGlyphEntry、色、サイズ、位置とFont輪郭描画を追加（ビルド・実SWF表示検証未実施））
 - [ ] バックエンド抽象化（RinOS、Linux、Windows）
 
