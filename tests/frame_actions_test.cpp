@@ -134,6 +134,7 @@ int main() {
         return 26;
     // Two sibling root Sprites must not share ancestor identities.
     root.objects.push_back(placed);
+    root.objects.push_back(placed);
     root.objects[0].character_id=99;
     root.objects[1].depth=6;
     root.objects[1].character_id=99;
