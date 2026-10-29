@@ -9,7 +9,7 @@ if libjpeg_dep.found()
   add_project_arguments('-DRINSWF_HAVE_LIBJPEG=1', language: 'cpp')
 endif
 inc = include_directories('include')
-rinswf_lib = library('rinswf', ['src/swf.cpp', 'src/tags.cpp', 'src/display_list.cpp', 'src/shapes.cpp', 'src/bitmaps.cpp', 'src/jpeg.cpp', 'src/renderer.cpp', 'src/frame_renderer.cpp', 'src/c_api.cpp', 'src/fonts.cpp', 'src/text.cpp', 'src/edit_text.cpp', 'src/avm1.cpp'], include_directories: inc,
+rinswf_lib = library('rinswf', ['src/swf.cpp', 'src/tags.cpp', 'src/display_list.cpp', 'src/shapes.cpp', 'src/bitmaps.cpp', 'src/jpeg.cpp', 'src/renderer.cpp', 'src/frame_renderer.cpp', 'src/c_api.cpp', 'src/fonts.cpp', 'src/text.cpp', 'src/edit_text.cpp', 'src/avm1.cpp', 'src/avm1_typed.cpp'], include_directories: inc,
   cpp_args: ['-DRINSWF_BUILDING', '-DRINSWF_SHARED'],
   dependencies: [zlib_dep, libjpeg_dep, lzma_dep], install: true, version: meson.project_version())
 rinswf_dep = declare_dependency(link_with: rinswf_lib, include_directories: inc)
