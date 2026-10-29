@@ -130,7 +130,7 @@ TimelineResult build_timeline(const Document& document) {
             // PlaceObject3 extends PlaceObject2 with filter/blend/cache,
             // class-name, image and visibility/opaque-background options.
             // Reject unsupported visual features instead of losing them.
-            if((flags&0xc0)!=0 || (flags2&~std::uint8_t(0x03))!=0)
+            if((flags&0x80)!=0 || (flags2&~std::uint8_t(0x03))!=0)
                 return fail("PlaceObject3 clip/color/extended features unsupported");
             Reader reader{d,32};
             std::uint16_t id=0;
@@ -378,6 +378,12 @@ TimelineResult build_timeline(const Document& document) {
                    blend_mode!=13 && blend_mode!=14)
                     return fail("PlaceObject3 blend mode unsupported");
             }
+            std::uint16_t clip_depth=0;
+            if(flags&0x40) {
+                if(d.size()-reader.pos()<2)return fail("PlaceObject3 clip depth truncated");
+                clip_depth=u16(d,reader.pos());reader.bit+=16;
+                if(clip_depth<=depth)return fail("PlaceObject3 invalid clip depth");
+            }
             if(reader.pos()!=d.size())
                 return fail("PlaceObject3 trailing bytes");
             const auto it=display.find(depth);
@@ -400,6 +406,7 @@ TimelineResult build_timeline(const Document& document) {
                 if(has_shadow) {entry.has_shadow=true;entry.shadow=shadow;}
                 if(flags2&0x01)entry.filters=filters;
                 if(has_name)entry.name=std::move(name);
+                if(flags&0x40)entry.clip_depth=clip_depth;
                 display[depth]=std::move(entry);
             } else {
                 if(!has_character)
@@ -408,6 +415,7 @@ TimelineResult build_timeline(const Document& document) {
                     return fail("PlaceObject3 insertion into occupied depth");
                 DisplayEntry entry;
                 entry.depth=depth;
+                entry.clip_depth=clip_depth;
                 entry.character_id=id;
                 entry.placed_frame=frames.size();
                 entry.has_matrix=has_matrix;
@@ -438,7 +446,7 @@ TimelineResult build_timeline(const Document& document) {
             const bool has_matrix=flags&0x04;
             const bool has_character=flags&0x02;
             const bool move=flags&0x01;
-            if(has_clip_actions || has_clip_depth) return fail("PlaceObject2 clip features not implemented");
+            if(has_clip_actions) return fail("PlaceObject2 clip actions unsupported");
             Reader reader{d,24};
             std::uint16_t id=0;
             if(has_character) {
@@ -455,6 +463,12 @@ TimelineResult build_timeline(const Document& document) {
             }
             std::string name;
             if(has_name && !reader.cstring(name)) return fail("PlaceObject2 name truncated");
+            std::uint16_t clip_depth=0;
+            if(has_clip_depth) {
+                if(d.size()-reader.pos()<2)return fail("PlaceObject2 clip depth truncated");
+                clip_depth=u16(d,reader.pos());reader.bit+=16;
+                if(clip_depth<=depth)return fail("PlaceObject2 invalid clip depth");
+            }
             if(reader.pos()!=d.size()) return fail("PlaceObject2 trailing bytes");
             const auto it=display.find(depth);
             if(move) {
@@ -464,12 +478,14 @@ TimelineResult build_timeline(const Document& document) {
                 if(has_matrix) { entry.has_matrix=true; entry.matrix=matrix; }
                 if(has_color) { entry.has_color_transform=true; entry.color_transform=color; }
                 if(has_name) entry.name=std::move(name);
+                if(has_clip_depth)entry.clip_depth=clip_depth;
                 display[depth]=std::move(entry);
             } else {
                 if(!has_character) return fail("PlaceObject2 insertion missing character");
                 if(it!=display.end()) return fail("PlaceObject2 insertion into occupied depth");
                 DisplayEntry entry;
                 entry.depth=depth; entry.character_id=id; entry.placed_frame=frames.size(); entry.has_matrix=has_matrix;
+                entry.clip_depth=clip_depth;
                 entry.matrix=matrix; entry.name=std::move(name);
                 entry.has_color_transform=has_color;entry.color_transform=color;
                 display[depth]=std::move(entry);
