@@ -31,6 +31,14 @@ struct FrameActionState {
 [[nodiscard]] Avm1TypedResult execute_frame_actions(
     const TimelineResult& timeline,TimelinePlayer& player,
     Avm1Context& context,Avm1Limits limits={});
+// Advances one logical root tick at a time and executes DoAction for each
+// entered frame. Stops immediately when AVM1 Stop is encountered. The whole
+// requested batch is committed only when all entered frames succeed.
+// max_ticks limits work independently from per-script AVM1 budgets.
+[[nodiscard]] Avm1TypedResult advance_root_actions(
+    const TimelineResult& timeline,TimelinePlayer& player,
+    Avm1Context& context,FrameActionState& state,
+    std::size_t ticks,std::size_t max_ticks=1024,Avm1Limits limits={});
 // Execute actions only when the selected root frame changes. Call reset()
 // after an explicit restart/seek that should re-enter the same frame.
 [[nodiscard]] Avm1TypedResult execute_frame_entry_actions(
