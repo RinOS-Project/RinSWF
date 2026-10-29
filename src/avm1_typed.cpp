@@ -311,6 +311,29 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                     return fail(Error::malformed_tag,"invalid branch target");
                 pc=std::size_t(target);
             }
+        } else if(op>=0x60 && op<=0x65) { // BitAnd/Or/Xor/LShift/RShift/URShift
+            if(stack.size()<2)return fail(Error::malformed_tag,"bitwise stack underflow");
+            auto rhs=pop(),lhs=pop();
+            double a=0,b=0;
+            if(!to_finite_number(lhs,a)||!to_finite_number(rhs,b))
+                return fail(Error::malformed_tag,"bitwise conversion unsupported");
+            const auto left=static_cast<std::int32_t>(to_int32_number(a));
+            const auto right=static_cast<std::int32_t>(to_int32_number(b));
+            const auto shift=static_cast<std::uint32_t>(right)&31U;
+            const auto bits=static_cast<std::uint32_t>(left);
+            std::uint32_t result=0;
+            if(op==0x60)result=bits&static_cast<std::uint32_t>(right);
+            if(op==0x61)result=bits|static_cast<std::uint32_t>(right);
+            if(op==0x62)result=bits^static_cast<std::uint32_t>(right);
+            if(op==0x63)result=bits<<shift;
+            if(op==0x64) {
+                result=bits>>shift;
+                if(left<0 && shift!=0)
+                    result|=(~std::uint32_t{0})<<(32-shift);
+            }
+            if(op==0x65)result=bits>>shift;
+            stack.push_back(op==0x65?double(result):
+                to_int32_number(double(result)));
         } else if(op==0x0a||op==0x0b||op==0x0c||op==0x0d||
                   op==0x0e||op==0x0f) {
             if(stack.size()<2)return fail(Error::malformed_tag,"arithmetic underflow");
