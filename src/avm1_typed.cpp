@@ -101,6 +101,8 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                     const auto start=i;
                     while(i<payload.size()&&payload[i])++i;
                     if(i==payload.size())return fail(Error::truncated,"Push string unterminated");
+                    if(i-start>limits.max_value_bytes)
+                        return fail(Error::size_limit,"AVM1 Push string memory limit");
                     value=std::string(reinterpret_cast<const char*>(payload.data()+start),i-start);
                     ++i;
                 } else if(type==1||type==7) {
@@ -178,6 +180,9 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                 return fail(Error::malformed_tag,"invalid variable name");
             if(!variables.contains(*str)&&variables.size()>=context.max_variables)
                 return fail(Error::size_limit,"AVM1 variable limit");
+            if(std::holds_alternative<std::string>(value) &&
+               std::get<std::string>(value).size()>limits.max_value_bytes)
+                return fail(Error::size_limit,"AVM1 variable value memory limit");
             variables[*str]=std::move(value);
         } else if(op==0x99||op==0x9d) {
             if(length!=2)return fail(Error::malformed_tag,"invalid branch length");
