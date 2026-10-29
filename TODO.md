@@ -235,3 +235,6 @@
 
 - [x] typed AVM1の加算・減算・乗算・除算およびIncrement/DecrementでNaN/Infinityを伝播し、ゼロ除算をエラーで中断しないよう変更。Undefined+数値と1/0の回帰ケースを追加（ビルド・実行未検証）。
 - [ ] NaN/Infinityの文字列変換・ToInteger・比較・Push浮動小数点とSWFバージョン差の互換動作を整理し、実行テストで検証する。
+
+- [x] AVM1のNaN/±InfinityのToString結果を正規化し、ToIntegerで非有限数を0に変換する限定的な意味論を実装。対応する型変換回帰ケースを追加（ビルド・実行未検証）。
+- [ ] AVM1のToIntegerで32bit範囲外の値を扱う厳密な仕様、SWFバージョン別の型変換、実SWFとの互換性を検証する。
