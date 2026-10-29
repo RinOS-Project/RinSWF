@@ -1082,7 +1082,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 const auto& edit=assets.edit_texts.at(entry.character_id);
                 // Static initial text only. Layout features requiring a text
                 // engine must not silently produce a misleading image.
-                if((edit.flags&(0x4000|0x1000|0x0002)) != 0)
+                if((edit.flags&(0x1000|0x0002)) != 0)
                     return {Error::malformed_tag,"complex EditText layout unsupported"};
                 if(!edit.initial_text.empty()) {
                     const auto font=assets.fonts.find(edit.font_id);
@@ -1094,6 +1094,9 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                     std::int64_t pen=std::int64_t(edit.xmin)+edit.left_margin+edit.indent;
                     std::int64_t baseline=std::int64_t(edit.ymin)+edit.font_height;
                     const std::int64_t first_pen=std::int64_t(edit.xmin)+edit.left_margin;
+                    const std::int64_t right_edge=std::int64_t(edit.xmax)-edit.right_margin;
+                    if(right_edge<=first_pen)
+                        return {Error::malformed_tag,"invalid EditText content width"};
                     const std::int64_t line_height=std::int64_t(edit.font_height)+edit.leading;
                     if(line_height<=0)
                         return {Error::malformed_tag,"invalid EditText line height"};
@@ -1142,16 +1145,26 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                         if(pen>std::numeric_limits<std::int32_t>::max() ||
                            pen<std::numeric_limits<std::int32_t>::min())
                             return {Error::size_limit,"EditText pen overflow"};
+                        // Bounded character wrapping. Preserve explicit
+                        // line breaks; word-aware wrapping is a separate mode.
+                        const double delta=double(font->second.advances[index])*
+                            double(edit.font_height)/font->second.units_per_em;
+                        if(!std::isfinite(delta) ||
+                           std::abs(delta)>double(std::numeric_limits<std::int32_t>::max()))
+                            return {Error::size_limit,"EditText advance overflow"};
+                        const auto advance=std::llround(delta);
+                        if((edit.flags&0x4000) && (edit.flags&0x2000) &&
+                           pen>first_pen && advance>0 && pen+advance>right_edge) {
+                            pen=first_pen;
+                            if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
+                                return {Error::size_limit,"EditText wrap line overflow"};
+                            baseline+=line_height;
+                        }
                         generated.glyphs.push_back({edit.font_id,
                             static_cast<std::uint32_t>(index),
                             static_cast<std::int32_t>(pen),
                             static_cast<std::int32_t>(baseline),
                             edit.font_height,edit.color});
-                        const double delta=double(font->second.advances[index])*
-                            double(edit.font_height)/font->second.units_per_em;
-                        if(!std::isfinite(delta) || std::abs(delta)>double(std::numeric_limits<std::int32_t>::max()))
-                            return {Error::size_limit,"EditText advance overflow"};
-                        const auto advance=std::llround(delta);
                         if((advance>0 && pen>std::numeric_limits<std::int32_t>::max()-advance) ||
                            (advance<0 && pen<std::numeric_limits<std::int32_t>::min()-advance))
                             return {Error::size_limit,"EditText pen advance overflow"};
