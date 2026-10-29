@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <charconv>
+#include <string_view>
 namespace rinswf {
 namespace {
 Avm1TypedResult fail(Error error,const char* message){return {error,message,{}};}
@@ -44,6 +46,25 @@ std::string to_string_value(const Avm1Value& v) {
         return out.str();
     }
     return "undefined";
+}
+bool to_finite_number(const Avm1Value& value,double& out) {
+    if(const auto* str=std::get_if<std::string>(&value)) {
+        const auto first=str->find_first_not_of(" \\t\\n\\r");
+        if(first==std::string::npos) {out=0;return true;}
+        const auto last=str->find_last_not_of(" \\t\\n\\r");
+        const std::string_view view(str->data()+first,last-first+1);
+        const auto parsed=std::from_chars(view.data(),view.data()+view.size(),
+                                           out,std::chars_format::general);
+        return parsed.ec==std::errc{} &&
+               parsed.ptr==view.data()+view.size() && std::isfinite(out);
+    }
+    if(const auto* n=std::get_if<double>(&value)) {
+        out=*n;return std::isfinite(out);
+    }
+    if(const auto* b=std::get_if<bool>(&value)) {
+        out=*b?1:0;return true;
+    }
+    return false; // undefined/null are not yet distinct in Avm1Value
 }
 bool truth(const Avm1Value& v) {
     if(auto n=std::get_if<double>(&v))return *n!=0&&!std::isnan(*n);
@@ -186,6 +207,18 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             } else return fail(Error::malformed_tag,"unsupported GotoFrame2 target type");
             pending.playing=(payload[0]&1)!=0;
             pending.sets_playing=true;
+        } else if(op==0x4a) { // ToNumber
+            if(stack.empty())return fail(Error::malformed_tag,"ToNumber underflow");
+            double converted=0;
+            if(!to_finite_number(stack.back(),converted))
+                return fail(Error::malformed_tag,"ToNumber conversion unsupported");
+            stack.back()=converted;
+        } else if(op==0x4b) { // ToString
+            if(stack.empty())return fail(Error::malformed_tag,"ToString underflow");
+            auto converted=to_string_value(stack.back());
+            if(converted.size()>limits.max_value_bytes)
+                return fail(Error::size_limit,"ToString value limit");
+            stack.back()=std::move(converted);
         } else if(op==0x21) { // StringAdd
             if(stack.size()<2)return fail(Error::malformed_tag,"StringAdd underflow");
             auto rhs=pop(),lhs=pop();
