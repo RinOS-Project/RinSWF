@@ -31,7 +31,8 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                 return {Error::malformed_tag,"nested Sprite has no frames",{}};
             auto path=parent;
             path.push_back(entry.depth);
-            parents.emplace_back(entry.character_id,entry.placed_frame);
+            auto child_ancestry=parents;
+            child_ancestry.emplace_back(entry.character_id,entry.placed_frame);
             // Root-level Sprite actions are owned by the root dispatcher.
             // Descendant instances have independent execution state.
             const auto control=depth==0?controls.instances.find(entry.depth):
@@ -50,12 +51,12 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                 auto& instance=it->second;
                 if(inserted||instance.character_id!=entry.character_id||
                    instance.placed_frame!=entry.placed_frame ||
-                   ancestry[path]!=parents) {
+                   ancestry[path]!=child_ancestry) {
                     instance=SpriteActionInstance{};
                     instance.character_id=entry.character_id;
                     instance.placed_frame=entry.placed_frame;
                     controls.nested_instances.erase(path);
-                    ancestry[path]=parents;
+                    ancestry[path]=child_ancestry;
                 }
                 if(!instance.entered || instance.last_frame!=local) {
                     const auto& actions=sprite->second.frames[frame_index].actions;
@@ -95,7 +96,7 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                     else controls.stop_path(path);
                 }
             }
-            const auto result=walk(sprite->second.frames[frame_index],path,local,depth+1,parents);
+            const auto result=walk(sprite->second.frames[frame_index],path,local,depth+1,child_ancestry);
             if(!result)return result;
         }
         return {};
