@@ -1103,6 +1103,23 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                     if(baseline>std::numeric_limits<std::int32_t>::max() ||
                        baseline<std::numeric_limits<std::int32_t>::min())
                         return {Error::size_limit,"EditText baseline overflow"};
+                    std::size_t line_begin=0;
+                    const auto align_line=[&]() -> bool {
+                        if(edit.align==0 || edit.align==3)return true;
+                        // The line's pen is its logical right edge after
+                        // advances; use a single offset for every glyph.
+                        const auto free_space=right_edge-pen;
+                        const auto shift=free_space>0 ?
+                            (edit.align==1?free_space/2:free_space):0;
+                        for(std::size_t j=line_begin;j<generated.glyphs.size();++j) {
+                            const auto updated=std::int64_t(generated.glyphs[j].x)+shift;
+                            if(updated>std::numeric_limits<std::int32_t>::max() ||
+                               updated<std::numeric_limits<std::int32_t>::min())
+                                return false;
+                            generated.glyphs[j].x=static_cast<std::int32_t>(updated);
+                        }
+                        return true;
+                    };
                     for(std::size_t i=0;i<data.size();) {
                         if(generated.glyphs.size()>=100000)
                             return {Error::size_limit,"EditText glyph count limit"};
@@ -1131,6 +1148,9 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                             if((edit.flags&0x2000)==0)
                                 return {Error::malformed_tag,"newline in single-line EditText"};
                             if(code==13 && i<data.size() && data[i]=='\\n')++i;
+                            if(!align_line())
+                                return {Error::size_limit,"EditText alignment overflow"};
+                            line_begin=generated.glyphs.size();
                             pen=first_pen;
                             if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
                                 return {Error::size_limit,"EditText line overflow"};
@@ -1155,7 +1175,11 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                         const auto advance=std::llround(delta);
                         if((edit.flags&0x4000) && (edit.flags&0x2000) &&
                            pen>first_pen && advance>0 && pen+advance>right_edge) {
+                            if(!align_line())
+                                return {Error::size_limit,"EditText alignment overflow"};
+                            line_begin=generated.glyphs.size();
                             pen=first_pen;
+                            line_origin=pen;
                             if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
                                 return {Error::size_limit,"EditText wrap line overflow"};
                             baseline+=line_height;
@@ -1170,6 +1194,8 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                             return {Error::size_limit,"EditText pen advance overflow"};
                         pen+=advance;
                     }
+                    if(!align_line())
+                        return {Error::size_limit,"EditText alignment overflow"};
                 }
                 text=&generated;
             }
