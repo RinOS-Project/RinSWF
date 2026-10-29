@@ -1009,7 +1009,19 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
         std::vector<std::uint8_t> alpha;
     };
     std::vector<ActiveMask> masks;
+    // Reuse the isolated object surface across masked objects at this level.
+    // The contents must be cleared for every new object.
+    Surface masked_layer;
+    bool have_masked_layer=false;
+    std::uint16_t previous_depth=0;
+    bool have_previous_depth=false;
     for(const auto& entry:frame.objects) {
+        if(have_previous_depth && entry.depth<=previous_depth)
+            return {Error::malformed_tag,"display list depths not strictly ascending"};
+        previous_depth=entry.depth;
+        have_previous_depth=true;
+        if(entry.clip_depth && entry.clip_depth<=entry.depth)
+            return {Error::malformed_tag,"invalid display mask depth"};
         masks.erase(std::remove_if(masks.begin(),masks.end(),
             [&](const ActiveMask& mask){return entry.depth>mask.end_depth;}),
             masks.end());
@@ -1036,23 +1048,27 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             // transparent intermediate would change their semantics.
             if(entry.blend_mode!=1)
                 return {Error::malformed_tag,"masked blend mode unsupported"};
-            Surface layer;
-            auto init=make_surface(stage.width,stage.height,layer);
-            if(!init)return init;
+            if(!have_masked_layer) {
+                auto init=make_surface(stage.width,stage.height,masked_layer);
+                if(!init)return init;
+                have_masked_layer=true;
+            } else {
+                std::fill(masked_layer.rgba.begin(),masked_layer.rgba.end(),0);
+            }
             FrameSnapshot single;
             single.objects.push_back(entry);
-            auto rendered=render_frame_impl(single,assets,layer,limits,
+            auto rendered=render_frame_impl(single,assets,masked_layer,limits,
                 nesting+1,playback_frame,sprite_controls,depth_path);
             if(!rendered)return rendered;
             for(std::size_t i=0;i<std::size_t(stage.width)*stage.height;++i) {
-                unsigned sa=layer.rgba[i*4+3];
+                unsigned sa=masked_layer.rgba[i*4+3];
                 for(const auto& mask:masks)
                     sa=(sa*mask.alpha[i]+127)/255;
                 if(!sa)continue;
                 const unsigned da=stage.rgba[i*4+3];
                 const unsigned oa=sa+(da*(255-sa)+127)/255;
                 for(unsigned c=0;c<3;++c) {
-                    const unsigned sc=layer.rgba[i*4+c],dc=stage.rgba[i*4+c];
+                    const unsigned sc=masked_layer.rgba[i*4+c],dc=stage.rgba[i*4+c];
                     const unsigned premul=sc*sa+(dc*da*(255-sa)+127)/255;
                     stage.rgba[i*4+c]=std::uint8_t((premul+oa/2)/oa);
                 }
