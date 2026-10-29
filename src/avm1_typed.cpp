@@ -111,6 +111,17 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                     auto bits=get32(payload,i);i+=4;
                     if(type==7)value=double(static_cast<std::int32_t>(bits));
                     else {float v;std::memcpy(&v,&bits,4);value=double(v);}
+                } else if(type==6) {
+                    if(payload.size()-i<8)return fail(Error::truncated,"Push double truncated");
+                    // AVM1 encodes the high 32-bit word before the low word.
+                    const std::uint64_t bits=
+                        (std::uint64_t(get32(payload,i))<<32)|get32(payload,i+4);
+                    i+=8;
+                    double decoded=0;
+                    std::memcpy(&decoded,&bits,sizeof(decoded));
+                    if(!std::isfinite(decoded))
+                        return fail(Error::malformed_tag,"nonfinite Push double");
+                    value=decoded;
                 } else if(type==5) {
                     if(i==payload.size())return fail(Error::truncated,"Push Boolean truncated");
                     value=bool(payload[i++]);
