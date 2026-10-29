@@ -63,8 +63,7 @@ TextResult decode_define_text(const Tag& tag,std::size_t max_glyphs) {
     TextAsset result;
     if(!r.take(16,value)||!r.rect()||!r.matrix(result.matrix))
         return fail(Error::truncated,"text header truncated");
-    result.character_id=static_cast<std::uint16_t>(value); // replaced below
-    // Character ID is stored before RECT; preserve it independently.
+    // Character ID precedes the RECT and MATRIX fields.
     result.character_id=std::uint16_t(tag.data[0]|(std::uint16_t(tag.data[1])<<8));
     std::uint32_t glyph_bits=0,advance_bits=0;
     if(!r.take(8,glyph_bits)||!r.take(8,advance_bits))
