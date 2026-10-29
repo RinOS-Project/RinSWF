@@ -69,5 +69,23 @@ int main() {
     });
     if(rinswf::execute_frame_actions(timeline,player,context) ||
        player.clock.frame!=2 || player.clock.playing)return 14;
+    rinswf::TimelineResult entries;
+    entries.frames.resize(2);
+    entries.frames[0].actions.push_back({0x81,2,0,1,0,0});
+    entries.frames[1].actions.push_back({0x07,0});
+    rinswf::TimelinePlayer entry_player;
+    rinswf::Avm1Context entry_context;
+    rinswf::FrameActionState entry_state;
+    if(!rinswf::execute_frame_entry_actions(entries,entry_player,
+        entry_context,entry_state) || entry_player.clock.frame!=1)return 15;
+    if(!rinswf::execute_frame_entry_actions(entries,entry_player,
+        entry_context,entry_state) || entry_player.clock.playing)return 16;
+    // Repeated entry at the same stopped frame must not execute again.
+    entries.frames[1].actions={{0x04,0}};
+    if(!rinswf::execute_frame_entry_actions(entries,entry_player,
+        entry_context,entry_state))return 17;
+    entry_state.reset();
+    if(rinswf::execute_frame_entry_actions(entries,entry_player,
+        entry_context,entry_state))return 18;
     return 0;
 }
