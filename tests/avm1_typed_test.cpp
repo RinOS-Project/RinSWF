@@ -59,5 +59,19 @@ int main() {
     if(rinswf::execute_avm1_typed(duplicate_underflow,stack_context))return 11;
     constexpr std::array<std::uint8_t,2> swap_underflow={0x4d,0};
     if(rinswf::execute_avm1_typed(swap_underflow,stack_context))return 12;
+    // Concatenate two AVM1 strings and compare result.
+    constexpr std::array<std::uint8_t,19> strings={
+        0x96,3,0,0,'a',0,0x96,3,0,0,'b',0,
+        0x21,0x96,4,0,0,'a','b',0
+    };
+    // This short stream intentionally lacks End and must be rejected.
+    if(rinswf::execute_avm1_typed(strings,stack_context))return 13;
+    constexpr std::array<std::uint8_t,14> integer_program={
+        0x96,5,0,7,4,0,0,0,0x50,0x18,0x4c,0x0e,0
+    };
+    const auto integer=rinswf::execute_avm1_typed(integer_program,stack_context);
+    if(!integer || integer.stack.size()!=1 ||
+       !std::holds_alternative<double>(integer.stack[0]) ||
+       std::get<double>(integer.stack[0])!=1)return 14;
     return 0;
 }
