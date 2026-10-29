@@ -44,5 +44,20 @@ int main() {
     if(!doubled || doubled.stack.size()!=1 ||
        !std::holds_alternative<double>(doubled.stack[0]) ||
        std::get<double>(doubled.stack[0])!=1.5)return 9;
+    // Push 4, Duplicate, Increment, Swap, Decrement, Not, End.
+    constexpr std::array<std::uint8_t,14> stack_program={
+        0x96,5,0,7,4,0,0,0,0x4c,0x50,0x4d,0x51,0x12,0
+    };
+    rinswf::Avm1Context stack_context;
+    const auto stacked=rinswf::execute_avm1_typed(stack_program,stack_context);
+    if(!stacked || stacked.stack.size()!=2 ||
+       !std::holds_alternative<double>(stacked.stack[0]) ||
+       std::get<double>(stacked.stack[0])!=5 ||
+       !std::holds_alternative<bool>(stacked.stack[1]) ||
+       std::get<bool>(stacked.stack[1]))return 10;
+    constexpr std::array<std::uint8_t,2> duplicate_underflow={0x4c,0};
+    if(rinswf::execute_avm1_typed(duplicate_underflow,stack_context))return 11;
+    constexpr std::array<std::uint8_t,2> swap_underflow={0x4d,0};
+    if(rinswf::execute_avm1_typed(swap_underflow,stack_context))return 12;
     return 0;
 }
