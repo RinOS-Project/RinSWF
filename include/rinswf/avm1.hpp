@@ -20,6 +20,11 @@ struct Avm1Context {
     std::map<std::string,Avm1Value> variables;
     std::size_t max_variables=1024;
 };
+struct Avm1TimelineCommand {
+    bool playing=true;
+    bool has_frame=false;
+    std::size_t frame=0; // zero based
+};
 struct Avm1TypedResult {
     Error error=Error::none;
     std::string message;
@@ -30,7 +35,7 @@ struct Avm1TypedResult {
 // Host IO, native objects, scope chains, prototypes and timeline actions are denied.
 [[nodiscard]] Avm1TypedResult execute_avm1_typed(
     std::span<const std::uint8_t> bytecode,Avm1Context& context,
-    Avm1Limits limits={});
+    Avm1Limits limits={},Avm1TimelineCommand* timeline=nullptr);
 struct Avm1Result {
     Error error=Error::none;
     std::string message;
