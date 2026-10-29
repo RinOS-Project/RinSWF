@@ -74,6 +74,14 @@ bool to_finite_number(const Avm1Value& value,double& out) {
     }
     return false;
 }
+double to_int32_number(double value) {
+    if(!std::isfinite(value) || value==0)return 0;
+    constexpr double modulus=4294967296.0;
+    double wrapped=std::fmod(std::trunc(value),modulus);
+    if(wrapped<0)wrapped+=modulus;
+    if(wrapped>=2147483648.0)wrapped-=modulus;
+    return wrapped;
+}
 bool truth(const Avm1Value& v) {
     if(auto n=std::get_if<double>(&v))return *n!=0&&!std::isnan(*n);
     if(auto b=std::get_if<bool>(&v))return *b;
@@ -247,9 +255,8 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             double value=0;
             if(!to_finite_number(stack.back(),value))
                 return fail(Error::malformed_tag,"ToInteger conversion unsupported");
-            // Nonfinite values and signed zero yield zero in this
-            // bounded integer-conversion subset.
-            stack.back()=std::isfinite(value)?std::trunc(value):0.0;
+            // AVM1 integer conversion uses signed 32-bit wraparound.
+            stack.back()=to_int32_number(value);
         } else if(op==0x4c) { // PushDuplicate
             if(stack.empty())return fail(Error::malformed_tag,"Duplicate underflow");
             if(stack.size()>=limits.max_stack)return fail(Error::size_limit,"AVM1 stack limit");
