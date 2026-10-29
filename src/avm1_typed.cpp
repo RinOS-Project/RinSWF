@@ -6,6 +6,8 @@
 #include <utility>
 #include <set>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 namespace rinswf {
 namespace {
 Avm1TypedResult fail(Error error,const char* message){return {error,message,{}};}
@@ -32,6 +34,16 @@ bool within_value_budget(const std::map<std::string,Avm1Value>& vars,
     for(const auto& value:stack)
         if(!charge(payload_size(value)))return false;
     return true;
+}
+std::string to_string_value(const Avm1Value& v) {
+    if(const auto* str=std::get_if<std::string>(&v))return *str;
+    if(const auto* b=std::get_if<bool>(&v))return *b?"true":"false";
+    if(const auto* n=std::get_if<double>(&v)) {
+        std::ostringstream out;
+        out<<std::setprecision(15)<<*n;
+        return out.str();
+    }
+    return "undefined";
 }
 bool truth(const Avm1Value& v) {
     if(auto n=std::get_if<double>(&v))return *n!=0&&!std::isnan(*n);
@@ -174,6 +186,27 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             } else return fail(Error::malformed_tag,"unsupported GotoFrame2 target type");
             pending.playing=(payload[0]&1)!=0;
             pending.sets_playing=true;
+        } else if(op==0x21) { // StringAdd
+            if(stack.size()<2)return fail(Error::malformed_tag,"StringAdd underflow");
+            auto rhs=pop(),lhs=pop();
+            const auto a=to_string_value(lhs);
+            const auto b=to_string_value(rhs);
+            if(a.size()>limits.max_value_bytes ||
+               b.size()>limits.max_value_bytes-a.size())
+                return fail(Error::size_limit,"StringAdd memory limit");
+            stack.push_back(a+b);
+        } else if(op==0x13 || op==0x29) { // StringEquals, StringLess
+            if(stack.size()<2)return fail(Error::malformed_tag,"String comparison underflow");
+            auto rhs=pop(),lhs=pop();
+            const auto a=to_string_value(lhs);
+            const auto b=to_string_value(rhs);
+            stack.push_back(op==0x13?a==b:a<b);
+        } else if(op==0x18) { // ToInteger
+            if(stack.empty())return fail(Error::malformed_tag,"ToInteger underflow");
+            double value=0;
+            if(!number(stack.back(),value)||!std::isfinite(value))
+                return fail(Error::malformed_tag,"ToInteger conversion unsupported");
+            stack.back()=std::trunc(value);
         } else if(op==0x4c) { // PushDuplicate
             if(stack.empty())return fail(Error::malformed_tag,"Duplicate underflow");
             if(stack.size()>=limits.max_stack)return fail(Error::size_limit,"AVM1 stack limit");
