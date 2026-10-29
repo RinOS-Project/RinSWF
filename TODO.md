@@ -232,3 +232,6 @@
 
 - [x] typed AVM1でUndefinedのToNumberをNaNとして保持し、NaNの数値比較（Equals/Less）をfalse扱いに修正。従来の未対応エラーを期待していた回帰テストも更新（未ビルド・未実行）。
 - [ ] 数値演算全体のNaN/Infinity伝播、ActionScriptの比較・等価性の仕様差、バージョン別動作を整理して対応する。
+
+- [x] typed AVM1の加算・減算・乗算・除算およびIncrement/DecrementでNaN/Infinityを伝播し、ゼロ除算をエラーで中断しないよう変更。Undefined+数値と1/0の回帰ケースを追加（ビルド・実行未検証）。
+- [ ] NaN/Infinityの文字列変換・ToInteger・比較・Push浮動小数点とSWFバージョン差の互換動作を整理し、実行テストで検証する。
