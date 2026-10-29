@@ -260,7 +260,6 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             double n=0;
             if(!number(stack.back(),n))return fail(Error::malformed_tag,"numeric conversion unsupported");
             const auto next=n+(op==0x50?1.0:-1.0);
-            if(!std::isfinite(next))return fail(Error::malformed_tag,"nonfinite result");
             stack.back()=next;
         } else if(op==0x17) {
             if(stack.empty())return fail(Error::malformed_tag,"Pop underflow");
@@ -308,8 +307,6 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                 return fail(Error::malformed_tag,"numeric conversion unsupported");
             double result=op==0x0a?a+b:op==0x0b?a-b:
                 op==0x0c?a*b:op==0x0d?a/b:op==0x0e?double(a==b):double(a<b);
-            if(!std::isfinite(result) && op!=0x0e && op!=0x0f)
-                return fail(Error::malformed_tag,"nonfinite arithmetic result");
             stack.push_back(result);
         } else return fail(Error::malformed_tag,"unsupported AVM1 opcode");
         if(!within_value_budget(variables,stack,limits.max_value_bytes))
