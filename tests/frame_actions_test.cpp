@@ -110,5 +110,27 @@ int main() {
     if(!rinswf::execute_sprite_entry_actions(root,sprite_assets,
         sprite_player,sprite_state))return 22;
     if(!sprite_state.instances.empty())return 23;
+    // Root Sprite 99 contains a nested Sprite 101 at depth 7.
+    rinswf::SpriteTimeline nested_clip;
+    nested_clip.character_id=101;
+    nested_clip.frames.resize(1);
+    nested_clip.frames[0].actions.push_back({0x07,0});
+    sprite_assets.sprites.emplace(101,nested_clip);
+    rinswf::DisplayEntry child;
+    child.depth=7;child.character_id=101;child.placed_frame=0;
+    sprite_assets.sprites.at(99).frames[0].objects.push_back(child);
+    root.objects[0].character_id=99;
+    rinswf::SpriteActionState nested_state;
+    rinswf::TimelinePlayer nested_player;
+    if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
+        nested_player,nested_state))return 24;
+    const std::vector<std::uint16_t> child_path={5,7};
+    if(nested_state.nested_instances.size()!=1 ||
+       nested_player.sprites.nested_instances.at(child_path).playing)return 25;
+    // A removed parent must destroy every descendant's AVM1 environment.
+    root.objects.clear();
+    if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
+        nested_player,nested_state) || !nested_state.nested_instances.empty())
+        return 26;
     return 0;
 }
