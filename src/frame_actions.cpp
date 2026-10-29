@@ -128,6 +128,8 @@ Avm1TypedResult advance_timeline_actions(
     if(!timeline || timeline.frames.empty())
         return {Error::malformed_tag,"invalid root timeline",{}};
     if(ticks>max_ticks)return {Error::size_limit,"timeline tick limit",{}};
+    Avm1ExecutionBudget budget{limits.max_actions};
+    limits.shared_budget=&budget;
     auto staged_player=player;
     auto staged_context=context;
     auto staged_root=root_state;
