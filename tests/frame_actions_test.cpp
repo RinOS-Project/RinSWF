@@ -266,5 +266,23 @@ int main() {
         shared_player,shared_context,shared_root,shared_sprites,
         0,1024,{1,1024,1024}))return 51;
     if(shared_root.initialized || !shared_sprites.instances.empty())return 52;
+    // Aggregate retained-value budget includes root and Sprite contexts.
+    rinswf::TimelineResult aggregate_timeline;
+    aggregate_timeline.frames.resize(1);
+    rinswf::Avm1Context aggregate_context;
+    aggregate_context.variables["root"]="abcdefghijklmnop";
+    rinswf::SpriteActionState aggregate_sprites;
+    rinswf::SpriteActionInstance retained;
+    retained.context.variables["child"]="abcdefghijklmnop";
+    aggregate_sprites.instances.emplace(5,retained);
+    rinswf::TimelinePlayer aggregate_player;
+    rinswf::FrameActionState aggregate_root;
+    rinswf::Avm1Limits aggregate_limits;
+    aggregate_limits.max_value_bytes=sizeof(rinswf::Avm1Value)*2+4;
+    if(rinswf::advance_timeline_actions(aggregate_timeline,shared_assets,
+        aggregate_player,aggregate_context,aggregate_root,
+        aggregate_sprites,0,1024,aggregate_limits))return 53;
+    if(aggregate_root.initialized || aggregate_sprites.instances.size()!=1 ||
+       !aggregate_context.variables.contains("root"))return 54;
     return 0;
 }
