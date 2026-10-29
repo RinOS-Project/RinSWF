@@ -18,7 +18,7 @@ struct Avm1Result {
     std::vector<double> stack;
     explicit operator bool() const noexcept {return error==Error::none;}
 };
-// Supports End, Push(Number/Integer), Pop, Add, Subtract, Multiply, Divide.
+// Supports End, Push(Number/Integer), Pop, arithmetic, numeric comparison,\n// Jump, and If; only validated action boundaries may be branch targets.
 // Any other opcode is rejected instead of being silently ignored.
 [[nodiscard]] Avm1Result execute_avm1(std::span<const std::uint8_t> bytecode,
                                       Avm1Limits limits={});
