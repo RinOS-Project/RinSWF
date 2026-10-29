@@ -193,7 +193,7 @@ int main() {
        std::get<double>(ba.stack[0])!=1.0)return 29;
     // LogicalAnd, LogicalOr, StrictEquals and Greater.
     constexpr std::array<std::uint8_t,8> logical={
-        0x96,3,0,5,1,5,0,0x10
+        0x96,4,0,5,1,5,0,0x10
     };
     auto logical_program=std::vector<std::uint8_t>(logical.begin(),logical.end());
     logical_program.push_back(0);
