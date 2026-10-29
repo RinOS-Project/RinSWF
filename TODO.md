@@ -229,3 +229,6 @@
 
 - [x] AVM1 PushのNull(type 2)とUndefined(type 3)を別の値型として保持。Nullの数値変換は0、文字列変換は`null`、Undefinedは有限数変換を明示拒否する限定仕様を追加。テスト追加（未実行）。
 - [ ] Flash互換のUndefined→NaN、Null/Undefinedの比較、SWFバージョン別型変換仕様を実装・検証する。
+
+- [x] typed AVM1でUndefinedのToNumberをNaNとして保持し、NaNの数値比較（Equals/Less）をfalse扱いに修正。従来の未対応エラーを期待していた回帰テストも更新（未ビルド・未実行）。
+- [ ] 数値演算全体のNaN/Infinity伝播、ActionScriptの比較・等価性の仕様差、バージョン別動作を整理して対応する。
