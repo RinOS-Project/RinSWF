@@ -1200,6 +1200,12 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 }
                 text=&generated;
             }
+            // EditText clips to its local RECT, transformed by placement.
+            // Preserve the previous stage so discarded glyph pixels cannot
+            // remove or alter already-composited objects outside the field.
+            const auto edit_it=assets.edit_texts.find(entry.character_id);
+            std::vector<std::uint8_t> before_text;
+            if(edit_it!=assets.edit_texts.end())before_text=canvas.rgba;
             // DefineFont glyph coordinates are in a 1024-unit em square.
             // Transform glyph-local coordinates through the text MATRIX and
             // placement MATRIX, then draw with the existing shape rasterizer.
@@ -1238,6 +1244,26 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 }
                 auto draw=draw_shape_fills(canvas,transformed);
                 if(!draw)return draw;
+            }
+            if(edit_it!=assets.edit_texts.end()) {
+                const auto& rect=edit_it->second;
+                const double det=m.scale_x*m.scale_y-
+                                 m.rotate_skew_0*m.rotate_skew_1;
+                if(!std::isfinite(det)||std::abs(det)<1e-12)
+                    return {Error::malformed_tag,"singular EditText placement matrix"};
+                for(std::size_t py=0;py<canvas.height;++py)
+                    for(std::size_t px=0;px<canvas.width;++px) {
+                        const double sx=(double(px)+0.5)*20.0-tx;
+                        const double sy=(double(py)+0.5)*20.0-ty;
+                        const double lx=(m.scale_y*sx-m.rotate_skew_0*sy)/det;
+                        const double ly=(-m.rotate_skew_1*sx+m.scale_x*sy)/det;
+                        if(std::isfinite(lx)&&std::isfinite(ly)&&
+                           lx>=rect.xmin&&lx<rect.xmax&&
+                           ly>=rect.ymin&&ly<rect.ymax)continue;
+                        const auto offset=(py*canvas.width+px)*4;
+                        for(unsigned c=0;c<4;++c)
+                            canvas.rgba[offset+c]=before_text[offset+c];
+                    }
             }
         } else if(const auto sprite=assets.sprites.find(entry.character_id);
                   sprite!=assets.sprites.end()) {
