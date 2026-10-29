@@ -16,6 +16,7 @@ struct FontAsset {
     std::uint16_t character_id=0;
     std::vector<FontGlyph> glyphs;
     std::vector<std::uint16_t> code_points;
+    std::vector<std::int16_t> advances; // font design units, when layout exists
     std::uint16_t units_per_em=1024;
     std::string name;
 };
