@@ -167,3 +167,6 @@
 - [x] ClipDepth合成の一時RGBAサーフェスをオブジェクト間で再利用し、各描画前に透明クリア（フレーム内の繰り返し全画面確保を削減。ビルド・描画検証未実施）
 - [x] ClipDepthマスク輪郭生成の一時RGBAサーフェスもフレーム内で再利用し、表示リストの深度が厳密昇順であることとClipDepthの大小を検証（ビルド・描画検証未実施）
 - [ ] ClipDepthの深度・複数マスク・Sprite入れ子・フィルターとの複合描画を実SWFで検証し、不透明度と境界AAを調整
+
+- [x] AVM1のPlay(0x06)、Stop(0x07)、GotoFrame(0x81)をtyped VMのオプトイン実行で処理し、TimelinePlayerへフレーム単位でトランザクション反映（フレーム範囲外と未対応命令は拒否、既存の自動実行なし。ビルド・実行未検証）
+- [ ] GotoLabel、GotoFrame2、ActionCallFunction、Sprite別実行コンテキスト、フレーム遷移時のDoAction実行順と同一フレーム再実行制御を整備
