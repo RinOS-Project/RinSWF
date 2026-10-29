@@ -1072,6 +1072,47 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 auto b=draw_shape_strokes(canvas,it->second,tx,ty,limits,&assets.bitmaps);
                 if(!b)return b;
             }
+        } else if(const auto text=assets.texts.find(entry.character_id);
+                  text!=assets.texts.end()) {
+            // DefineFont glyph coordinates are in a 1024-unit em square.
+            // Transform glyph-local coordinates through the text MATRIX and
+            // placement MATRIX, then draw with the existing shape rasterizer.
+            for(const auto& placed:text->second.glyphs) {
+                const auto font=assets.fonts.find(placed.font_id);
+                if(font==assets.fonts.end() ||
+                   placed.glyph_index>=font->second.glyphs.size())
+                    return {Error::malformed_tag,"text references missing font glyph"};
+                const auto& glyph=font->second.glyphs[placed.glyph_index];
+                ShapeGeometry transformed=glyph.outline;
+                transformed.fills[0].color=placed.color;
+                const double scale=double(placed.height)/1024.0;
+                const auto& t=text->second.matrix;
+                const auto transform_point=[&](ShapePoint& p)->bool {
+                    const double gx=double(p.x)*scale+placed.x;
+                    const double gy=double(p.y)*scale+placed.y;
+                    const double px=t.scale_x*gx+t.skew_x*gy+t.translate_x;
+                    const double py=t.skew_y*gx+t.scale_y*gy+t.translate_y;
+                    const double x=m.scale_x*px+m.rotate_skew_0*py+tx;
+                    const double y=m.rotate_skew_1*px+m.scale_y*py+ty;
+                    if(!std::isfinite(x)||!std::isfinite(y)||
+                       x<double(std::numeric_limits<std::int32_t>::min())||
+                       x>double(std::numeric_limits<std::int32_t>::max())||
+                       y<double(std::numeric_limits<std::int32_t>::min())||
+                       y>double(std::numeric_limits<std::int32_t>::max()))
+                        return false;
+                    p.x=std::int32_t(std::llround(x));
+                    p.y=std::int32_t(std::llround(y));
+                    return true;
+                };
+                for(auto& command:transformed.commands) {
+                    if(!transform_point(command.endpoint) ||
+                       (command.kind==ShapeCommandKind::quadratic_to &&
+                        !transform_point(command.control)))
+                        return {Error::size_limit,"transformed text coordinates overflow"};
+                }
+                auto draw=draw_shape_fills(canvas,transformed);
+                if(!draw)return draw;
+            }
         } else if(const auto sprite=assets.sprites.find(entry.character_id);
                   sprite!=assets.sprites.end()) {
             if(sprite->second.frames.empty())
