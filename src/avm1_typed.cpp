@@ -60,7 +60,7 @@ bool to_finite_number(const Avm1Value& value,double& out) {
                parsed.ptr==view.data()+view.size() && std::isfinite(out);
     }
     if(const auto* n=std::get_if<double>(&value)) {
-        out=*n;return std::isfinite(out);
+        out=*n;return true;
     }
     if(const auto* b=std::get_if<bool>(&value)) {
         out=*b?1:0;return true;
