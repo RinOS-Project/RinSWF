@@ -223,3 +223,6 @@
 
 - [x] typed AVM1へStringAdd(0x21)、StringEquals(0x13)、StringLess(0x29)、ToInteger(0x18)を追加。文字列連結にはメモリ予算を適用し、テストケースを追加（ビルド・実行は未検証）。
 - [ ] ActionScript互換の文字エンコーディング、ToNumber/ToString、NaN/Undefinedの意味論と浮動小数点変換を精密化する。
+
+- [x] typed AVM1にToNumber(0x4A)とToString(0x4B)を追加。有限数へ厳密に変換できる数字文字列、Boolean、数値を扱い、未対応のNaN/Undefined等は明示拒否。回帰テスト追加（ビルド未実行）。
+- [ ] Null/Undefinedを区別する値表現、ActionScript互換の数値変換（NaN/Infinity/16進数等）と文字コード処理を実装・検証。
