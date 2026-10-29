@@ -87,5 +87,28 @@ int main() {
     entry_state.reset();
     if(rinswf::execute_frame_entry_actions(entries,entry_player,
         entry_context,entry_state))return 18;
+    rinswf::FrameAssets sprite_assets;
+    rinswf::SpriteTimeline clip;
+    clip.character_id=99;
+    clip.frames.resize(2);
+    clip.frames[0].actions.push_back({0x07,0});
+    sprite_assets.sprites.emplace(99,clip);
+    rinswf::FrameSnapshot root;
+    rinswf::DisplayEntry placed;
+    placed.depth=5;placed.character_id=99;placed.placed_frame=0;
+    root.objects.push_back(placed);
+    rinswf::TimelinePlayer sprite_player;
+    rinswf::SpriteActionState sprite_state;
+    if(!rinswf::execute_sprite_entry_actions(root,sprite_assets,
+        sprite_player,sprite_state))return 19;
+    if(sprite_player.sprites.instances.at(5).playing)return 20;
+    sprite_assets.sprites.at(99).frames[0].actions={{0x04,0}};
+    if(!rinswf::execute_sprite_entry_actions(root,sprite_assets,
+        sprite_player,sprite_state))return 21;
+    placed.character_id=100;
+    root.objects[0]=placed;
+    if(!rinswf::execute_sprite_entry_actions(root,sprite_assets,
+        sprite_player,sprite_state))return 22;
+    if(!sprite_state.instances.empty())return 23;
     return 0;
 }
