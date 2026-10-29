@@ -120,6 +120,48 @@ Avm1TypedResult advance_root_actions(
     return last;
 }
 
+Avm1TypedResult advance_timeline_actions(
+    const TimelineResult& timeline,const FrameAssets& assets,
+    TimelinePlayer& player,Avm1Context& context,
+    FrameActionState& root_state,SpriteActionState& sprite_state,
+    std::size_t ticks,std::size_t max_ticks,Avm1Limits limits) {
+    if(!timeline || timeline.frames.empty())
+        return {Error::malformed_tag,"invalid root timeline",{}};
+    if(ticks>max_ticks)return {Error::size_limit,"timeline tick limit",{}};
+    auto staged_player=player;
+    auto staged_context=context;
+    auto staged_root=root_state;
+    auto staged_sprites=sprite_state;
+    Avm1TypedResult last;
+    auto enter=[&]()->Avm1TypedResult {
+        auto result=execute_frame_entry_actions(timeline,staged_player,
+                                                  staged_context,staged_root,limits);
+        if(!result)return result;
+        const auto& frame=timeline.frames[
+            staged_player.clock.frame%timeline.frames.size()];
+        result=execute_sprite_entry_actions(frame,assets,staged_player,
+                                             staged_sprites,limits);
+        if(!result)return result;
+        return execute_nested_sprite_entry_actions(frame,assets,staged_player,
+                                                    staged_sprites,limits);
+    };
+    last=enter();
+    if(!last)return last;
+    for(std::size_t i=0;i<ticks && staged_player.clock.playing;++i) {
+        const auto previous=staged_player.clock.frame;
+        staged_player.advance(1);
+        if(previous==staged_player.clock.frame)
+            return {Error::size_limit,"timeline clock saturated",{}};
+        last=enter();
+        if(!last)return last;
+    }
+    player=std::move(staged_player);
+    context=std::move(staged_context);
+    root_state=staged_root;
+    sprite_state=std::move(staged_sprites);
+    return last;
+}
+
 Avm1TypedResult execute_sprite_entry_actions(
     const FrameSnapshot& root_frame,const FrameAssets& assets,
     TimelinePlayer& player,SpriteActionState& state,Avm1Limits limits) {
