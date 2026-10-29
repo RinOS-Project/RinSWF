@@ -18,7 +18,7 @@ int main() {
     constexpr std::array<std::uint8_t,4> truncated={0x96,0x05,0x00,0x07};
     if(rinswf::execute_avm1(truncated))return 5;
     // Push 1; If +8 skips the Push 99 action; Push 7; End.
-    constexpr std::array<std::uint8_t,30> branch={
+    constexpr std::array<std::uint8_t,29> branch={
         0x96,5,0,7,1,0,0,0, 0x9d,2,0,8,0,
         0x96,5,0,7,99,0,0,0, 0x96,5,0,7,7,0,0,0,0
     };
