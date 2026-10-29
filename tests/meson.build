@@ -20,3 +20,6 @@ test('renderer', renderer_test_exe)
 
 frame_render_test_exe = executable('rinswf-frame-renderer-test', 'frame_renderer_test.cpp', dependencies: rinswf_dep)
 test('frame-renderer', frame_render_test_exe)
+
+avm1_test_exe = executable('rinswf-avm1-test', 'avm1_test.cpp', dependencies: rinswf_dep)
+test('avm1', avm1_test_exe)
