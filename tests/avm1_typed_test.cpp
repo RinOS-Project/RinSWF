@@ -2,6 +2,7 @@
 #include "rinswf/avm1.hpp"
 #include <array>
 #include <string>
+#include <cmath>
 int main() {
     rinswf::Avm1Context ctx;
     // Push "score", 42, SetVariable, Push "score", GetVariable, End.
@@ -106,6 +107,16 @@ int main() {
     constexpr std::array<std::uint8_t,6> undefined_number={
         0x96,1,0,3,0x4a,0
     };
-    if(rinswf::execute_avm1_typed(undefined_number,stack_context))return 19;
+    const auto nan_value=rinswf::execute_avm1_typed(undefined_number,stack_context);
+    if(!nan_value || nan_value.stack.size()!=1 ||
+       !std::holds_alternative<double>(nan_value.stack[0]) ||
+       !std::isnan(std::get<double>(nan_value.stack[0])))return 19;
+    constexpr std::array<std::uint8_t,7> nan_equal={
+        0x96,2,0,3,3,0x0e,0
+    };
+    const auto equality=rinswf::execute_avm1_typed(nan_equal,stack_context);
+    if(!equality || equality.stack.size()!=1 ||
+       !std::holds_alternative<double>(equality.stack[0]) ||
+       std::get<double>(equality.stack[0])!=0)return 20;
     return 0;
 }
