@@ -88,6 +88,38 @@ Avm1TypedResult execute_frame_entry_actions(
     return result;
 }
 
+Avm1TypedResult advance_root_actions(
+    const TimelineResult& timeline,TimelinePlayer& player,
+    Avm1Context& context,FrameActionState& state,
+    std::size_t ticks,std::size_t max_ticks,Avm1Limits limits) {
+    if(!timeline || timeline.frames.empty())
+        return {Error::malformed_tag,"invalid root timeline",{}};
+    if(ticks>max_ticks)
+        return {Error::size_limit,"root timeline tick limit",{}};
+    TimelinePlayer staged_player=player;
+    Avm1Context staged_context=context;
+    FrameActionState staged_state=state;
+    Avm1TypedResult last;
+    // Execute the initial frame once before advancing, even if stopped.
+    // Each advanced tick has its own ShowFrame/DoAction entry point.
+    last=execute_frame_entry_actions(timeline,staged_player,
+                                     staged_context,staged_state,limits);
+    if(!last)return last;
+    for(std::size_t tick=0;tick<ticks && staged_player.clock.playing;++tick) {
+        const auto old=staged_player.clock.frame;
+        staged_player.advance(1);
+        if(staged_player.clock.frame==old)
+            return {Error::size_limit,"root timeline clock saturated",{}};
+        last=execute_frame_entry_actions(timeline,staged_player,
+                                         staged_context,staged_state,limits);
+        if(!last)return last;
+    }
+    player=std::move(staged_player);
+    context=std::move(staged_context);
+    state=staged_state;
+    return last;
+}
+
 Avm1TypedResult execute_sprite_entry_actions(
     const FrameSnapshot& root_frame,const FrameAssets& assets,
     TimelinePlayer& player,SpriteActionState& state,Avm1Limits limits) {
