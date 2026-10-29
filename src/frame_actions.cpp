@@ -156,6 +156,15 @@ Avm1TypedResult advance_timeline_actions(
     if(!timeline || timeline.frames.empty())
         return {Error::malformed_tag,"invalid root timeline",{}};
     if(ticks>max_ticks)return {Error::size_limit,"timeline tick limit",{}};
+    // Integrated execution copies contexts for rollback, then each VM makes
+    // its own transactional copy. Budget a conservative three live retained
+    // context generations before staging anything; do not confuse this
+    // estimate with an allocator-level peak guarantee.
+    if(!within_aggregate_memory(context,sprite_state,limits.max_value_bytes))
+        return {Error::size_limit,"initial aggregate AVM1 value budget",{}};
+    if(limits.max_value_bytes/3==0 ||
+       !within_aggregate_memory(context,sprite_state,limits.max_value_bytes/3))
+        return {Error::size_limit,"AVM1 staging memory headroom",{}};
     Avm1ExecutionBudget budget{limits.max_actions};
     limits.shared_budget=&budget;
     auto staged_player=player;
