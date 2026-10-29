@@ -45,6 +45,19 @@ Avm1TypedResult execute_frame_actions(const TimelineResult& timeline,
         last=execute_avm1_typed(block,staged,limits,&command);
         if(!last)return last;
     }
+    if(command.has_label) {
+        bool found=false;
+        for(std::size_t i=0;i<timeline.frames.size();++i) {
+            for(const auto& name:timeline.frames[i].labels) {
+                if(name!=command.label)continue;
+                if(found)return {Error::malformed_tag,"ambiguous frame label",{}};
+                command.frame=i;
+                found=true;
+            }
+        }
+        if(!found)return {Error::malformed_tag,"unknown frame label",{}};
+        command.has_frame=true;
+    }
     if(command.has_frame && command.frame>=timeline.frames.size())
         return {Error::malformed_tag,"GotoFrame outside root timeline",{}};
     // Both the variable environment and playback change only after success.
