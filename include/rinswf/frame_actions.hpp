@@ -4,6 +4,17 @@
 #include "rinswf/display_list.hpp"
 #include "rinswf/frame_renderer.hpp"
 namespace rinswf {
+struct SpriteActionInstance {
+    std::uint16_t character_id=0;
+    std::size_t placed_frame=0;
+    Avm1Context context;
+    bool entered=false;
+    std::size_t last_frame=0;
+};
+struct SpriteActionState {
+    std::map<std::uint16_t,SpriteActionInstance> instances;
+    std::size_t max_instances=256;
+};
 struct FrameActionState {
     bool initialized=false;
     std::size_t entered_frame=0;
@@ -23,4 +34,9 @@ struct FrameActionState {
 [[nodiscard]] Avm1TypedResult execute_frame_entry_actions(
     const TimelineResult& timeline,TimelinePlayer& player,
     Avm1Context& context,FrameActionState& state,Avm1Limits limits={});
+ // Explicit root-depth Sprite action dispatch; instance identity changes
+ // discard old variables and frame-entry state.
+[[nodiscard]] Avm1TypedResult execute_sprite_entry_actions(
+    const FrameSnapshot& root_frame,const FrameAssets& assets,
+    TimelinePlayer& player,SpriteActionState& state,Avm1Limits limits={});
 }
