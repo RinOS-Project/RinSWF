@@ -489,7 +489,8 @@ RenderResult draw_shape_strokes(Surface& target,const ShapeGeometry& shape,
 }
 
 RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
-                              std::int32_t offset_x,std::int32_t offset_y,const BitmapLibrary* bitmaps) {
+                              std::int32_t offset_x,std::int32_t offset_y,const BitmapLibrary* bitmaps,
+                              const ShapeClip* clip) {
     if(!valid(target)) return fail(Error::invalid_length,"invalid surface");
     struct Edge {double x0,y0,x1,y1;};
     std::vector<std::vector<Edge>> edges(shape.fills.size());
@@ -588,8 +589,20 @@ RenderResult draw_shape_fills(Surface& target,const ShapeGeometry& shape,
                 if(clipped_left>=clipped_right) continue;
                 const auto start=static_cast<std::uint32_t>(std::ceil(clipped_left-0.5));
                 const auto end=static_cast<std::uint32_t>(std::ceil(clipped_right-0.5));
-                for(std::uint32_t x=start;x<end;++x)
-                    pixel(target,x,y,sample_fill(shape.fills[style],double(x)+0.5-double(offset_x)/20.0,double(y)+0.5-double(offset_y)/20.0,bitmaps));
+                for(std::uint32_t x=start;x<end;++x) {
+                    if(clip) {
+                        const double px=(double(x)+0.5)*20.0-clip->translate_x;
+                        const double py=(double(y)+0.5)*20.0-clip->translate_y;
+                        const double lx=clip->inverse00*px+clip->inverse01*py;
+                        const double ly=clip->inverse10*px+clip->inverse11*py;
+                        if(!std::isfinite(lx)||!std::isfinite(ly)||
+                           lx<clip->xmin||lx>=clip->xmax||
+                           ly<clip->ymin||ly>=clip->ymax)continue;
+                    }
+                    pixel(target,x,y,sample_fill(shape.fills[style],
+                        double(x)+0.5-double(offset_x)/20.0,
+                        double(y)+0.5-double(offset_y)/20.0,bitmaps));
+                }
             }
         }
     }
