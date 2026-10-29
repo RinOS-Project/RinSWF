@@ -60,7 +60,7 @@ int main() {
     constexpr std::array<std::uint8_t,2> swap_underflow={0x4d,0};
     if(rinswf::execute_avm1_typed(swap_underflow,stack_context))return 12;
     // Concatenate two AVM1 strings and compare the result.
-    constexpr std::array<std::uint8_t,23> strings={
+    constexpr std::array<std::uint8_t,22> strings={
         0x96,3,0,0,'a',0,0x96,3,0,0,'b',0,
         0x21,0x96,4,0,0,'a','b',0,0x13,0
     };
