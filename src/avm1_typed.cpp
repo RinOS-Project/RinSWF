@@ -26,7 +26,7 @@ bool number(const Avm1Value& v,double& out) {
 }
 }
 Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
-                                   Avm1Context& context,Avm1Limits limits) {
+                                   Avm1Context& context,Avm1Limits limits,Avm1TimelineCommand* timeline) {
     if(bytes.size()>limits.max_bytes)return fail(Error::size_limit,"AVM1 byte limit");
     std::set<std::size_t> boundaries;
     std::size_t pc=0;bool end=false;
@@ -47,6 +47,7 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
     }
     if(!end)return fail(Error::truncated,"AVM1 End missing");
     auto variables=context.variables;
+    Avm1TimelineCommand pending=timeline?*timeline:Avm1TimelineCommand{};
     std::vector<Avm1Value> stack;
     pc=0;std::size_t steps=0;
     auto pop=[&]() {Avm1Value v=std::move(stack.back());stack.pop_back();return v;};
@@ -55,6 +56,7 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
         const auto op=bytes[pc++];
         if(op==0) {
             context.variables=std::move(variables);
+            if(timeline)*timeline=pending;
             return {Error::none,{},std::move(stack)};
         }
         std::size_t length=0;
@@ -88,6 +90,14 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                 if(stack.size()>=limits.max_stack)return fail(Error::size_limit,"AVM1 stack limit");
                 stack.push_back(std::move(value));
             }
+        } else if(op==0x06 || op==0x07) {
+            if(!timeline)return fail(Error::malformed_tag,"timeline control not enabled");
+            pending.playing=(op==0x06);
+        } else if(op==0x81) {
+            if(!timeline || length!=2)
+                return fail(Error::malformed_tag,"invalid GotoFrame action");
+            pending.frame=std::size_t(payload[0])|(std::size_t(payload[1])<<8);
+            pending.has_frame=true;
         } else if(op==0x17) {
             if(stack.empty())return fail(Error::malformed_tag,"Pop underflow");
             stack.pop_back();
