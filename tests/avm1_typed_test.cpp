@@ -163,5 +163,13 @@ int main() {
     if(!inf_text || inf_text.stack.size()!=1 ||
        !std::holds_alternative<std::string>(inf_text.stack[0]) ||
        std::get<std::string>(inf_text.stack[0])!="Infinity")return 25;
+    // 2^31 wraps to -2^31, and -1.0 stays -1.
+    constexpr std::array<std::uint8_t,14> wrap_integer={
+        0x96,9,0,6,0,0,0xe0,0x41,0,0,0,0,0x18,0
+    };
+    const auto wrapped=rinswf::execute_avm1_typed(wrap_integer,stack_context);
+    if(!wrapped || wrapped.stack.size()!=1 ||
+       !std::holds_alternative<double>(wrapped.stack[0]) ||
+       std::get<double>(wrapped.stack[0])!=-2147483648.0)return 26;
     return 0;
 }
