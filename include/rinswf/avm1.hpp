@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <span>
 #include <vector>
+#include <map>
+#include <string>
+#include <variant>
 namespace rinswf {
 // A deliberately capability-free AVM1 arithmetic core. No host API, file,
 // network, display-list mutation, or implicit ActionScript execution.
@@ -12,6 +15,22 @@ struct Avm1Limits {
     std::size_t max_stack=1024;
     std::size_t max_bytes=1024*1024;
 };
+using Avm1Value=std::variant<std::monostate,double,bool,std::string>;
+struct Avm1Context {
+    std::map<std::string,Avm1Value> variables;
+    std::size_t max_variables=1024;
+};
+struct Avm1TypedResult {
+    Error error=Error::none;
+    std::string message;
+    std::vector<Avm1Value> stack;
+    explicit operator bool() const noexcept {return error==Error::none;}
+};
+// Executes only the supported subset; commits variable writes on success.
+// Host IO, native objects, scope chains, prototypes and timeline actions are denied.
+[[nodiscard]] Avm1TypedResult execute_avm1_typed(
+    std::span<const std::uint8_t> bytecode,Avm1Context& context,
+    Avm1Limits limits={});
 struct Avm1Result {
     Error error=Error::none;
     std::string message;
