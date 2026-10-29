@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <charconv>
 #include <string_view>
+#include <limits>
 namespace rinswf {
 namespace {
 Avm1TypedResult fail(Error error,const char* message){return {error,message,{}};}
@@ -65,7 +66,10 @@ bool to_finite_number(const Avm1Value& value,double& out) {
         out=*b?1:0;return true;
     }
     if(std::holds_alternative<Avm1Null>(value)) {out=0;return true;}
-    return false; // Undefined is not convertible in the finite-only subset
+    if(std::holds_alternative<std::monostate>(value)) {
+        out=std::numeric_limits<double>::quiet_NaN();return true;
+    }
+    return false;
 }
 bool truth(const Avm1Value& v) {
     if(auto n=std::get_if<double>(&v))return *n!=0&&!std::isnan(*n);
@@ -238,7 +242,7 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
         } else if(op==0x18) { // ToInteger
             if(stack.empty())return fail(Error::malformed_tag,"ToInteger underflow");
             double value=0;
-            if(!number(stack.back(),value)||!std::isfinite(value))
+            if(!to_finite_number(stack.back(),value)||!std::isfinite(value))
                 return fail(Error::malformed_tag,"ToInteger conversion unsupported");
             stack.back()=std::trunc(value);
         } else if(op==0x4c) { // PushDuplicate
@@ -300,11 +304,12 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                   op==0x0e||op==0x0f) {
             if(stack.size()<2)return fail(Error::malformed_tag,"arithmetic underflow");
             auto right=pop(),left=pop();double a=0,b=0;
-            if(!number(left,a)||!number(right,b))
+            if(!to_finite_number(left,a)||!to_finite_number(right,b))
                 return fail(Error::malformed_tag,"numeric conversion unsupported");
             double result=op==0x0a?a+b:op==0x0b?a-b:
                 op==0x0c?a*b:op==0x0d?a/b:op==0x0e?double(a==b):double(a<b);
-            if(!std::isfinite(result))return fail(Error::malformed_tag,"nonfinite result");
+            if(!std::isfinite(result) && op!=0x0e && op!=0x0f)
+                return fail(Error::malformed_tag,"nonfinite arithmetic result");
             stack.push_back(result);
         } else return fail(Error::malformed_tag,"unsupported AVM1 opcode");
         if(!within_value_budget(variables,stack,limits.max_value_bytes))
