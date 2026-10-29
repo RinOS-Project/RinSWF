@@ -226,3 +226,6 @@
 
 - [x] typed AVM1にToNumber(0x4A)とToString(0x4B)を追加。有限数へ厳密に変換できる数字文字列、Boolean、数値を扱い、未対応のNaN/Undefined等は明示拒否。回帰テスト追加（ビルド未実行）。
 - [ ] Null/Undefinedを区別する値表現、ActionScript互換の数値変換（NaN/Infinity/16進数等）と文字コード処理を実装・検証。
+
+- [x] AVM1 PushのNull(type 2)とUndefined(type 3)を別の値型として保持。Nullの数値変換は0、文字列変換は`null`、Undefinedは有限数変換を明示拒否する限定仕様を追加。テスト追加（未実行）。
+- [ ] Flash互換のUndefined→NaN、Null/Undefinedの比較、SWFバージョン別型変換仕様を実装・検証する。
