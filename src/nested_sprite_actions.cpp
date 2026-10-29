@@ -10,6 +10,7 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
     const FrameSnapshot& root_frame,const FrameAssets& assets,
     TimelinePlayer& player,SpriteActionState& state,Avm1Limits limits) {
     auto staged=state.nested_instances;
+    auto ancestry=state.ancestry;
     auto controls=player.sprites;
     std::set<std::vector<std::uint16_t>> visible;
     Avm1TypedResult last;
@@ -17,9 +18,11 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
     std::size_t remaining_actions=limits.max_actions;
     std::size_t remaining_bytes=limits.max_bytes;
     std::function<Avm1TypedResult(const FrameSnapshot&,
-        const std::vector<std::uint16_t>&,std::size_t,unsigned)> walk;
+        const std::vector<std::uint16_t>&,std::size_t,unsigned,
+        std::vector<std::pair<std::uint16_t,std::size_t>>)> walk;
     walk=[&](const FrameSnapshot& frame,const std::vector<std::uint16_t>& parent,
-             std::size_t parent_frame,unsigned depth)->Avm1TypedResult {
+             std::size_t parent_frame,unsigned depth,
+             std::vector<std::pair<std::uint16_t,std::size_t>> parents)->Avm1TypedResult {
         if(depth>32)return {Error::size_limit,"nested Sprite depth limit",{}};
         for(const auto& entry:frame.objects) {
             const auto sprite=assets.sprites.find(entry.character_id);
@@ -28,6 +31,7 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                 return {Error::malformed_tag,"nested Sprite has no frames",{}};
             auto path=parent;
             path.push_back(entry.depth);
+            parents.emplace_back(entry.character_id,entry.placed_frame);
             // Root-level Sprite actions are owned by the root dispatcher.
             // Descendant instances have independent execution state.
             const auto control=depth==0?controls.instances.find(entry.depth):
@@ -45,11 +49,13 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                 auto [it,inserted]=staged.try_emplace(path);
                 auto& instance=it->second;
                 if(inserted||instance.character_id!=entry.character_id||
-                   instance.placed_frame!=entry.placed_frame) {
+                   instance.placed_frame!=entry.placed_frame ||
+                   ancestry[path]!=parents) {
                     instance=SpriteActionInstance{};
                     instance.character_id=entry.character_id;
                     instance.placed_frame=entry.placed_frame;
                     controls.nested_instances.erase(path);
+                    ancestry[path]=parents;
                 }
                 if(!instance.entered || instance.last_frame!=local) {
                     const auto& actions=sprite->second.frames[frame_index].actions;
@@ -89,21 +95,23 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                     else controls.stop_path(path);
                 }
             }
-            const auto result=walk(sprite->second.frames[frame_index],path,local,depth+1);
+            const auto result=walk(sprite->second.frames[frame_index],path,local,depth+1,parents);
             if(!result)return result;
         }
         return {};
     };
-    auto result=walk(root_frame,{},player.clock.frame,0);
+    auto result=walk(root_frame,{},player.clock.frame,0,{});
     if(!result)return result;
     for(auto it=staged.begin();it!=staged.end();) {
         if(!visible.contains(it->first)) {
             controls.nested_instances.erase(it->first);
             controls.nested_identities.erase(it->first);
+            ancestry.erase(it->first);
             it=staged.erase(it);
         } else ++it;
     }
     state.nested_instances=std::move(staged);
+    state.ancestry=std::move(ancestry);
     player.sprites=std::move(controls);
     return last;
 }
