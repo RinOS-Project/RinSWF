@@ -35,5 +35,14 @@ int main() {
     if(rinswf::execute_avm1_typed(string_program,memory_context,memory_limits))
         return 7;
     if(!memory_context.variables.empty())return 8;
+    // AVM1 double 1.5 uses DWORD-swapped encoding.
+    constexpr std::array<std::uint8_t,13> double_program={
+        0x96,9,0,6,0,0,0xf8,0x3f,0,0,0,0,0
+    };
+    rinswf::Avm1Context double_context;
+    const auto doubled=rinswf::execute_avm1_typed(double_program,double_context);
+    if(!doubled || doubled.stack.size()!=1 ||
+       !std::holds_alternative<double>(doubled.stack[0]) ||
+       std::get<double>(doubled.stack[0])!=1.5)return 9;
     return 0;
 }
