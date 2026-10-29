@@ -172,4 +172,6 @@
 - [ ] GotoLabel、GotoFrame2、ActionCallFunction、Sprite別実行コンテキスト、フレーム遷移時のDoAction実行順と同一フレーム再実行制御を整備
 
 - [x] FrameLabel（タグ43）のラベル名をShowFrameに保持し、AVM1 GoToLabel（0x8C）の名前解決とルートTimeline遷移を実装（未知・重複ラベルを拒否、変数と再生状態のトランザクション維持。ビルド・実SWF未検証）
-- [ ] GotoFrame2、Sprite単位のラベル解決、DoActionのフレーム入場時実行・再実行制御、ラベル名の文字エンコーディング互換を検証
+- [ ] GotoFrame2の数値（1始まり）・ラベル指定とplay/stopフラグを限定実装（scene biasは拒否、ビルド未検証）。Sprite単位のラベル解決、DoActionのフレーム入場時実行・再実行制御、ラベル名の文字エンコーディング互換を検証
+
+- [x] AVM1 GotoFrame2 (0x9F) の数値フレーム・文字列ラベルと再生フラグをtyped VMで解析し、ルートTimelineへトランザクション反映（scene biasや不正フラグは明示拒否、実行未検証）
