@@ -24,7 +24,7 @@
 - [x] PlaceObject / PlaceObject2、RemoveObject / RemoveObject2、ShowFrameによる基本表示リスト
 - [x] PlaceObject / PlaceObject2 のMATRIX（scale/skew/translation）値の保持
 - [x] PlaceObject（タグ4）のRGB CXFORM（乗算・加算）を解析し、既存の独立レイヤー色変換描画へ統合（Alphaチャンネルは維持。ビルド・回帰未検証）
-- [ ] PlaceObject3の拡張フィールド、クリップや拡張描画属性の保持（PlaceObject3の基本配置・移動・置換・MATRIX・名前・ratioおよびCXFORMWITHALPHAの解析・描画合成は実装済み。フィルター・BlendMode・マスクなどは未実装）
+- [ ] PlaceObject3の拡張フィールド、クリップや拡張描画属性の保持（PlaceObject3の基本配置・移動・置換・MATRIX・名前・ratioおよびCXFORMWITHALPHAの解析・描画合成は実装済み。一部Filter/BlendModeは実装済み。ClipDepthアルファマスクも基本対応、複雑なマスク合成や非Normal Blendとの併用は未対応）
 - [ ] Shape / Fill / Line / Gradient / Bitmap の表示リスト
 - [x] FrameSnapshotの深度順オブジェクトからShapeとLossless BitmapをRGBAサーフェスへ描画する基本API（平行移動限定）
 - [x] フレーム描画アセット収集へJPEG2/3/4を追加し、重複character IDを拒否
@@ -160,3 +160,6 @@
 - [x] C ABIからTimeline/FrameAssetsを構築し、指定フレームを呼び出し側のRGBAバッファへ描画（stride・サイズ検証、失敗時バッファ不変、例外のC境界遮断。ビルド未検証）
 - [x] C ABIの独立TimelinePlayerを追加し、seek/advance/pause/resume/state/render RGBAを公開（ActionScript・自動クロックなし、ビルド未検証）
 - [ ] C ABIの描画失敗時診断メッセージ、実行テスト、フレームの背景色適用、オーディオ、イベント入力を整備
+
+- [x] PlaceObject2/3のClipDepthを表示リストへ保持し、深度範囲内のDisplayObjectをマスクのアルファで合成（入れ子マスク、深度別期限管理、通常合成の基本経路。ビルド・実SWF未検証）
+- [ ] マスク対象の非Normal Blend/複雑なSprite・フィルターとの併用、アルファ境界AA精度、オフスクリーンレイヤー削減、実SWFによる互換検証
