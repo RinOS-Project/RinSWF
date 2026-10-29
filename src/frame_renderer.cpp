@@ -1106,6 +1106,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                        baseline<std::numeric_limits<std::int32_t>::min())
                         return {Error::size_limit,"EditText baseline overflow"};
                     std::size_t line_begin=0;
+                    bool word_start=true;
                     const auto align_line=[&]() -> bool {
                         if(edit.align==0)return true;
                         // The line's pen is its logical right edge after
@@ -1157,6 +1158,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                             if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
                                 return {Error::size_limit,"EditText line overflow"};
                             baseline+=line_height;
+                            word_start=true;
                             continue;
                         }
                         const auto found=std::find(font->second.code_points.begin(),
@@ -1167,6 +1169,42 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                         if(pen>std::numeric_limits<std::int32_t>::max() ||
                            pen<std::numeric_limits<std::int32_t>::min())
                             return {Error::size_limit,"EditText pen overflow"};
+                        // Prefer moving a complete ASCII word to the next
+                        // line when its measured advances fit the content box.
+                        // Non-ASCII and overlong words retain character wrap.
+                        if((edit.flags&0x6000)==0x6000 && word_start &&
+                           code>32 && code<127 && pen>first_pen) {
+                            std::int64_t width=0;
+                            bool ascii_word=true;
+                            std::size_t look=i-1;
+                            for(;look<data.size();++look) {
+                                const auto ch=static_cast<unsigned char>(data[look]);
+                                if(ch==' '||ch=='\\t'||ch=='\\r'||ch=='\\n')break;
+                                if(ch<33||ch>126){ascii_word=false;break;}
+                                const auto match=std::find(font->second.code_points.begin(),
+                                    font->second.code_points.end(),std::uint16_t(ch));
+                                if(match==font->second.code_points.end()) {
+                                    ascii_word=false;break;
+                                }
+                                const auto gi=std::size_t(match-font->second.code_points.begin());
+                                const double w=double(font->second.advances[gi])*
+                                    double(edit.font_height)/font->second.units_per_em;
+                                if(!std::isfinite(w) || w<0 || w>double(right_edge-first_pen)) {
+                                    ascii_word=false;break;
+                                }
+                                width+=std::llround(w);
+                                if(width>right_edge-first_pen){ascii_word=false;break;}
+                            }
+                            if(ascii_word && pen+width>right_edge) {
+                                if(!align_line())
+                                    return {Error::size_limit,"EditText alignment overflow"};
+                                line_begin=generated.glyphs.size();
+                                pen=first_pen;
+                                if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
+                                    return {Error::size_limit,"EditText word wrap overflow"};
+                                baseline+=line_height;
+                            }
+                        }
                         // Bounded character wrapping. Preserve explicit
                         // line breaks; word-aware wrapping is a separate mode.
                         const double delta=double(font->second.advances[index])*
@@ -1194,6 +1232,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                            (advance<0 && pen<std::numeric_limits<std::int32_t>::min()-advance))
                             return {Error::size_limit,"EditText pen advance overflow"};
                         pen+=advance;
+                        word_start=(code==' '||code==9);
                     }
                     if(!align_line())
                         return {Error::size_limit,"EditText alignment overflow"};
