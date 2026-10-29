@@ -4,6 +4,7 @@
 #include "rinswf/renderer.hpp"
 #include "rinswf/fonts.hpp"
 #include "rinswf/text.hpp"
+#include "rinswf/edit_text.hpp"
 #include <map>
 namespace rinswf {
 struct FrameAssets {
@@ -11,6 +12,7 @@ struct FrameAssets {
     BitmapLibrary bitmaps;
     std::map<std::uint16_t,FontAsset> fonts;
     std::map<std::uint16_t,TextAsset> texts;
+    std::map<std::uint16_t,EditTextAsset> edit_texts;
     std::map<std::uint16_t,SpriteTimeline> sprites;
 };
 [[nodiscard]] RenderResult render_frame(const FrameSnapshot& frame,
