@@ -34,5 +34,16 @@ int main() {
     timeline.frames[2].actions.push_back({0x81,2,0,9,0,0});
     if(rinswf::execute_frame_actions(timeline,player,context) ||
        player.clock.frame!=2 || player.clock.playing)return 9;
+    timeline.frames[2].actions.clear();
+    timeline.frames[1].labels.push_back("intro");
+    // AVM1 GoToLabel payload is the null-terminated label name.
+    timeline.frames[2].actions.push_back({0x8c,6,0,'i','n','t','r','o',0,0});
+    if(!rinswf::execute_frame_actions(timeline,player,context) ||
+       player.clock.frame!=1)return 10;
+    player.seek(2);
+    timeline.frames[2].actions.clear();
+    timeline.frames[2].actions.push_back({0x8c,8,0,'m','i','s','s','i','n','g',0,0});
+    if(rinswf::execute_frame_actions(timeline,player,context) ||
+       player.clock.frame!=2)return 11;
     return 0;
 }
