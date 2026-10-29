@@ -244,5 +244,27 @@ int main() {
     if(rollback_integrated.clock.frame!=0 ||
        rollback_integrated_root.initialized ||
        !rollback_integrated_sprites.instances.empty())return 50;
+    // Shared instruction limit spans root and Sprite blocks in one tick.
+    rinswf::TimelineResult shared_timeline;
+    shared_timeline.frames.resize(1);
+    rinswf::FrameAssets shared_assets;
+    rinswf::SpriteTimeline shared_clip;
+    shared_clip.character_id=205;
+    shared_clip.frames.resize(1);
+    shared_clip.frames[0].actions.push_back({0x17,0}); // underflow, but budget first
+    shared_assets.sprites.emplace(205,shared_clip);
+    rinswf::DisplayEntry shared_entry;
+    shared_entry.depth=2;shared_entry.character_id=205;
+    shared_timeline.frames[0].objects.push_back(shared_entry);
+    shared_timeline.frames[0].actions.push_back({0}); // consumes End
+    rinswf::TimelinePlayer shared_player;
+    rinswf::Avm1Context shared_context;
+    rinswf::FrameActionState shared_root;
+    rinswf::SpriteActionState shared_sprites;
+    // The root consumes the sole permitted action; the Sprite cannot run.
+    if(rinswf::advance_timeline_actions(shared_timeline,shared_assets,
+        shared_player,shared_context,shared_root,shared_sprites,
+        0,1024,{1,1024,1024}))return 51;
+    if(shared_root.initialized || !shared_sprites.instances.empty())return 52;
     return 0;
 }
