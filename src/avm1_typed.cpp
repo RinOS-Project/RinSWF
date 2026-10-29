@@ -14,7 +14,8 @@ std::uint32_t get32(std::span<const std::uint8_t> b,std::size_t p) {
         (std::uint32_t(b[p+2])<<16)|(std::uint32_t(b[p+3])<<24);
 }
 std::size_t payload_size(const Avm1Value& v) {
-    if(const auto* str=std::get_if<std::string>(&v))return str->size();
+    if(const auto* str=std::get_if<std::string>(&v))
+        return sizeof(Avm1Value)+str->size();
     return sizeof(Avm1Value);
 }
 bool within_value_budget(const std::map<std::string,Avm1Value>& vars,
