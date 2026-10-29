@@ -120,6 +120,34 @@ Avm1TypedResult advance_root_actions(
     return last;
 }
 
+namespace {
+std::size_t value_bytes(const Avm1Value& value) {
+    const auto* str=std::get_if<std::string>(&value);
+    return str?sizeof(Avm1Value)+str->size():sizeof(Avm1Value);
+}
+bool charge_context(const Avm1Context& context,std::size_t& remaining) {
+    for(const auto& [key,value]:context.variables) {
+        const auto bytes=sizeof(key)+key.size()+value_bytes(value);
+        if(bytes>remaining)return false;
+        remaining-=bytes;
+    }
+    return true;
+}
+bool within_aggregate_memory(const Avm1Context& root,
+                             const SpriteActionState& sprites,
+                             std::size_t limit) {
+    if(!charge_context(root,limit))return false;
+    for(const auto& [depth,instance]:sprites.instances) {
+        (void)depth;
+        if(!charge_context(instance.context,limit))return false;
+    }
+    for(const auto& [path,instance]:sprites.nested_instances) {
+        (void)path;
+        if(!charge_context(instance.context,limit))return false;
+    }
+    return true;
+}
+}
 Avm1TypedResult advance_timeline_actions(
     const TimelineResult& timeline,const FrameAssets& assets,
     TimelinePlayer& player,Avm1Context& context,
@@ -144,8 +172,12 @@ Avm1TypedResult advance_timeline_actions(
         result=execute_sprite_entry_actions(frame,assets,staged_player,
                                              staged_sprites,limits);
         if(!result)return result;
-        return execute_nested_sprite_entry_actions(frame,assets,staged_player,
+        result=execute_nested_sprite_entry_actions(frame,assets,staged_player,
                                                     staged_sprites,limits);
+        if(!result)return result;
+        if(!within_aggregate_memory(staged_context,staged_sprites,limits.max_value_bytes))
+            return {Error::size_limit,"aggregate AVM1 retained value budget",{}};
+        return result;
     };
     last=enter();
     if(!last)return last;
