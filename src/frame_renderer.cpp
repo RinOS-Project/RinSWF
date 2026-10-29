@@ -1417,10 +1417,16 @@ RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
     FrameAssets stage;
     auto unique_id=[&](std::uint16_t id) {
         return !stage.shapes.contains(id) && !stage.bitmaps.images.contains(id) &&
-               !stage.sprites.contains(id) && !stage.fonts.contains(id) && !stage.texts.contains(id);
+               !stage.sprites.contains(id) && !stage.fonts.contains(id) && !stage.texts.contains(id) && !stage.edit_texts.contains(id);
     };
     for(const auto& tag:document.tags) {
-        if(tag.code==11 || tag.code==33) {
+        if(tag.code==37) {
+            auto parsed=decode_edit_text(tag);
+            if(!parsed)return {parsed.error,parsed.message};
+            if(!unique_id(parsed.text.character_id))
+                return {Error::malformed_tag,"duplicate character id"};
+            stage.edit_texts.emplace(parsed.text.character_id,std::move(parsed.text));
+        } else if(tag.code==11 || tag.code==33) {
             auto parsed=decode_define_text(tag);
             if(!parsed)return {parsed.error,parsed.message};
             if(!unique_id(parsed.text.character_id))
