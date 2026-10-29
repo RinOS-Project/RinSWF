@@ -1004,7 +1004,57 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                                      const SpritePlayback* sprite_controls=nullptr,
                                      std::vector<std::uint16_t> depth_path={}) {
     if(nesting>32)return {Error::size_limit,"sprite nesting limit exceeded"};
+    struct ActiveMask {
+        std::uint16_t end_depth;
+        std::vector<std::uint8_t> alpha;
+    };
+    std::vector<ActiveMask> masks;
     for(const auto& entry:frame.objects) {
+        while(!masks.empty() && entry.depth>masks.back().end_depth)
+            masks.pop_back();
+        if(entry.clip_depth) {
+            Surface mask_surface;
+            auto init=make_surface(stage.width,stage.height,mask_surface);
+            if(!init)return init;
+            FrameSnapshot mask_frame;
+            DisplayEntry mask_entry=entry;
+            mask_entry.clip_depth=0;
+            mask_frame.objects.push_back(std::move(mask_entry));
+            auto rendered=render_frame_impl(mask_frame,assets,mask_surface,
+                limits,nesting+1,playback_frame,sprite_controls,depth_path);
+            if(!rendered)return rendered;
+            ActiveMask mask{entry.clip_depth,{}};
+            mask.alpha.resize(std::size_t(stage.width)*stage.height);
+            for(std::size_t i=0;i<mask.alpha.size();++i)
+                mask.alpha[i]=mask_surface.rgba[i*4+3];
+            masks.push_back(std::move(mask));
+            continue;
+        }
+        if(!masks.empty()) {
+            Surface layer;
+            auto init=make_surface(stage.width,stage.height,layer);
+            if(!init)return init;
+            FrameSnapshot single;
+            single.objects.push_back(entry);
+            auto rendered=render_frame_impl(single,assets,layer,limits,
+                nesting+1,playback_frame,sprite_controls,depth_path);
+            if(!rendered)return rendered;
+            for(std::size_t i=0;i<std::size_t(stage.width)*stage.height;++i) {
+                unsigned sa=layer.rgba[i*4+3];
+                for(const auto& mask:masks)
+                    sa=(sa*mask.alpha[i]+127)/255;
+                if(!sa)continue;
+                const unsigned da=stage.rgba[i*4+3];
+                const unsigned oa=sa+(da*(255-sa)+127)/255;
+                for(unsigned c=0;c<3;++c) {
+                    const unsigned sc=layer.rgba[i*4+c],dc=stage.rgba[i*4+c];
+                    const unsigned premul=sc*sa+(dc*da*(255-sa)+127)/255;
+                    stage.rgba[i*4+c]=std::uint8_t((premul+oa/2)/oa);
+                }
+                stage.rgba[i*4+3]=std::uint8_t(oa);
+            }
+            continue;
+        }
         // Transform the isolated source, never the already-composited backdrop.
         Surface isolated;
         Surface* output=&stage;
