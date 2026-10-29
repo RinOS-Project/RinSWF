@@ -217,3 +217,6 @@
 
 - [x] typed AVM1 VMへPush Double(type 6)を実装し、AVM1固有の32-bit word順を正しくデコード。非有限値を拒否しテストを追加（実行未検証）。
 - [ ] GitHubソースの取得ができるビルド環境でAVM1テストの実行結果を確認し、残る命令・値型の互換性を実SWFで検証する。
+
+- [x] typed AVM1にPushDuplicate(0x4C)、StackSwap(0x4D)、Not(0x12)、Increment(0x50)、Decrement(0x51)を実装し、スタック不足と容量上限を拒否。算術・変数操作と組み合わせる回帰テストを追加（ビルド未検証）。
+- [ ] コンパイラは存在するがGitHubのDNS解決不可・Meson不在のため、回帰テストの実行環境を整備して検証する。
