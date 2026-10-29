@@ -25,5 +25,15 @@ int main() {
     rinswf::Avm1Context limited;limited.max_variables=0;
     if(rinswf::execute_avm1_typed(program,limited))return 5;
     if(!limited.variables.empty())return 6;
+    // A Push string cannot exceed the VM's value budget.
+    constexpr std::array<std::uint8_t,10> string_program={
+        0x96,6,0,0,'a','b','c','d',0,0
+    };
+    rinswf::Avm1Context memory_context;
+    rinswf::Avm1Limits memory_limits;
+    memory_limits.max_value_bytes=2;
+    if(rinswf::execute_avm1_typed(string_program,memory_context,memory_limits))
+        return 7;
+    if(!memory_context.variables.empty())return 8;
     return 0;
 }
