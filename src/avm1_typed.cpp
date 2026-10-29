@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <utility>
 #include <set>
+#include <algorithm>
 namespace rinswf {
 namespace {
 Avm1TypedResult fail(Error error,const char* message){return {error,message,{}};}
@@ -98,6 +99,17 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                 return fail(Error::malformed_tag,"invalid GotoFrame action");
             pending.frame=std::size_t(payload[0])|(std::size_t(payload[1])<<8);
             pending.has_frame=true;
+            pending.has_label=false;
+            pending.label.clear();
+        } else if(op==0x8c) { // GoToLabel
+            if(!timeline || payload.size()<2 || payload.back()!=0)
+                return fail(Error::malformed_tag,"invalid GoToLabel action");
+            const auto terminator=std::find(payload.begin(),payload.end(),std::uint8_t(0));
+            if(terminator!=payload.end()-1 || terminator==payload.begin())
+                return fail(Error::malformed_tag,"invalid GoToLabel string");
+            pending.label.assign(reinterpret_cast<const char*>(payload.data()),payload.size()-1);
+            pending.has_label=true;
+            pending.has_frame=false;
         } else if(op==0x17) {
             if(stack.empty())return fail(Error::malformed_tag,"Pop underflow");
             stack.pop_back();
