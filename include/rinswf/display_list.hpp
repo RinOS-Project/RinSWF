@@ -59,6 +59,7 @@ struct FilterEffect {
 };
 struct DisplayEntry {
     std::uint16_t depth=0;
+    std::uint16_t clip_depth=0; // nonzero: mask affects depths (depth,clip_depth]
     std::uint16_t character_id=0;
     std::size_t placed_frame=0; // zero-based parent frame when this instance was placed
     std::vector<FilterEffect> filters; // SWF FilterList order
