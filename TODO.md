@@ -196,3 +196,6 @@
 
 - [x] ルートTimeline向け `advance_root_actions()` を追加。複数tickを1フレームずつ進めてDoActionを処理し、Stopで中断、途中のAVM1エラー時にはPlayer・変数・FrameActionStateをまとめてロールバック。tick上限を設置（ビルド・実行未検証）
 - [ ] ルートtickとSprite/nested Spriteの実行を統合し、親子間の命令順序・共通予算・再入場、ループとgoto時の挙動を実SWFで検証
+
+- [x] `advance_timeline_actions()` を追加し、1tickごとにルートDoAction→ルート深度Sprite→ネストSpriteの明示実行経路を統合。再生状態・ルート変数・Sprite変数・入場状態を実行成功時のみ一括反映（ビルド・実行テスト未検証）。
+- [ ] AVM1親子スクリプトのイベント順序、Spriteの独立時刻進行、共有命令予算、実際のSWF互換性を統合テストで確定する。
