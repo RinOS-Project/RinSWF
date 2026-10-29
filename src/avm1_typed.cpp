@@ -13,6 +13,25 @@ std::uint32_t get32(std::span<const std::uint8_t> b,std::size_t p) {
     return std::uint32_t(b[p])|(std::uint32_t(b[p+1])<<8)|
         (std::uint32_t(b[p+2])<<16)|(std::uint32_t(b[p+3])<<24);
 }
+std::size_t payload_size(const Avm1Value& v) {
+    if(const auto* str=std::get_if<std::string>(&v))return str->size();
+    return sizeof(Avm1Value);
+}
+bool within_value_budget(const std::map<std::string,Avm1Value>& vars,
+                         const std::vector<Avm1Value>& stack,std::size_t limit) {
+    std::size_t used=0;
+    auto charge=[&](std::size_t size)->bool {
+        if(size>limit-used)return false;
+        used+=size;
+        return true;
+    };
+    for(const auto& [key,value]:vars) {
+        if(!charge(sizeof(key)+key.size()+payload_size(value)))return false;
+    }
+    for(const auto& value:stack)
+        if(!charge(payload_size(value)))return false;
+    return true;
+}
 bool truth(const Avm1Value& v) {
     if(auto n=std::get_if<double>(&v))return *n!=0&&!std::isnan(*n);
     if(auto b=std::get_if<bool>(&v))return *b;
@@ -51,6 +70,8 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
     Avm1TimelineCommand pending=timeline?*timeline:Avm1TimelineCommand{};
     std::vector<Avm1Value> stack;
     pc=0;std::size_t steps=0;
+    if(!within_value_budget(variables,stack,limits.max_value_bytes))
+        return fail(Error::size_limit,"initial AVM1 value memory limit");
     auto pop=[&]() {Avm1Value v=std::move(stack.back());stack.pop_back();return v;};
     while(pc<bytes.size()) {
         if(++steps>limits.max_actions)return fail(Error::size_limit,"AVM1 instruction limit");
@@ -185,6 +206,8 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             if(!std::isfinite(result))return fail(Error::malformed_tag,"nonfinite result");
             stack.push_back(result);
         } else return fail(Error::malformed_tag,"unsupported AVM1 opcode");
+        if(!within_value_budget(variables,stack,limits.max_value_bytes))
+            return fail(Error::size_limit,"AVM1 value memory limit");
     }
     return fail(Error::truncated,"AVM1 End missing");
 }
