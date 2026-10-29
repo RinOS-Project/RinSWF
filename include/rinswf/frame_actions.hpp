@@ -39,6 +39,14 @@ struct FrameActionState {
     const TimelineResult& timeline,TimelinePlayer& player,
     Avm1Context& context,FrameActionState& state,
     std::size_t ticks,std::size_t max_ticks=1024,Avm1Limits limits={});
+// Integrated opt-in ticking: root DoAction, root-depth Sprite DoAction,
+// then nested Sprite DoAction at each logical frame. All state is committed
+// together; rendering remains free of implicit script execution.
+[[nodiscard]] Avm1TypedResult advance_timeline_actions(
+    const TimelineResult& timeline,const FrameAssets& assets,
+    TimelinePlayer& player,Avm1Context& context,
+    FrameActionState& root_state,SpriteActionState& sprite_state,
+    std::size_t ticks,std::size_t max_ticks=1024,Avm1Limits limits={});
 // Execute actions only when the selected root frame changes. Call reset()
 // after an explicit restart/seek that should re-enter the same frame.
 [[nodiscard]] Avm1TypedResult execute_frame_entry_actions(
