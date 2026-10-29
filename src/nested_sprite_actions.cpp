@@ -91,9 +91,15 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                     instance.context=std::move(variables);
                     instance.entered=true;
                     instance.last_frame=local;
-                    if(command.has_frame)controls.seek_path(path,command.frame);
-                    if(command.playing)controls.play_path(path);
-                    else controls.stop_path(path);
+                    if(command.has_frame || command.sets_playing) {
+                        if(controls.nested_instances.find(path)==controls.nested_instances.end())
+                            controls.seek_path(path,local);
+                        if(command.has_frame)controls.seek_path(path,command.frame);
+                        if(command.sets_playing) {
+                            if(command.playing)controls.play_path(path);
+                            else controls.stop_path(path);
+                        }
+                    }
                 }
             }
             const auto result=walk(sprite->second.frames[frame_index],path,local,depth+1,child_ancestry);
