@@ -10,10 +10,14 @@
 namespace rinswf {
 // A deliberately capability-free AVM1 arithmetic core. No host API, file,
 // network, display-list mutation, or implicit ActionScript execution.
+struct Avm1ExecutionBudget {
+    std::size_t remaining_actions=0;
+};
 struct Avm1Limits {
     std::size_t max_actions=10000;
     std::size_t max_stack=1024;
     std::size_t max_bytes=1024*1024;
+    Avm1ExecutionBudget* shared_budget=nullptr; // optional, caller-owned
 };
 using Avm1Value=std::variant<std::monostate,double,bool,std::string>;
 struct Avm1Context {
