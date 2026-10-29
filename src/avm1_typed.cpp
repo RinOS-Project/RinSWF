@@ -311,6 +311,32 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                     return fail(Error::malformed_tag,"invalid branch target");
                 pc=std::size_t(target);
             }
+        } else if(op==0x10 || op==0x11) { // LogicalAnd / LogicalOr
+            if(stack.size()<2)return fail(Error::malformed_tag,"logical stack underflow");
+            auto rhs=pop(),lhs=pop();
+            stack.push_back(op==0x10?(truth(lhs)&&truth(rhs)):
+                            (truth(lhs)||truth(rhs)));
+        } else if(op==0x67 || op==0x66) { // Greater / StrictEquals
+            if(stack.size()<2)return fail(Error::malformed_tag,"comparison stack underflow");
+            auto rhs=pop(),lhs=pop();
+            if(op==0x66) {
+                bool equal=false;
+                if(lhs.index()==rhs.index()) {
+                    if(const auto* a=std::get_if<double>(&lhs))
+                        equal=*a==std::get<double>(rhs);
+                    else if(const auto* a=std::get_if<bool>(&lhs))
+                        equal=*a==std::get<bool>(rhs);
+                    else if(const auto* a=std::get_if<std::string>(&lhs))
+                        equal=*a==std::get<std::string>(rhs);
+                    else equal=true; // identical Null/Undefined kinds
+                }
+                stack.push_back(equal);
+            } else {
+                double a=0,b=0;
+                if(!to_finite_number(lhs,a)||!to_finite_number(rhs,b))
+                    return fail(Error::malformed_tag,"Greater conversion unsupported");
+                stack.push_back(a>b);
+            }
         } else if(op>=0x60 && op<=0x65) { // BitAnd/Or/Xor/LShift/RShift/URShift
             if(stack.size()<2)return fail(Error::malformed_tag,"bitwise stack underflow");
             auto rhs=pop(),lhs=pop();
