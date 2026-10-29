@@ -37,12 +37,18 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
             // Descendant instances have independent execution state.
             const auto control=depth==0?controls.instances.find(entry.depth):
                 controls.instances.end();
-            const auto nested=controls.nested_instances.find(path);
             std::size_t local=parent_frame>=entry.placed_frame?
                 parent_frame-entry.placed_frame:0;
             if(depth==0 && control!=controls.instances.end())local=control->second.frame;
-            if(depth>0 && nested!=controls.nested_instances.end())local=nested->second.frame;
-            const auto frame_index=local%sprite->second.frames.size();
+            // Nested overrides are meaningful only for the current ancestor
+            // chain and placement identity. Never read a stale clock first.
+            if(depth>0) {
+                const auto identity=ancestry.find(path);
+                const auto nested=controls.nested_instances.find(path);
+                if(identity!=ancestry.end() && identity->second==child_ancestry &&
+                   nested!=controls.nested_instances.end())
+                    local=nested->second.frame;
+            }
             if(depth>0) {
                 if(++visited>state.max_instances)
                     return {Error::size_limit,"nested Sprite instance limit",{}};
@@ -57,9 +63,12 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                     instance.placed_frame=entry.placed_frame;
                     controls.nested_instances.erase(path);
                     ancestry[path]=child_ancestry;
+                    local=parent_frame>=entry.placed_frame?
+                        parent_frame-entry.placed_frame:0;
                 }
                 if(!instance.entered || instance.last_frame!=local) {
-                    const auto& actions=sprite->second.frames[frame_index].actions;
+                    const auto& actions=sprite->second.frames[
+                        local%sprite->second.frames.size()].actions;
                     if(actions.size()>remaining_actions)
                         return {Error::size_limit,"nested Sprite action budget",{}};
                     remaining_actions-=actions.size();
@@ -102,7 +111,14 @@ Avm1TypedResult execute_nested_sprite_entry_actions(
                     }
                 }
             }
-            const auto result=walk(sprite->second.frames[frame_index],path,local,depth+1,child_ancestry);
+            // A GotoFrame issued on entry changes the displayed descendant
+            // snapshot. Descendant actions run on a subsequent explicit call.
+            const auto after=controls.nested_instances.find(path);
+            const auto effective=depth>0 && after!=controls.nested_instances.end()?
+                after->second.frame:local;
+            const auto result=walk(sprite->second.frames[
+                effective%sprite->second.frames.size()],path,effective,
+                depth+1,child_ancestry);
             if(!result)return result;
         }
         return {};
