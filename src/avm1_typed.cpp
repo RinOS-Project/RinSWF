@@ -110,6 +110,28 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
             pending.label.assign(reinterpret_cast<const char*>(payload.data()),payload.size()-1);
             pending.has_label=true;
             pending.has_frame=false;
+        } else if(op==0x9f) { // GotoFrame2: stack frame/label, flags
+            if(!timeline || length!=1 || (payload[0]&0xfe)!=0)
+                return fail(Error::malformed_tag,"unsupported GotoFrame2 flags or scene bias");
+            if(stack.empty())return fail(Error::malformed_tag,"GotoFrame2 stack underflow");
+            auto destination=pop();
+            if(const auto* label=std::get_if<std::string>(&destination)) {
+                if(label->empty() || label->size()>256)
+                    return fail(Error::malformed_tag,"invalid GotoFrame2 label");
+                pending.label=*label;
+                pending.has_label=true;
+                pending.has_frame=false;
+            } else if(const auto* frame=std::get_if<double>(&destination)) {
+                // GotoFrame2's numeric argument is one-based.
+                if(!std::isfinite(*frame) || *frame<1 ||
+                   *frame>65535 || std::floor(*frame)!=*frame)
+                    return fail(Error::malformed_tag,"invalid GotoFrame2 frame");
+                pending.frame=static_cast<std::size_t>(*frame)-1;
+                pending.has_frame=true;
+                pending.has_label=false;
+                pending.label.clear();
+            } else return fail(Error::malformed_tag,"unsupported GotoFrame2 target type");
+            pending.playing=(payload[0]&1)!=0;
         } else if(op==0x17) {
             if(stack.empty())return fail(Error::malformed_tag,"Pop underflow");
             stack.pop_back();
