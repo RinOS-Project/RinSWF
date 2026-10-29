@@ -198,7 +198,12 @@ FontResult decode_define_font(const Tag& tag,std::size_t max_glyphs,
         // FontAscent/Descent/Leading, advances, bounds and kerning data.
         if(d.size()-cursor<6 || count>(d.size()-cursor-6)/2)
             return fail(Error::truncated,"font layout truncated");
-        cursor+=6+count*2;
+        cursor+=6;
+        font.advances.reserve(count);
+        for(std::size_t i=0;i<count;++i) {
+            font.advances.push_back(static_cast<std::int16_t>(read_u16(d,cursor)));
+            cursor+=2;
+        }
         GlyphBits bounds{d,cursor*8};
         for(std::size_t i=0;i<count;++i) {
             std::uint32_t bits=0,unused=0;
