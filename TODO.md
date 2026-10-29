@@ -170,3 +170,6 @@
 
 - [x] AVM1のPlay(0x06)、Stop(0x07)、GotoFrame(0x81)をtyped VMのオプトイン実行で処理し、TimelinePlayerへフレーム単位でトランザクション反映（フレーム範囲外と未対応命令は拒否、既存の自動実行なし。ビルド・実行未検証）
 - [ ] GotoLabel、GotoFrame2、ActionCallFunction、Sprite別実行コンテキスト、フレーム遷移時のDoAction実行順と同一フレーム再実行制御を整備
+
+- [x] FrameLabel（タグ43）のラベル名をShowFrameに保持し、AVM1 GoToLabel（0x8C）の名前解決とルートTimeline遷移を実装（未知・重複ラベルを拒否、変数と再生状態のトランザクション維持。ビルド・実SWF未検証）
+- [ ] GotoFrame2、Sprite単位のラベル解決、DoActionのフレーム入場時実行・再実行制御、ラベル名の文字エンコーディング互換を検証
