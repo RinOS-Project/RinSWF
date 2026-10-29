@@ -26,3 +26,6 @@ test('avm1', avm1_test_exe)
 
 avm1_typed_test_exe = executable('rinswf-avm1-typed-test', 'avm1_typed_test.cpp', dependencies: rinswf_dep)
 test('avm1-typed', avm1_typed_test_exe)
+
+frame_actions_test_exe = executable('rinswf-frame-actions-test', 'frame_actions_test.cpp', dependencies: rinswf_dep)
+test('frame-actions', frame_actions_test_exe)
