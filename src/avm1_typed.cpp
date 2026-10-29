@@ -94,6 +94,7 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
         } else if(op==0x06 || op==0x07) {
             if(!timeline)return fail(Error::malformed_tag,"timeline control not enabled");
             pending.playing=(op==0x06);
+            pending.sets_playing=true;
         } else if(op==0x81) {
             if(!timeline || length!=2)
                 return fail(Error::malformed_tag,"invalid GotoFrame action");
@@ -132,6 +133,7 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
                 pending.label.clear();
             } else return fail(Error::malformed_tag,"unsupported GotoFrame2 target type");
             pending.playing=(payload[0]&1)!=0;
+            pending.sets_playing=true;
         } else if(op==0x17) {
             if(stack.empty())return fail(Error::malformed_tag,"Pop underflow");
             stack.pop_back();
