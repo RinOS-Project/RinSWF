@@ -13,6 +13,7 @@ struct SpriteActionInstance {
 };
 struct SpriteActionState {
     std::map<std::uint16_t,SpriteActionInstance> instances;
+    std::map<std::vector<std::uint16_t>,SpriteActionInstance> nested_instances;
     std::size_t max_instances=256;
 };
 struct FrameActionState {
@@ -37,6 +38,10 @@ struct FrameActionState {
  // Explicit root-depth Sprite action dispatch; instance identity changes
  // discard old variables and frame-entry state.
 [[nodiscard]] Avm1TypedResult execute_sprite_entry_actions(
+    const FrameSnapshot& root_frame,const FrameAssets& assets,
+    TimelinePlayer& player,SpriteActionState& state,Avm1Limits limits={});
+// Opt-in nested dispatch. The depth path uniquely identifies a Sprite instance.
+[[nodiscard]] Avm1TypedResult execute_nested_sprite_entry_actions(
     const FrameSnapshot& root_frame,const FrameAssets& assets,
     TimelinePlayer& player,SpriteActionState& state,Avm1Limits limits={});
 }
