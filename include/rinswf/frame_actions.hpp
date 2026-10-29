@@ -14,6 +14,7 @@ struct SpriteActionInstance {
 struct SpriteActionState {
     std::map<std::uint16_t,SpriteActionInstance> instances;
     std::map<std::vector<std::uint16_t>,SpriteActionInstance> nested_instances;
+    std::map<std::vector<std::uint16_t>,std::vector<std::pair<std::uint16_t,std::size_t>>> ancestry;
     std::size_t max_instances=256;
 };
 struct FrameActionState {
