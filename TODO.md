@@ -220,3 +220,6 @@
 
 - [x] typed AVM1にPushDuplicate(0x4C)、StackSwap(0x4D)、Not(0x12)、Increment(0x50)、Decrement(0x51)を実装し、スタック不足と容量上限を拒否。算術・変数操作と組み合わせる回帰テストを追加（ビルド未検証）。
 - [ ] コンパイラは存在するがGitHubのDNS解決不可・Meson不在のため、回帰テストの実行環境を整備して検証する。
+
+- [x] typed AVM1へStringAdd(0x21)、StringEquals(0x13)、StringLess(0x29)、ToInteger(0x18)を追加。文字列連結にはメモリ予算を適用し、テストケースを追加（ビルド・実行は未検証）。
+- [ ] ActionScript互換の文字エンコーディング、ToNumber/ToString、NaN/Undefinedの意味論と浮動小数点変換を精密化する。
