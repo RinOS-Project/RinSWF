@@ -1013,6 +1013,8 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
     // The contents must be cleared for every new object.
     Surface masked_layer;
     bool have_masked_layer=false;
+    Surface mask_surface;
+    bool have_mask_surface=false;
     std::uint16_t previous_depth=0;
     bool have_previous_depth=false;
     for(const auto& entry:frame.objects) {
@@ -1026,9 +1028,15 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             [&](const ActiveMask& mask){return entry.depth>mask.end_depth;}),
             masks.end());
         if(entry.clip_depth) {
-            Surface mask_surface;
-            auto init=make_surface(stage.width,stage.height,mask_surface);
-            if(!init)return init;
+            // Each new mask may replace a previous one, but the RGBA
+            // rasterization scratch stays the same size for this frame.
+            if(!have_mask_surface) {
+                auto init=make_surface(stage.width,stage.height,mask_surface);
+                if(!init)return init;
+                have_mask_surface=true;
+            } else {
+                std::fill(mask_surface.rgba.begin(),mask_surface.rgba.end(),0);
+            }
             FrameSnapshot mask_frame;
             DisplayEntry mask_entry=entry;
             mask_entry.clip_depth=0;
