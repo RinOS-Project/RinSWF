@@ -20,7 +20,8 @@ struct Avm1Limits {
     std::size_t max_value_bytes=256*1024; // approximate stack + variables
     Avm1ExecutionBudget* shared_budget=nullptr; // optional, caller-owned
 };
-using Avm1Value=std::variant<std::monostate,double,bool,std::string>;
+struct Avm1Null {};
+using Avm1Value=std::variant<std::monostate,double,bool,std::string,Avm1Null>; // monostate = undefined
 struct Avm1Context {
     std::map<std::string,Avm1Value> variables;
     std::size_t max_variables=1024;
