@@ -102,7 +102,7 @@
 ## Phase 3 — 実行環境
 - [ ] Timeline、Sprite、DisplayObject（DefineSprite内のタグ列解析・独立FrameSnapshot構築・Sprite初期フレームの再帰描画と親子行列合成は実装済み。親のフレーム番号指定によるSpriteフレーム選択・ループは実装済み。インスタンスの配置フレーム起点の進行とキャラクター置換時のリセットは実装済み。停止・再開・ActionScript制御と親タイムラインのループ時の再生成は未実装）
 - [ ] イベント・入力・音声
-- [ ] AVM1 / ActionScript 1・2（独立・ホスト権限なしのPush数値/Pop/Add/Subtract/Multiply/Divide/End実行器を追加。DoAction接続、変数、分岐、イベント、DisplayObject操作は未実装。ビルド未検証）
+- [ ] AVM1 / ActionScript 1・2（独立・ホスト権限なしのPush数値/Pop/算術/比較/Jump/If/End実行器（ジャンプ先命令境界と実行回数を検証）を追加。DoAction接続、変数、分岐、イベント、DisplayObject操作は未実装。ビルド未検証）
 - [ ] AVM2 / ActionScript 3 とABC
 - [ ] セキュリティサンドボックス、ネットワーク権限制御
 
