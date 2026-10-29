@@ -1010,8 +1010,9 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
     };
     std::vector<ActiveMask> masks;
     for(const auto& entry:frame.objects) {
-        while(!masks.empty() && entry.depth>masks.back().end_depth)
-            masks.pop_back();
+        masks.erase(std::remove_if(masks.begin(),masks.end(),
+            [&](const ActiveMask& mask){return entry.depth>mask.end_depth;}),
+            masks.end());
         if(entry.clip_depth) {
             Surface mask_surface;
             auto init=make_surface(stage.width,stage.height,mask_surface);
@@ -1031,6 +1032,10 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
             continue;
         }
         if(!masks.empty()) {
+            // Non-normal blend modes depend on the actual backdrop; a
+            // transparent intermediate would change their semantics.
+            if(entry.blend_mode!=1)
+                return {Error::malformed_tag,"masked blend mode unsupported"};
             Surface layer;
             auto init=make_surface(stage.width,stage.height,layer);
             if(!init)return init;
