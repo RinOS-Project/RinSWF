@@ -132,5 +132,32 @@ int main() {
     if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
         nested_player,nested_state) || !nested_state.nested_instances.empty())
         return 26;
+    // Two sibling root Sprites must not share ancestor identities.
+    root.objects.push_back(placed);
+    root.objects[0].character_id=99;
+    root.objects[1].depth=6;
+    root.objects[1].character_id=99;
+    nested_player= rinswf::TimelinePlayer{};
+    nested_state= rinswf::SpriteActionState{};
+    if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
+        nested_player,nested_state))return 27;
+    const std::vector<std::uint16_t> second_path={6,7};
+    if(nested_state.nested_instances.size()!=2 ||
+       nested_state.ancestry.at(child_path).size()!=2 ||
+       nested_state.ancestry.at(second_path).size()!=2)return 28;
+    // Each sibling's cached execution state must survive a no-op dispatch.
+    nested_state.nested_instances[child_path].context.variables["only-first"]=7.0;
+    if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
+        nested_player,nested_state))return 29;
+    if(!nested_state.nested_instances[child_path].context.variables.contains("only-first"))
+        return 30;
+    if(nested_state.nested_instances[second_path].context.variables.contains("only-first"))
+        return 31;
+    // Replacing the first ancestor must reset only its descendant context.
+    root.objects[0].placed_frame=1;
+    if(!rinswf::execute_nested_sprite_entry_actions(root,sprite_assets,
+        nested_player,nested_state))return 32;
+    if(nested_state.nested_instances[child_path].context.variables.contains("only-first"))
+        return 33;
     return 0;
 }
