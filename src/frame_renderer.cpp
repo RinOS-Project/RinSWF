@@ -1085,7 +1085,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 const auto& glyph=font->second.glyphs[placed.glyph_index];
                 ShapeGeometry transformed=glyph.outline;
                 transformed.fills[0].color=placed.color;
-                const double scale=double(placed.height)/1024.0;
+                const double scale=double(placed.height)/double(font->second.units_per_em);
                 const auto& t=text->second.matrix;
                 const auto transform_point=[&](ShapePoint& p)->bool {
                     const double gx=double(p.x)*scale+placed.x;
@@ -1426,7 +1426,7 @@ RenderResult collect_frame_assets(const Document& document,FrameAssets& output,
             if(!unique_id(parsed.text.character_id))
                 return {Error::malformed_tag,"duplicate character id"};
             stage.texts.emplace(parsed.text.character_id,std::move(parsed.text));
-        } else if(tag.code==10) {
+        } else if(tag.code==10 || tag.code==48 || tag.code==75) {
             auto font=decode_define_font(tag);
             if(!font)return {font.error,font.message};
             if(!unique_id(font.font.character_id))
