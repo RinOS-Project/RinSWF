@@ -218,5 +218,31 @@ int main() {
        rollback_state.initialized)return 45;
     if(rinswf::advance_root_actions(tick_timeline,rollback_player,
                                    rollback_context,rollback_state,1025))return 46;
+    // Integrated ticking runs Sprite DoAction and rolls back on a later error.
+    rinswf::TimelineResult integrated;
+    integrated.frames.resize(2);
+    rinswf::DisplayEntry integrated_entry;
+    integrated_entry.depth=4;integrated_entry.character_id=201;
+    integrated.frames[0].objects.push_back(integrated_entry);
+    integrated.frames[1].objects.push_back(integrated_entry);
+    rinswf::TimelinePlayer integrated_player;
+    rinswf::Avm1Context integrated_context;
+    rinswf::FrameActionState integrated_root;
+    rinswf::SpriteActionState integrated_sprites;
+    free_assets.sprites.at(201).frames[0].actions={{0x07,0}};
+    if(!rinswf::advance_timeline_actions(integrated,free_assets,integrated_player,
+        integrated_context,integrated_root,integrated_sprites,0))return 47;
+    if(integrated_player.sprites.instances.at(4).playing)return 48;
+    integrated.frames[1].actions.push_back({0x04,0});
+    rinswf::TimelinePlayer rollback_integrated;
+    rinswf::Avm1Context rollback_integrated_context;
+    rinswf::FrameActionState rollback_integrated_root;
+    rinswf::SpriteActionState rollback_integrated_sprites;
+    if(rinswf::advance_timeline_actions(integrated,free_assets,rollback_integrated,
+        rollback_integrated_context,rollback_integrated_root,
+        rollback_integrated_sprites,1))return 49;
+    if(rollback_integrated.clock.frame!=0 ||
+       rollback_integrated_root.initialized ||
+       !rollback_integrated_sprites.instances.empty())return 50;
     return 0;
 }
