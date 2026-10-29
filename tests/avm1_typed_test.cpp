@@ -3,6 +3,8 @@
 #include <array>
 #include <string>
 #include <cmath>
+#include <limits>
+#include <vector>
 int main() {
     rinswf::Avm1Context ctx;
     // Push "score", 42, SetVariable, Push "score", GetVariable, End.
@@ -118,5 +120,24 @@ int main() {
     if(!equality || equality.stack.size()!=1 ||
        !std::holds_alternative<double>(equality.stack[0]) ||
        std::get<double>(equality.stack[0])!=0)return 20;
+    // Undefined + 1 yields NaN without halting script execution.
+    constexpr std::array<std::uint8_t,11> nan_add={
+        0x96,1,0,3,0x96,5,0,7,1,0,0
+    };
+    // Build a complete stream using a vector to append the missing bytes.
+    std::vector<std::uint8_t> nan_program(nan_add.begin(),nan_add.end());
+    nan_program.push_back(0);nan_program.push_back(0x0a);nan_program.push_back(0);
+    const auto nan_added=rinswf::execute_avm1_typed(nan_program,stack_context);
+    if(!nan_added || nan_added.stack.size()!=1 ||
+       !std::holds_alternative<double>(nan_added.stack[0]) ||
+       !std::isnan(std::get<double>(nan_added.stack[0])))return 21;
+    // 1 / 0 produces positive Infinity; 0 / 0 produces NaN.
+    constexpr std::array<std::uint8_t,18> infinity_program={
+        0x96,5,0,7,1,0,0,0,0x96,5,0,7,0,0,0,0,0x0d,0
+    };
+    const auto infinity=rinswf::execute_avm1_typed(infinity_program,stack_context);
+    if(!infinity || infinity.stack.size()!=1 ||
+       !std::isinf(std::get<double>(infinity.stack[0])) ||
+       std::signbit(std::get<double>(infinity.stack[0])))return 22;
     return 0;
 }
