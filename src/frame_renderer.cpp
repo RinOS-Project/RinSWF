@@ -1082,7 +1082,7 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                 const auto& edit=assets.edit_texts.at(entry.character_id);
                 // Static initial text only. Layout features requiring a text
                 // engine must not silently produce a misleading image.
-                if((edit.flags&(0x4000|0x2000|0x1000|0x0002)) != 0)
+                if((edit.flags&(0x4000|0x1000|0x0002)) != 0)
                     return {Error::malformed_tag,"complex EditText layout unsupported"};
                 if(!edit.initial_text.empty()) {
                     const auto font=assets.fonts.find(edit.font_id);
@@ -1092,7 +1092,11 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                         return {Error::malformed_tag,"EditText font or layout metrics unavailable"};
                     const auto& data=edit.initial_text;
                     std::int64_t pen=std::int64_t(edit.xmin)+edit.left_margin+edit.indent;
-                    const auto baseline=std::int64_t(edit.ymin)+edit.font_height;
+                    std::int64_t baseline=std::int64_t(edit.ymin)+edit.font_height;
+                    const std::int64_t first_pen=std::int64_t(edit.xmin)+edit.left_margin;
+                    const std::int64_t line_height=std::int64_t(edit.font_height)+edit.leading;
+                    if(line_height<=0)
+                        return {Error::malformed_tag,"invalid EditText line height"};
                     if(baseline>std::numeric_limits<std::int32_t>::max() ||
                        baseline<std::numeric_limits<std::int32_t>::min())
                         return {Error::size_limit,"EditText baseline overflow"};
@@ -1118,6 +1122,18 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                            (rest==1 && code<0x80) || code>0xffff ||
                            (code>=0xd800 && code<=0xdfff))
                             return {Error::malformed_tag,"unsupported EditText Unicode scalar"};
+                        // Multiline fields support explicit CR, LF, and CRLF.
+                        // Automatic wrapping/alignment require separate layout.
+                        if(code==13 || code==10) {
+                            if((edit.flags&0x2000)==0)
+                                return {Error::malformed_tag,"newline in single-line EditText"};
+                            if(code==13 && i<data.size() && data[i]=='\\n')++i;
+                            pen=first_pen;
+                            if(baseline>std::numeric_limits<std::int32_t>::max()-line_height)
+                                return {Error::size_limit,"EditText line overflow"};
+                            baseline+=line_height;
+                            continue;
+                        }
                         const auto found=std::find(font->second.code_points.begin(),
                             font->second.code_points.end(),std::uint16_t(code));
                         if(found==font->second.code_points.end())
@@ -1135,7 +1151,11 @@ static RenderResult render_frame_impl(const FrameSnapshot& frame,
                             double(edit.font_height)/font->second.units_per_em;
                         if(!std::isfinite(delta) || std::abs(delta)>double(std::numeric_limits<std::int32_t>::max()))
                             return {Error::size_limit,"EditText advance overflow"};
-                        pen+=std::llround(delta);
+                        const auto advance=std::llround(delta);
+                        if((advance>0 && pen>std::numeric_limits<std::int32_t>::max()-advance) ||
+                           (advance<0 && pen<std::numeric_limits<std::int32_t>::min()-advance))
+                            return {Error::size_limit,"EditText pen advance overflow"};
+                        pen+=advance;
                     }
                 }
                 text=&generated;
