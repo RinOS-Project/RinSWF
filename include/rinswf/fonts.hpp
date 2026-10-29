@@ -3,9 +3,10 @@
 #include "rinswf/swf.hpp"
 #include "rinswf/shapes.hpp"
 #include <cstdint>
+#include <string>
 #include <vector>
 namespace rinswf {
-// DefineFont (tag 10) stores individual SHAPE records without fill/line styles.
+// DefineFont/DefineFont2/DefineFont3 store per-glyph SHAPE records.
 // Glyph SHAPE records are decoded into vector outlines and their bytes retained.
 struct FontGlyph {
     std::vector<std::uint8_t> shape_bytes;
@@ -14,6 +15,9 @@ struct FontGlyph {
 struct FontAsset {
     std::uint16_t character_id=0;
     std::vector<FontGlyph> glyphs;
+    std::vector<std::uint16_t> code_points;
+    std::uint16_t units_per_em=1024;
+    std::string name;
 };
 struct FontResult {
     Error error=Error::none;
