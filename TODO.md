@@ -214,3 +214,6 @@
 
 - [x] AVM1テストのSWF Push文字列長不整合、兄弟Spriteテストの範囲外アクセスを修正。文字列のスタックメモリ集計にオブジェクト固定領域を含めた。GitHub直接cloneはDNS不可のため総合ビルド・テスト未実施。
 - [ ] 実行可能な環境で `meson test -C build --print-errorlogs` を走らせ、AVM1とSprite回帰テストの全件PASSを確認する。
+
+- [x] typed AVM1 VMへPush Double(type 6)を実装し、AVM1固有の32-bit word順を正しくデコード。非有限値を拒否しテストを追加（実行未検証）。
+- [ ] GitHubソースの取得ができるビルド環境でAVM1テストの実行結果を確認し、残る命令・値型の互換性を実SWFで検証する。
