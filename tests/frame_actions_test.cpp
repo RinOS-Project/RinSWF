@@ -197,5 +197,26 @@ int main() {
         nested_player,nested_state))return 40;
     if(nested_state.nested_instances.at(child_path).last_frame!=0 ||
        nested_player.sprites.nested_instances.at(child_path).frame!=0)return 41;
+    // Batched root ticks must execute intermediate frames and obey Stop.
+    rinswf::TimelineResult tick_timeline;
+    tick_timeline.frames.resize(3);
+    tick_timeline.frames[1].actions.push_back({0x07,0});
+    rinswf::TimelinePlayer tick_player;
+    rinswf::Avm1Context tick_context;
+    rinswf::FrameActionState tick_state;
+    if(!rinswf::advance_root_actions(tick_timeline,tick_player,tick_context,
+                                     tick_state,20))return 42;
+    if(tick_player.clock.frame!=1 || tick_player.clock.playing)return 43;
+    // Failure in a later frame must roll back the entire tick batch.
+    tick_timeline.frames[1].actions={{0x04,0}};
+    rinswf::TimelinePlayer rollback_player;
+    rinswf::Avm1Context rollback_context;
+    rinswf::FrameActionState rollback_state;
+    if(rinswf::advance_root_actions(tick_timeline,rollback_player,
+                                   rollback_context,rollback_state,2))return 44;
+    if(rollback_player.clock.frame!=0 || !rollback_player.clock.playing ||
+       rollback_state.initialized)return 45;
+    if(rinswf::advance_root_actions(tick_timeline,rollback_player,
+                                   rollback_context,rollback_state,1025))return 46;
     return 0;
 }
