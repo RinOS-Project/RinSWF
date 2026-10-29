@@ -42,6 +42,9 @@ std::string to_string_value(const Avm1Value& v) {
     if(const auto* str=std::get_if<std::string>(&v))return *str;
     if(const auto* b=std::get_if<bool>(&v))return *b?"true":"false";
     if(const auto* n=std::get_if<double>(&v)) {
+        if(std::isnan(*n))return "NaN";
+        if(std::isinf(*n))return std::signbit(*n)?"-Infinity":"Infinity";
+        if(*n==0)return "0";
         std::ostringstream out;
         out<<std::setprecision(15)<<*n;
         return out.str();
@@ -242,9 +245,11 @@ Avm1TypedResult execute_avm1_typed(std::span<const std::uint8_t> bytes,
         } else if(op==0x18) { // ToInteger
             if(stack.empty())return fail(Error::malformed_tag,"ToInteger underflow");
             double value=0;
-            if(!to_finite_number(stack.back(),value)||!std::isfinite(value))
+            if(!to_finite_number(stack.back(),value))
                 return fail(Error::malformed_tag,"ToInteger conversion unsupported");
-            stack.back()=std::trunc(value);
+            // Nonfinite values and signed zero yield zero in this
+            // bounded integer-conversion subset.
+            stack.back()=std::isfinite(value)?std::trunc(value):0.0;
         } else if(op==0x4c) { // PushDuplicate
             if(stack.empty())return fail(Error::malformed_tag,"Duplicate underflow");
             if(stack.size()>=limits.max_stack)return fail(Error::size_limit,"AVM1 stack limit");
